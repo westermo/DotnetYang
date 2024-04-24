@@ -3,39 +3,10 @@ using System.Text;
 
 namespace YangParser;
 
-public readonly struct Position(int column, int line, int offset)
-{
-    public readonly int Column = column;
-    public readonly int Line = line;
-    public readonly int Offset = offset;
-}
-
-public enum TermSymbol
-{
-    LCurly,
-    RCurly,
-    Identifier,
-    IdentifierRef,
-    StatementTerminator,
-    String,
-    StringConcat,
-    Unknown,
-    EndOfFile
-}
-
-public readonly struct Token(TermSymbol symbol, Position position, string lexeme, int length, object? value = null)
-{
-    public readonly TermSymbol Symbol = symbol;
-    public readonly Position Position = position;
-    public readonly string Lexeme = lexeme;
-    public readonly int Length = length;
-    public readonly object? Value = value;
-}
-
 public class TokenScanner(string text)
 {
 // An efficient version of input.substring(offset, offset + str.length) === str
-private static int MatchString(string input, int offset, string str)
+    private static int MatchString(string input, int offset, string str)
     {
         var matchLength = 0;
         while (offset < input.Length && matchLength < str.Length)
@@ -254,7 +225,7 @@ private static int MatchString(string input, int offset, string str)
                 Advance();
             }
 
-            return GetToken(TermSymbol.String, position, text.Substring(position.Offset, _offset));
+            return GetToken(TermSymbol.String, position, text.Substring(position.Offset, _offset - position.Offset));
         }
 
         return GetToken(
@@ -270,8 +241,8 @@ private static int MatchString(string input, int offset, string str)
                 input >= 0x20 && input <= 0xd7ff ||
                 input >= 0xe000 && input <= 0xfdcf ||
                 input >= 0xfdf0 && input <= 0xffff)
-            ? 1
-            : 0;
+            ? 0
+            : 1;
     }
 
     private bool Currently(Func<string, int, int> predicate)
@@ -358,7 +329,7 @@ private static int MatchString(string input, int offset, string str)
 
     private Token GetStringToken(Position position, bool unescape)
     {
-        var rawValue = text.Substring(position.Offset + 1, _offset - 1);
+        var rawValue = text.Substring(position.Offset + 1, _offset - 1 - (position.Offset + 1));
 
         // Handle string layouting according to RFC 7950, 6.1.3 Quoting
 
