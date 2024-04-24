@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace yang_compiler;
+namespace YangParser;
 
 public class Class1
 {
