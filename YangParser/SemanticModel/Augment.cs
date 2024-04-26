@@ -15,8 +15,9 @@ public class Augment : Statement
     }
 
     public const string Keyword = "augment";
+
     public override ChildRule[] PermittedChildren { get; } =
-    {
+    [
         new ChildRule(Description.Keyword),
         new ChildRule(Reference.Keyword),
         new ChildRule(FeatureFlag.Keyword, Cardinality.ZeroOrMore),
@@ -42,5 +43,5 @@ public class Augment : Statement
         new ChildRule(Container.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Keyword, Cardinality.ZeroOrMore)
-    };
+    ];
 }

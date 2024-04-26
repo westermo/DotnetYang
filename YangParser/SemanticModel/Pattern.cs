@@ -15,8 +15,9 @@ public class Pattern : Statement
     }
 
     public const string Keyword = "pattern";
-    public override ChildRule[] PermittedChildren { get; }
-    = [
+
+    public override ChildRule[] PermittedChildren { get; } =
+    [
         new ChildRule(Description.Keyword),
         new ChildRule(ErrorAppTag.Keyword),
         new ChildRule(ErrorMessage.Keyword),

@@ -15,6 +15,7 @@ public class Notification : Statement
     }
 
     public const string Keyword = "notification";
+
     public override ChildRule[] PermittedChildren { get; } =
     [
         new ChildRule(AnyXml.Keyword, Cardinality.ZeroOrMore),

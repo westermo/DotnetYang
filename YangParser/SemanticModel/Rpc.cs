@@ -15,6 +15,7 @@ public class Rpc : Statement
     }
 
     public const string Keyword = "rpc";
+
     public override ChildRule[] PermittedChildren { get; } =
     [
         new ChildRule(Description.Keyword),

@@ -3,9 +3,9 @@ using System.Linq;
 
 namespace YangParser.SemanticModel;
 
-public class Enum : Statement
+public class Feature : Statement
 {
-    public Enum(YangStatement statement)
+    public Feature(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
             throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
@@ -14,12 +14,13 @@ public class Enum : Statement
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
-    public const string Keyword = "enum";
     public override ChildRule[] PermittedChildren { get; } =
     [
-        new ChildRule(Value.Keyword),
         new ChildRule(Description.Keyword),
-        new ChildRule(Reference.Keyword),
-        new ChildRule(Status.Keyword)
+        new ChildRule(FeatureFlag.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Status.Keyword),
+        new ChildRule(Reference.Keyword)
     ];
+
+    public const string Keyword = "feature";
 }
