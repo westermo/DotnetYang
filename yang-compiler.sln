@@ -1,7 +1,5 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "yang-compiler-raw", "yang-compiler-raw\yang-compiler-raw.csproj", "{ADBA82C2-D51B-4C92-826E-649ACEA7F75A}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{7DF11EFE-894D-4357-B7CE-A390651300BC}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Generator", "Generator", "{40A1D392-CFC1-403E-A593-5A0E012182AF}"
@@ -16,10 +14,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{ADBA82C2-D51B-4C92-826E-649ACEA7F75A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{ADBA82C2-D51B-4C92-826E-649ACEA7F75A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{ADBA82C2-D51B-4C92-826E-649ACEA7F75A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{ADBA82C2-D51B-4C92-826E-649ACEA7F75A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E35D4026-B610-4BDF-9DFE-497FDD49EACD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E35D4026-B610-4BDF-9DFE-497FDD49EACD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E35D4026-B610-4BDF-9DFE-497FDD49EACD}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -30,7 +24,6 @@ Global
 		{AD7EC36C-091F-4C68-BBB0-2E9CD5CAA7C1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{ADBA82C2-D51B-4C92-826E-649ACEA7F75A} = {40A1D392-CFC1-403E-A593-5A0E012182AF}
 		{E35D4026-B610-4BDF-9DFE-497FDD49EACD} = {7DF11EFE-894D-4357-B7CE-A390651300BC}
 		{AD7EC36C-091F-4C68-BBB0-2E9CD5CAA7C1} = {40A1D392-CFC1-403E-A593-5A0E012182AF}
 	EndGlobalSection

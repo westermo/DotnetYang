@@ -1,6 +1,7 @@
 using System.Text;
 using Xunit.Abstractions;
 using YangParser;
+using YangParser.SemanticModel;
 
 namespace Compiler.Tests;
 
@@ -11,6 +12,7 @@ public class ParsingTests(ITestOutputHelper output)
     {
         var result = Parser.Parse("memory", File.ReadAllText("lin.yang"));
         Print(result);
+        var statements = StatementFactory.Create(result);
     }
 
     private void Print(YangStatement statement, int indent = 0)
