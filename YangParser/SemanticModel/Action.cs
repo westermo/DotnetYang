@@ -3,9 +3,10 @@ using System.Linq;
 
 namespace YangParser.SemanticModel;
 
-public class Rpc : Statement
+public class Action : Statement
 {
-    public Rpc(YangStatement statement)
+    
+    public Action(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
             throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
@@ -14,7 +15,7 @@ public class Rpc : Statement
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
-    public const string Keyword = "rpc";
+    public const string Keyword = "action";
 
     public override ChildRule[] PermittedChildren { get; } =
     [
