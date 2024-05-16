@@ -27,7 +27,6 @@ public class Augment : Statement
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Refine.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Deviation.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(Action.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Notification.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Rpc.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Extension.Keyword, Cardinality.ZeroOrMore),

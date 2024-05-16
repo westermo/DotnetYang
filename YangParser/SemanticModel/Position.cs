@@ -3,9 +3,9 @@ using System.Linq;
 
 namespace YangParser.SemanticModel;
 
-public class Action : Statement
+public class Position : Statement
 {
-    public Action(YangStatement statement)
+    public Position(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
             throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
@@ -14,7 +14,5 @@ public class Action : Statement
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
-    public const string Keyword = "action";
-    public override ChildRule[] PermittedChildren { get; } =
-    [];
+    public const string Keyword = "position";
 }

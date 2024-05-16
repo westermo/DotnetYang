@@ -6,6 +6,9 @@ namespace YangParser.SemanticModel;
 
 public abstract class Statement : IStatement
 {
+    private IStatement[] _children = [];
+    private IStatement? _parent;
+
     protected void ValidateChildren(YangStatement statement)
     {
         Dictionary<string, int> occurances = new();
@@ -34,20 +37,20 @@ public abstract class Statement : IStatement
             switch (allowed.Cardinality)
             {
                 case Cardinality.Required when occurances.TryGetValue(allowed.Keyword, out var count):
-                    {
-                        if (count == 1) break;
-                        throw new InvalidOperationException(
-                            $"Child of type {allowed.Keyword} can only exist once in {GetType()}");
-                    }
+                {
+                    if (count == 1) break;
+                    throw new InvalidOperationException(
+                        $"Child of type {allowed.Keyword} can only exist once in {GetType()}");
+                }
                 case Cardinality.Required:
                     throw new InvalidOperationException(
                         $"Child of type {allowed.Keyword} must exist in type {GetType()}");
                 case Cardinality.ZeroOrOne when occurances.TryGetValue(allowed.Keyword, out var count):
-                    {
-                        if (count <= 1) break;
-                        throw new InvalidOperationException(
-                            $"Child of type {allowed.Keyword} can only exist up to once in {GetType()}");
-                    }
+                {
+                    if (count <= 1) break;
+                    throw new InvalidOperationException(
+                        $"Child of type {allowed.Keyword} can only exist up to once in {GetType()}");
+                }
                 case Cardinality.ZeroOrOne:
                 case Cardinality.ZeroOrMore:
                     break;
@@ -61,5 +64,32 @@ public abstract class Statement : IStatement
     public string Argument { get; protected set; }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     public virtual ChildRule[] PermittedChildren { get; } = [];
-    public IStatement[] Children { get; protected set; } = [];
+
+    public IStatement[] Children
+    {
+        get => _children;
+        protected set
+        {
+            _children = value;
+            foreach (var child in value)
+            {
+                child.Parent = this;
+            }
+        }
+    }
+
+    public IStatement? Parent
+    {
+        get => _parent;
+        set
+        {
+            _parent = value;
+            ValidateParent();
+        }
+    }
+
+    protected virtual void ValidateParent()
+    {
+        
+    }
 }
