@@ -8,6 +8,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Compiler.Tests", "Compiler.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YangParser", "YangParser\YangParser.csproj", "{AD7EC36C-091F-4C68-BBB0-2E9CD5CAA7C1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Benchmarking", "Benchmarking", "{53A82AB5-2141-453F-B2E5-2E93E2D3B671}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "benchmarks", "benchmarks\benchmarks.csproj", "{9F3CA1F2-9BBE-4D01-88B3-6218EB59DC3C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -22,9 +26,14 @@ Global
 		{AD7EC36C-091F-4C68-BBB0-2E9CD5CAA7C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AD7EC36C-091F-4C68-BBB0-2E9CD5CAA7C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AD7EC36C-091F-4C68-BBB0-2E9CD5CAA7C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F3CA1F2-9BBE-4D01-88B3-6218EB59DC3C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F3CA1F2-9BBE-4D01-88B3-6218EB59DC3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F3CA1F2-9BBE-4D01-88B3-6218EB59DC3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F3CA1F2-9BBE-4D01-88B3-6218EB59DC3C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{E35D4026-B610-4BDF-9DFE-497FDD49EACD} = {7DF11EFE-894D-4357-B7CE-A390651300BC}
 		{AD7EC36C-091F-4C68-BBB0-2E9CD5CAA7C1} = {40A1D392-CFC1-403E-A593-5A0E012182AF}
+		{9F3CA1F2-9BBE-4D01-88B3-6218EB59DC3C} = {53A82AB5-2141-453F-B2E5-2E93E2D3B671}
 	EndGlobalSection
 EndGlobal
