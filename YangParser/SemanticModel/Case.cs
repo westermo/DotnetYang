@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
@@ -68,7 +69,7 @@ namespace YangParser.SemanticModel;
 ///                 | when         | 7.19.5  | 0..1        |
 ///                 +--------------+---------+-------------+
 /// </summary>
-public class Case : Statement
+public class Case : Statement, IClassSource
 {
     public Case(YangStatement statement)
     {

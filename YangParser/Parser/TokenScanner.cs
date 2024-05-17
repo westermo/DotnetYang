@@ -1,7 +1,7 @@
 using System;
 using System.Text;
 
-namespace YangParser;
+namespace YangParser.Parser;
 
 public class TokenScanner(string text)
 {

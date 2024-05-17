@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Rpc : Statement
+public class Rpc : Statement, IFunctionSource
 {
     public Rpc(YangStatement statement)
     {

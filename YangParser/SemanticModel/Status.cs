@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Status : Statement
+public class Status : Statement, IAttributeSource
 {
     public Status(YangStatement statement)
     {
@@ -14,8 +15,10 @@ public class Status : Statement
         switch (Argument)
         {
             case "current":
+                break;
             case "deprecated":
             case "obsolete":
+                Active = true;
                 break;
             default:
                 throw new InvalidOperationException($"Invalid {Keyword} value '{Argument}'");
@@ -23,4 +26,6 @@ public class Status : Statement
     }
 
     public const string Keyword = "status";
+    public string AttributeName => "Obsolete";
+    public bool Active { get; }
 }

@@ -1,4 +1,4 @@
-namespace YangParser;
+namespace YangParser.Parser;
 
 public readonly struct Position(int column, int line, int offset)
 {

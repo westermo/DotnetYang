@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
@@ -12,7 +13,10 @@ public class Module : Statement
         Argument = statement.Argument!.ToString();
         ValidateChildren(statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        XmlNamespace = Children.First(child => child is Namespace);
     }
+
+    public IStatement XmlNamespace { get; set; }
 
     public override ChildRule[] PermittedChildren { get; } =
     [

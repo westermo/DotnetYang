@@ -1,6 +1,7 @@
 using System.Text;
 using Xunit.Abstractions;
 using YangParser;
+using YangParser.Parser;
 using YangParser.SemanticModel;
 
 namespace Compiler.Tests;

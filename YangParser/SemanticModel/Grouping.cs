@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Grouping : Statement
+public class Grouping : Statement, IClassSource
 {
     public Grouping(YangStatement statement)
     {

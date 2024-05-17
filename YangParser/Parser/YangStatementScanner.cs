@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace YangParser;
+namespace YangParser.Parser;
 
 public class Metadata(string source, Position position, int length)
 {

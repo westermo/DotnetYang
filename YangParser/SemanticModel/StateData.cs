@@ -1,3 +1,5 @@
+using YangParser.Parser;
+
 namespace YangParser.SemanticModel;
 
 public class StateData : Statement

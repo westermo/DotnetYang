@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Choice : Statement
+public class Choice : Statement, IClassSource
 {
     public Choice(YangStatement statement)
     {

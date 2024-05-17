@@ -1,4 +1,4 @@
-namespace YangParser;
+namespace YangParser.Parser;
 
 public enum TermSymbol
 {

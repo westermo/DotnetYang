@@ -1,4 +1,4 @@
-namespace YangParser;
+namespace YangParser.Parser;
 
 public readonly struct Token(TermSymbol symbol, Position position, string lexeme, int length, object? value = null)
 {

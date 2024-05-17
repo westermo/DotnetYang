@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Container : Statement
+public class Container : Statement, IClassSource
 {
     public Container(YangStatement statement)
     {

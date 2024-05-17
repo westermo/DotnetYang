@@ -1,6 +1,7 @@
 ﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using YangParser;
+using YangParser.Parser;
 using YangParser.SemanticModel;
 
 namespace Benchmarks;

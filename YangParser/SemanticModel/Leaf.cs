@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Leaf : Statement
+public class Leaf : Statement, IClassSource
 {
     public override ChildRule[] PermittedChildren { get; } =
     [

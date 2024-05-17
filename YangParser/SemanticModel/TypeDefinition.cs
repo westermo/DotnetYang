@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class TypeDefinition : Statement
+public class TypeDefinition : Statement, IClassSource
 {
     public TypeDefinition(YangStatement statement)
     {
