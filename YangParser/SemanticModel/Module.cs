@@ -9,7 +9,7 @@ public class Module : Statement
     public Module(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         Argument = statement.Argument!.ToString();
         ValidateChildren(statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
@@ -45,7 +45,7 @@ public class Module : Statement
         new ChildRule(Rpc.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(TypeDefinition.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(YangVersion.Keyword)
+        new ChildRule(YangVersion.Keyword, Cardinality.Required),
     ];
 
     public const string Keyword = "module";

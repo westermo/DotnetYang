@@ -11,7 +11,7 @@ public class MinElements : Statement
     public MinElements(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         Argument = statement.Argument!.ToString();
         ValidateChildren(statement);
         Value = int.Parse(Argument);

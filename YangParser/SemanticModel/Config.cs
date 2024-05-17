@@ -2,9 +2,9 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class StateData : Statement
+public class Config : Statement
 {
-    public StateData(YangStatement statement)
+    public Config(YangStatement statement)
     {
         ValidateChildren(statement);
         Value = bool.Parse(statement.Argument!.ToString());

@@ -9,13 +9,14 @@ public class Type : Statement
     public Type(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         Argument = statement.Argument!.ToString();
         ValidateChildren(statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
     public const string Keyword = "type";
+
     public override ChildRule[] PermittedChildren { get; } =
     [
         new ChildRule(Enum.Keyword, Cardinality.ZeroOrMore),
@@ -25,6 +26,8 @@ public class Type : Statement
         new ChildRule(Path.Keyword),
         new ChildRule(Range.Keyword),
         new ChildRule(RequireInstance.Keyword),
+        new ChildRule(FractionDigits.Keyword),
+        new ChildRule(Base.Keyword),
         new ChildRule(Keyword, Cardinality.ZeroOrMore),
     ];
 }

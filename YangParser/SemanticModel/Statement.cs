@@ -10,11 +10,18 @@ public abstract class Statement : IStatement
     private IStatement[] _children = [];
     private IStatement? _parent;
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="statement"></param>
+    /// <exception cref="InvalidOperationException"></exception>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
     protected void ValidateChildren(YangStatement statement)
     {
         Dictionary<string, int> occurances = new();
         foreach (var child in statement.Children)
         {
+            if (!string.IsNullOrWhiteSpace(child.Prefix)) continue;
             if (PermittedChildren.Any(p => p.Keyword == child.Keyword))
             {
                 if (occurances.ContainsKey(child.Keyword))
@@ -29,8 +36,8 @@ public abstract class Statement : IStatement
                 continue;
             }
 
-            throw new InvalidOperationException(
-                $"Child of type {child.Keyword} is not permitted inside statement of type {GetType()}");
+            throw new SemanticError(
+                $"Child of type {child.Keyword} is not permitted inside statement of type {GetType()}", statement);
         }
 
         foreach (var allowed in PermittedChildren)
@@ -40,17 +47,17 @@ public abstract class Statement : IStatement
                 case Cardinality.Required when occurances.TryGetValue(allowed.Keyword, out var count):
                 {
                     if (count == 1) break;
-                    throw new InvalidOperationException(
-                        $"Child of type {allowed.Keyword} can only exist once in {GetType()}");
+                    throw new SemanticError(
+                        $"Child of type {allowed.Keyword} can only exist once in {GetType()}", statement);
                 }
                 case Cardinality.Required:
-                    throw new InvalidOperationException(
-                        $"Child of type {allowed.Keyword} must exist in type {GetType()}");
+                    throw new SemanticError(
+                        $"Child of type {allowed.Keyword} must exist in type {GetType()}", statement);
                 case Cardinality.ZeroOrOne when occurances.TryGetValue(allowed.Keyword, out var count):
                 {
                     if (count <= 1) break;
-                    throw new InvalidOperationException(
-                        $"Child of type {allowed.Keyword} can only exist up to once in {GetType()}");
+                    throw new SemanticError(
+                        $"Child of type {allowed.Keyword} can only exist up to once in {GetType()}", statement);
                 }
                 case Cardinality.ZeroOrOne:
                 case Cardinality.ZeroOrMore:
@@ -91,6 +98,5 @@ public abstract class Statement : IStatement
 
     protected virtual void ValidateParent()
     {
-        
     }
 }

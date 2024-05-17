@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using YangParser.Parser;
 
@@ -6,10 +7,12 @@ namespace YangParser.SemanticModel;
 
 public class Rpc : Statement, IFunctionSource
 {
+    
+    public List<string> Comments { get; } = new();
     public Rpc(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         Argument = statement.Argument!.ToString();
         ValidateChildren(statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();

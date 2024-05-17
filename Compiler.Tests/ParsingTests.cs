@@ -11,7 +11,7 @@ public class ParsingTests(ITestOutputHelper output)
     [Fact]
     public void IetfYangLibrary()
     {
-        var result = Parser.Parse("memory", File.ReadAllText("lin.yang"));
+        var result = Parser.Parse("memory", File.ReadAllText("ietf-inet-types@2013-07-15.yang"));
         var statements = StatementFactory.Create(result);
         Print(statements);
     }

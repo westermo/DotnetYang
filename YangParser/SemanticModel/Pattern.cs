@@ -54,7 +54,7 @@ public class Pattern : Statement
     public Pattern(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         Argument = statement.Argument!.ToString();
         ValidateChildren(statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
@@ -67,6 +67,24 @@ public class Pattern : Statement
         new ChildRule(Description.Keyword),
         new ChildRule(ErrorAppTag.Keyword),
         new ChildRule(ErrorMessage.Keyword),
+        new ChildRule(Modifier.Keyword),
         new ChildRule(Reference.Keyword)
     ];
+}
+
+public class Modifier : Statement
+{
+    public Modifier(YangStatement statement)
+    {
+        if (statement.Keyword != Keyword)
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
+        Argument = statement.Argument!.ToString();
+        ValidateChildren(statement);
+        if (Argument != "invert-match")
+        {
+            throw new SemanticError($"Invalid argument for '{statement.Keyword}', expected 'invert-match'", statement);
+        }
+    }
+
+    public const string Keyword = "modifier";
 }

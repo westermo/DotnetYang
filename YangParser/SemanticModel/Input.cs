@@ -9,7 +9,7 @@ public class Input : Statement
     public Input(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         ValidateChildren(statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }

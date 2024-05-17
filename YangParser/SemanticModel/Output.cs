@@ -9,7 +9,7 @@ public class Output : Statement
     public Output(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         ValidateChildren(statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
@@ -17,6 +17,7 @@ public class Output : Statement
     public const string Keyword = "output";
     public override ChildRule[] PermittedChildren { get; } =
     [
+        new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(AnyXml.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Choice.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Container.Keyword, Cardinality.ZeroOrMore),

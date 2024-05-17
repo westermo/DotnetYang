@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using YangParser.Parser;
 
@@ -9,18 +10,20 @@ public class Choice : Statement, IClassSource
     public Choice(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         Argument = statement.Argument!.ToString();
         ValidateChildren(statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
     public const string Keyword = "choice";
+
     public override ChildRule[] PermittedChildren { get; } =
     [
+        new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(AnyXml.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Case.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(StateData.Keyword),
+        new ChildRule(Config.Keyword),
         new ChildRule(Container.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(DefaultValue.Keyword),
         new ChildRule(Description.Keyword),
@@ -33,4 +36,6 @@ public class Choice : Statement, IClassSource
         new ChildRule(Status.Keyword),
         new ChildRule(When.Keyword, Cardinality.ZeroOrMore)
     ];
+
+    public List<string> Comments { get; } = new();
 }

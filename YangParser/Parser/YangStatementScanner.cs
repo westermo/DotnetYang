@@ -118,8 +118,8 @@ public static class Parser
 
             while (state.LookAhead.Symbol == TermSymbol.StringConcat)
             {
-                str = (state.Match(TermSymbol.String).Value as string)!;
                 state.Match(TermSymbol.StringConcat);
+                str = (state.Match(TermSymbol.String).Value as string)!;
                 strings.Add(str);
             }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -59,6 +60,7 @@ public class YangGenerator : IIncrementalGenerator
             WalkTree(context, ns, statement, functions);
             context.AddSource(ns, $$"""
                                     using System;
+                                    using System.Xml.Linq;
                                     namespace {{ns}};
                                     public static class RemoteProcedureCalls
                                     {
@@ -77,13 +79,25 @@ public class YangGenerator : IIncrementalGenerator
         {
             model = StatementFactory.Create(statement);
         }
+        catch (SemanticError e)
+        {
+            context.ReportDiagnostic(
+                Diagnostic.Create(
+                    SemanticError,
+                    e.Location,
+                    e.Message
+                )
+            );
+            model = null!;
+            return false;
+        }
         catch (Exception e)
         {
             context.ReportDiagnostic(
                 Diagnostic.Create(
                     SemanticError,
                     Location.Create(statement.Metadata.Source, new TextSpan(), new LinePositionSpan()),
-                    e.Message
+                    e.Message + e.StackTrace
                 )
             );
             model = null!;
@@ -137,11 +151,27 @@ public class YangGenerator : IIncrementalGenerator
     private void WalkTree(SourceProductionContext context, string Namespace, IStatement statement,
         List<string> functions)
     {
+        if (statement.Children.FirstOrDefault(x => x is Uses) is Uses uses)
+        {
+            UnwrapUses(uses);
+        }
+
         foreach (var child in statement.Children)
         {
+            if (child is ICommentSource commentSource)
+            {
+                if (commentSource.Parent is ICommentable commentable)
+                {
+                    commentable.Comments.Add("///" + commentSource.Argument);
+                }
+
+                continue;
+            }
+
             if (child is IClassSource classSource)
             {
                 MakeClass(context, Namespace, classSource, functions);
+                continue;
             }
 
             if (child is IFunctionSource functionSource)
@@ -151,25 +181,34 @@ public class YangGenerator : IIncrementalGenerator
         }
     }
 
+    private void UnwrapUses(Uses uses)
+    {
+        var index = Array.IndexOf(uses.Parent!.Children, uses);
+    }
+
     private string MakeFunction(IFunctionSource functionSource)
     {
-        return "dummy";
+        return $"public static XElement {MakeClassName(functionSource.Argument)}() => new XElement(\"dummy\");";
     }
 
     private void MakeClass(SourceProductionContext context, string Namespace, IClassSource classSource,
         List<string> functions)
     {
         var name = MakeClassName(classSource.Argument);
-        context.AddSource(name, $$"""
-                                  using System;
+        var childNamespaces = Namespace + "." + name;
+        WalkTree(context, childNamespaces, classSource, functions);
+        context.AddSource(childNamespaces, $$"""
+                                             using System;
 
-                                  namespace {{Namespace}};
-                                  public class {{name}}
-                                  {
-                                    public string Dummy;
-                                  }
-                                  """);
-        WalkTree(context, Namespace, classSource, functions);
+                                             namespace {{Namespace}};
+                                             /// <summary>
+                                             {{string.Join("\n", classSource.Comments)}}
+                                             /// </summary>
+                                             public class {{name}}
+                                             {
+                                               public string Dummy;
+                                             }
+                                             """);
     }
 
     private string Capitalize(string section)

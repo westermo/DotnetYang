@@ -1,14 +1,12 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Container : Statement, IClassSource
+public class Submodule : Statement
 {
-    public List<string> Comments { get; } = new();
-    public Container(YangStatement statement)
+    public Submodule(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
@@ -17,34 +15,43 @@ public class Container : Statement, IClassSource
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
-    public const string Keyword = "container";
 
     public override ChildRule[] PermittedChildren { get; } =
     [
-        new ChildRule(Action.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(AnyXml.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Augment.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(BelongsTo.Keyword, Cardinality.Required),
         new ChildRule(Choice.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(Config.Keyword),
-        new ChildRule(Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Contact.Keyword),
+        new ChildRule(Container.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Description.Keyword),
+        new ChildRule(Deviation.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Extension.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Feature.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Grouping.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(FeatureFlag.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Identity.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Import.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Include.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Leaf.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(LeafList.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(List.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(Must.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(Presence.Keyword),
+        new ChildRule(Notification.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Organization.Keyword),
         new ChildRule(Reference.Keyword),
-        new ChildRule(Status.Keyword),
+        new ChildRule(Revision.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Rpc.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(TypeDefinition.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(When.Keyword)
+        new ChildRule(YangVersion.Keyword, Cardinality.Required),
     ];
+
+    public const string Keyword = "submodule";
 }
 
-public class Presence : Statement
+public class BelongsTo : Statement
 {
-    public Presence(YangStatement statement)
+    public BelongsTo(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
@@ -53,5 +60,10 @@ public class Presence : Statement
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
-    public const string Keyword = "presence";
+    public const string Keyword = "belongs-to";
+
+    public override ChildRule[] PermittedChildren { get; } =
+    [
+        new ChildRule(Prefix.Keyword, Cardinality.Required)
+    ];
 }

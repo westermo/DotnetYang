@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace YangParser.SemanticModel;
 
 public interface IStatement
@@ -8,9 +10,15 @@ public interface IStatement
     IStatement? Parent { get; set; }
 }
 
-public interface IFunctionSource : IStatement;
+public interface ICommentable : IStatement
+{
+    List<string> Comments { get; }
+}
+public interface IFunctionSource : ICommentable;
 
-public interface IClassSource : IStatement;
+public interface IClassSource : ICommentable;
+
+public interface ICommentSource : IStatement;
 
 public interface IAttributeSource : IStatement
 {

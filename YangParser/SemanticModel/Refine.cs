@@ -9,7 +9,7 @@ public class Refine : Statement
     public Refine(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         Argument = statement.Argument!.ToString();
         ValidateChildren(statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
@@ -26,6 +26,6 @@ public class Refine : Statement
         new ChildRule(Must.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(MinElements.Keyword),
         new ChildRule(MaxElements.Keyword),
-        new ChildRule(StateData.Keyword)
+        new ChildRule(Config.Keyword)
     ];
 }

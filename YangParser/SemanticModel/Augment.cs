@@ -9,7 +9,7 @@ public class Augment : Statement
     public Augment(YangStatement statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         Argument = statement.Argument!.ToString();
         ValidateChildren(statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
@@ -19,6 +19,7 @@ public class Augment : Statement
 
     public override ChildRule[] PermittedChildren { get; } =
     [
+        new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Description.Keyword),
         new ChildRule(Reference.Keyword),
         new ChildRule(FeatureFlag.Keyword, Cardinality.ZeroOrMore),
