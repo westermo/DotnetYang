@@ -81,7 +81,8 @@ public static class Parser
 
         var length = endPosition.Offset - keywordPosition.Offset;
 
-        return new YangStatement(prefix, keyword, children, new Metadata(state.Source, keywordPosition, length), argument);
+        return new YangStatement(prefix, keyword, children, new Metadata(state.Source, keywordPosition, length),
+            argument);
     }
 
     private static (string Prf, string Kw, Position KwPosition) ParseIdentifier(ParserState state)

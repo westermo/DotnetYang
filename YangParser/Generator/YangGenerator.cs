@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Text;
+using YangParser.Parser;
 using YangParser.SemanticModel;
 
 namespace YangParser.Generator;
@@ -15,11 +17,19 @@ public class YangGenerator : IIncrementalGenerator
         var yangFiles = context.AdditionalTextsProvider.Where(text => text.Path.EndsWith(".yang"));
         var parsed = yangFiles.Select((p, _) => Parser.Parser.Parse(p.Path, p.GetText()!.ToString()));
         var model = parsed.Select((p, _) => StatementFactory.Create(p));
-        context.RegisterSourceOutput(model, MakeClasses);
+        context.RegisterSourceOutput(yangFiles, MakeClasses);
     }
 
-    private void MakeClasses(SourceProductionContext context, IStatement statement)
+    private static readonly DiagnosticDescriptor ParsingError = new DiagnosticDescriptor("YANG0001", "Parsing Error",
+        "Parsing Error: {0}", "Parser", DiagnosticSeverity.Error, true);
+
+    private static readonly DiagnosticDescriptor SemanticError = new DiagnosticDescriptor("YANG0002", "Semantic Error",
+        "Semantic Error: {0}", "SemanticModel", DiagnosticSeverity.Error, true);
+
+    private void MakeClasses(SourceProductionContext context, AdditionalText text)
     {
+        if (!Parse(context, text, out var parsed)) return;
+        if (!MakeSemanticModel(context, parsed, out var statement)) return;
         if (statement is Module module)
         {
             var usings = new Dictionary<string, string>();
@@ -57,6 +67,71 @@ public class YangGenerator : IIncrementalGenerator
                                     }
                                     """);
         }
+    }
+
+    private static bool MakeSemanticModel(SourceProductionContext context, YangStatement statement,
+        out IStatement model)
+
+    {
+        try
+        {
+            model = StatementFactory.Create(statement);
+        }
+        catch (Exception e)
+        {
+            context.ReportDiagnostic(
+                Diagnostic.Create(
+                    SemanticError,
+                    Location.Create(statement.Metadata.Source, new TextSpan(), new LinePositionSpan()),
+                    e.Message
+                )
+            );
+            model = null!;
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool Parse(SourceProductionContext context, AdditionalText text, out YangStatement parsed)
+    {
+        try
+        {
+            parsed = Parser.Parser.Parse(text.Path, text.GetText()!.ToString());
+        }
+        catch (SyntaxError e)
+        {
+            context.ReportDiagnostic(
+                Diagnostic.Create(
+                    ParsingError,
+                    Location.Create(
+                        text.Path,
+                        new TextSpan(e.Token.Position.Offset, e.Token.Length),
+                        new LinePositionSpan(
+                            new LinePosition(e.Token.Position.Line, e.Token.Position.Column),
+                            new LinePosition(e.Token.Position.Line, e.Token.Position.Column + e.Token.Length)
+                        )
+                    ),
+                    e.Message
+                )
+            );
+            parsed = null!;
+            return false;
+        }
+        catch (Exception e)
+        {
+            context.ReportDiagnostic(
+                Diagnostic.Create(
+                    ParsingError,
+                    Location.Create(text.Path, new TextSpan(), new LinePositionSpan()),
+                    e.Message
+                )
+            );
+            parsed = null!;
+            return false;
+        }
+
+        return true;
     }
 
     private void WalkTree(SourceProductionContext context, string Namespace, IStatement statement,

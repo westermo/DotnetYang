@@ -12,7 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <AdditionalFiles Include="ietf-yang-library.yang" />
+        <AdditionalFiles Include="*.yang" />
     </ItemGroup>
 
 </Project>
