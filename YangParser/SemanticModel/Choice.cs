@@ -7,13 +7,14 @@ namespace YangParser.SemanticModel;
 
 public class Choice : Statement, IClassSource
 {
-    public Choice(YangStatement statement)
+    private readonly YangStatement m_source;
+
+    public Choice(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
+        m_source = statement;
     }
 
     public const string Keyword = "choice";
@@ -38,4 +39,21 @@ public class Choice : Statement, IClassSource
     ];
 
     public List<string> Comments { get; } = new();
+
+    public override string ToCode()
+    {
+        var nodes = Children.Select(child => child.ToCode()).ToArray();
+        string property = Parent is Module
+            ? string.Empty
+            : $"public{KeywordString}{MakeName(Argument)}Choice? {MakeName(Argument)} {{ get; set; }}";
+        return $$"""
+                 {{property}}
+                 {{DescriptionString}}
+                 {{AttributeString}}
+                 public class {{MakeName(Argument)}}Choice
+                 {
+                     {{string.Join("\n\t", nodes.Select(Indent))}}
+                 }
+                 """;
+    }
 }

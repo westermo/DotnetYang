@@ -6,13 +6,11 @@ namespace YangParser.SemanticModel;
 
 public class Submodule : Statement
 {
-    public Submodule(YangStatement statement)
+    public Submodule(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
 
@@ -51,13 +49,11 @@ public class Submodule : Statement
 
 public class BelongsTo : Statement
 {
-    public BelongsTo(YangStatement statement)
+    public BelongsTo(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
     public const string Keyword = "belongs-to";

@@ -6,19 +6,27 @@ namespace YangParser.SemanticModel;
 
 public class Revision : Statement
 {
-    public Revision(YangStatement statement)
+    public Revision(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
         Value = DateTime.Parse(Argument);
     }
+
     public const string Keyword = "revision";
-    public override ChildRule[] PermittedChildren { get; } = [
+
+    public override ChildRule[] PermittedChildren { get; } =
+    [
         new ChildRule(Description.Keyword),
         new ChildRule(Reference.Keyword)
     ];
+
     public DateTime Value { get; }
+
+    public override string ToCode()
+    {
+        Parent?.Attributes.Add($"Revision(\"{Argument}\")");
+        return string.Empty;
+    }
 }

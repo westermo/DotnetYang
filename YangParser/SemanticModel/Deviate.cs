@@ -46,11 +46,11 @@ namespace YangParser.SemanticModel;
 /// </summary>
 public class Deviate : Statement
 {
-    public Deviate(YangStatement statement)
+    public Deviate(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
+        
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
         switch (Argument)
         {

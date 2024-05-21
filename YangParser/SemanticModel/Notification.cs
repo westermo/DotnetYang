@@ -6,13 +6,11 @@ namespace YangParser.SemanticModel;
 
 public class Notification : Statement
 {
-    public Notification(YangStatement statement)
+    public Notification(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
     public const string Keyword = "notification";
@@ -34,4 +32,17 @@ public class Notification : Statement
         new ChildRule(TypeDefinition.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore)
     ];
+
+    public override string ToCode()
+    {
+        var nodes = Children.Select(child => child.ToCode()).ToArray();
+        return $$"""
+                 {{DescriptionString}}
+                 {{AttributeString}}
+                 public class {{MakeName(Argument)}}
+                 {
+                     {{string.Join("\n\t", nodes.Select(Indent))}}
+                 }
+                 """;
+    }
 }

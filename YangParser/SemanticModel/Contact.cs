@@ -13,14 +13,17 @@ namespace YangParser.SemanticModel;
 /// </summary>
 public class Contact : Statement
 {
-    public Contact(YangStatement statement)
+    public Contact(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
     public const string Keyword = "contact";
+
+    public override string ToCode()
+    {
+        return $"//Contact: {Argument.Replace("\n", "\n//")}";
+    }
 }

@@ -6,13 +6,17 @@ namespace YangParser.SemanticModel;
 
 public class Namespace : Statement
 {
-    public Namespace(YangStatement statement)
+    public Namespace(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
+
     public const string Keyword = "namespace";
+
+    public override string ToCode()
+    {
+        return $"public const string Namespace = \"{Argument}\";";
+    }
 }

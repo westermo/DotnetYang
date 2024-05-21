@@ -6,13 +6,11 @@ namespace YangParser.SemanticModel;
 
 public class Feature : Statement
 {
-    public Feature(YangStatement statement)
+    public Feature(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
     public override ChildRule[] PermittedChildren { get; } =
@@ -24,4 +22,10 @@ public class Feature : Statement
     ];
 
     public const string Keyword = "feature";
+
+    public override string ToCode()
+    {
+        Parent?.Attributes.Add($"ProvidesFeature(\"{Argument}\")");
+        return $"//Feature Declaration: {Argument}, Parent is {Parent?.GetType()}";
+    }
 }

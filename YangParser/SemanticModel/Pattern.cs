@@ -51,13 +51,11 @@ namespace YangParser.SemanticModel;
 /// </summary>
 public class Pattern : Statement
 {
-    public Pattern(YangStatement statement)
+    public Pattern(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
     public const string Keyword = "pattern";
@@ -74,11 +72,11 @@ public class Pattern : Statement
 
 public class Modifier : Statement
 {
-    public Modifier(YangStatement statement)
+    public Modifier(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
+        
         ValidateChildren(statement);
         if (Argument != "invert-match")
         {

@@ -6,13 +6,10 @@ namespace YangParser.SemanticModel;
 
 public class Uses : Statement
 {
-    public Uses(YangStatement statement)
+    public Uses(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
     public const string Keyword = "uses";

@@ -6,13 +6,10 @@ namespace YangParser.SemanticModel;
 
 public class Augment : Statement
 {
-    public Augment(YangStatement statement)
+    public Augment(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
     public const string Keyword = "augment";
@@ -45,4 +42,19 @@ public class Augment : Statement
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Keyword, Cardinality.ZeroOrMore)
     ];
+
+    public override string ToCode()
+    {
+        var nodes = Children.Select(child => child.ToCode()).ToArray();
+        var name = MakeName(Argument.Split('/', ':').Last()) + "Augmentation";
+        Attributes.Add($"Target(\"{Argument}\")");
+        return $$"""
+                 {{DescriptionString}}
+                 {{AttributeString}}
+                 public partial interface {{name}}
+                 {
+                     {{string.Join("\n\t", nodes.Select(Indent))}}
+                 }
+                 """;
+    }
 }

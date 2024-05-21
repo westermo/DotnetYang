@@ -8,13 +8,12 @@ namespace YangParser.SemanticModel;
 public class Container : Statement, IClassSource
 {
     public List<string> Comments { get; } = new();
-    public Container(YangStatement statement)
+
+    public Container(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
     public const string Keyword = "container";
@@ -40,18 +39,39 @@ public class Container : Statement, IClassSource
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(When.Keyword)
     ];
+
+    public override string ToCode()
+    {
+        var nodes = Children.Select(child => child.ToCode()).ToArray();
+        string property = Parent is Module
+            ? string.Empty
+            : $"public{KeywordString}{MakeName(Argument)}Container? {MakeName(Argument)} {{ get; set; }}";
+        return $$"""
+                 {{property}}
+                 {{DescriptionString}}
+                 {{AttributeString}}
+                 public class {{MakeName(Argument)}}Container
+                 {
+                     {{string.Join("\n\t", nodes.Select(Indent))}}
+                 }
+                 """;
+    }
 }
 
 public class Presence : Statement
 {
-    public Presence(YangStatement statement)
+    public Presence(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
     public const string Keyword = "presence";
+
+    public override string ToCode()
+    {
+        Parent?.Attributes.Add($"Presence(\"{Argument.Replace("\n", "")}\")");
+        return string.Empty;
+    }
 }

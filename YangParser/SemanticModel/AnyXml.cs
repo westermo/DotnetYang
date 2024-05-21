@@ -6,13 +6,11 @@ namespace YangParser.SemanticModel;
 
 public class AnyXml : Statement
 {
-    public AnyXml(YangStatement statement)
+    public AnyXml(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
     public const string Keyword = "anyxml";
@@ -32,13 +30,11 @@ public class AnyXml : Statement
 
 public class AnyData : Statement
 {
-    public AnyData(YangStatement statement)
+    public AnyData(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
     public const string Keyword = "anydata";

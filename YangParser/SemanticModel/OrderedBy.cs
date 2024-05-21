@@ -6,11 +6,11 @@ namespace YangParser.SemanticModel;
 
 public class OrderedBy : Statement
 {
-    public OrderedBy(YangStatement statement)
+    public OrderedBy(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
+        
         ValidateChildren(statement);
         switch (Argument)
         {

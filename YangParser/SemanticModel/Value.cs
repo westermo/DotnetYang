@@ -5,11 +5,11 @@ namespace YangParser.SemanticModel;
 
 public class Value : Statement
 {
-    public Value(YangStatement statement)
+    public Value(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
+        
         ValidateChildren(statement);
         Integer = int.Parse(Argument);
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
@@ -37,16 +38,35 @@ public class List : Statement, IClassSource
         new ChildRule(When.Keyword)
     ];
 
-    public List(YangStatement statement)
+    public List(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
         m_source = statement;
     }
 
     public const string Keyword = "list";
     public List<string> Comments { get; } = new();
+
+
+    public override string ToCode()
+    {
+        var nodes = Children.Select(child => child.ToCode()).ToArray();
+        string property = Parent is Module
+            ? string.Empty
+            : $"public{KeywordString}List<{MakeName(Argument)}Entry> {MakeName(Argument)} {{ get; }} = new();";
+        return $$"""
+                 /*
+                 {{Print(m_source)}}
+                 */
+                 {{property}}
+                 {{DescriptionString}}
+                 {{AttributeString}}
+                 public class {{MakeName(Argument)}}Entry
+                 {
+                     {{string.Join("\n\t", nodes.Select(Indent))}}
+                 }
+                 """;
+    }
 }

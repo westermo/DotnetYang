@@ -6,11 +6,11 @@ namespace YangParser.SemanticModel;
 
 public class Unique : Statement
 {
-    public Unique(YangStatement statement)
+    public Unique(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
+        
         ValidateChildren(statement);
         Identifiers = Argument.Split(' ');
     }

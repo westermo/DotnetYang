@@ -6,13 +6,11 @@ namespace YangParser.SemanticModel;
 
 public class RevisionDate : Statement
 {
-    public RevisionDate(YangStatement statement)
+    public RevisionDate(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
         if (!DateTime.TryParse(Argument, out _)) throw new InvalidOperationException($"Invalid date format '{Argument}'");
     }
 

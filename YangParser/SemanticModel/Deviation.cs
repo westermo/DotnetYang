@@ -6,13 +6,11 @@ namespace YangParser.SemanticModel;
 
 public class Deviation : Statement
 {
-    public Deviation(YangStatement statement)
+    public Deviation(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
     public const string Keyword = "deviation";
     public override ChildRule[] PermittedChildren { get; } =

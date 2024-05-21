@@ -6,15 +6,18 @@ namespace YangParser.SemanticModel;
 
 public class Output : Statement
 {
-    public Output(YangStatement statement)
+    public Output(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         ValidateChildren(statement);
+        if (!string.IsNullOrWhiteSpace(Argument))
+            throw new SemanticError($"{Keyword} statement may not have an argument", statement);
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
     public const string Keyword = "output";
+
     public override ChildRule[] PermittedChildren { get; } =
     [
         new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore),
@@ -28,4 +31,14 @@ public class Output : Statement
         new ChildRule(TypeDefinition.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore)
     ];
+
+    public override string ToCode()
+    {
+        return $$"""
+                 public class {{MakeName(Parent!.Argument)}}Output
+                 {
+                     {{string.Join("\n\t", Children.Select(child => Indent(child.ToCode())))}}
+                 }
+                 """;
+    }
 }

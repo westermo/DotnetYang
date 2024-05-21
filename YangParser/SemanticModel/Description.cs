@@ -4,11 +4,16 @@ namespace YangParser.SemanticModel;
 
 public class Description : Statement
 {
-    public Description(YangStatement statement)
+    public Description(YangStatement statement) : base(statement)
     {
-        Argument = statement.Argument!.ToString();
+        
         ValidateChildren(statement);
     }
 
     public const string Keyword = "description";
+
+    public override string ToCode()
+    {
+        return string.Empty;
+    }
 }

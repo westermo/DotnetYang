@@ -6,11 +6,10 @@ namespace YangParser.SemanticModel;
 
 public class KeywordReference : Statement
 {
-    public KeywordReference(YangStatement statement)
+    public KeywordReference(YangStatement statement) : base(statement, false)
     {
         ReferenceNamespace = statement.Prefix;
         Argument = statement.Argument?.ToString() ?? string.Empty;
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
     public string ReferenceNamespace { get; set; }

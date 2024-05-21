@@ -6,13 +6,11 @@ namespace YangParser.SemanticModel;
 
 public class Enum : Statement
 {
-    public Enum(YangStatement statement)
+    public Enum(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+        
     }
 
     public const string Keyword = "enum";
@@ -25,4 +23,15 @@ public class Enum : Statement
         new ChildRule(Reference.Keyword),
         new ChildRule(Status.Keyword)
     ];
+
+    public override string ToCode()
+    {
+        var assignment = Children.FirstOrDefault(child => child is Value)?.Argument;
+        assignment = assignment is null ? null : $"= {assignment}";
+        return $"""
+                {DescriptionString}
+                {AttributeString}
+                {MakeName(Argument)}{assignment},
+                """;
+    }
 }

@@ -6,13 +6,10 @@ namespace YangParser.SemanticModel;
 
 public class Grouping : Statement
 {
-    public Grouping(YangStatement statement)
+    public Grouping(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
 
     public const string Keyword = "grouping";
@@ -33,4 +30,20 @@ public class Grouping : Statement
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore)
     ];
+
+    public override string ToCode()
+    {
+        return string.Empty;
+    }
+
+    public IStatement[] WithUse(Uses use)
+    {
+        foreach (var inner in Children.OfType<Uses>().ToArray())
+        {
+            var grouping = inner.GetGrouping();
+            Replace(inner, grouping.WithUse(inner));
+        }
+
+        return Children;
+    }
 }

@@ -6,11 +6,11 @@ namespace YangParser.SemanticModel;
 
 public class Range : Statement
 {
-    public Range(YangStatement statement)
+    public Range(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Argument = statement.Argument!.ToString();
+        
         ValidateChildren(statement);
     }
     public override ChildRule[] PermittedChildren { get; } =
