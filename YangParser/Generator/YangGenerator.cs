@@ -101,15 +101,7 @@ public class YangGenerator : IIncrementalGenerator
 
                 try
                 {
-                    var grouping = use.GetGrouping();
-                    var parent = use.Parent;
-                    parent!.Replace(use, grouping.WithUse(use));
-                    if (parent.Children.Contains(use))
-                    {
-                        throw new SemanticError(
-                            $"'Failed to replace '{use.Argument}' in '{parent.GetType().Name} {parent.Argument}'",
-                            module.Source, usings.Select(u => u.Source).ToArray());
-                    }
+                    use.Expand();
                 }
                 catch (SemanticError error)
                 {

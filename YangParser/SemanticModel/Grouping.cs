@@ -38,10 +38,9 @@ public class Grouping : Statement
 
     public IStatement[] WithUse(Uses use)
     {
-        foreach (var inner in Children.OfType<Uses>().ToArray())
+        foreach (var inner in this.Unwrap().OfType<Uses>().ToArray())
         {
-            var grouping = inner.GetGrouping();
-            Replace(inner, grouping.WithUse(inner));
+            inner.Expand();
         }
 
         return Children;

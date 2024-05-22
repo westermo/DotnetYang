@@ -27,6 +27,16 @@ public class ParsingTests(ITestOutputHelper output)
                                         container start {
                                             uses A;
                                         }
+                                        container other {
+                                            uses B;
+                                            grouping inner {
+                                                uses A;
+                                            }
+                                            uses inner;
+                                        }
+                                        grouping B {
+                                            uses A;
+                                        }
                                         grouping A {
                                             uses b:A;
                                         }
@@ -43,7 +53,9 @@ public class ParsingTests(ITestOutputHelper output)
                                         }
                                         grouping A {
                                             uses b:A;
-                                            uses C;
+                                            container C {
+                                                uses C;
+                                            }
                                         }
                                         
                                         grouping C {
@@ -127,6 +139,7 @@ public class ParsingTests(ITestOutputHelper output)
         {
             Assert.IsNotType<Uses>(statement);
         }
+        Print(compilationUnit);
     }
 
     [Fact]

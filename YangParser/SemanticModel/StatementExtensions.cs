@@ -175,4 +175,12 @@ public static class StatementExtensions
 
         return findGrouping;
     }
+
+
+    public static void Expand(this Uses use)
+    {
+        var grouping = use.GetGrouping();
+        var parent = use.Parent;
+        parent!.Replace(use, grouping.WithUse(use));
+    }
 }

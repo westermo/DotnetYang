@@ -210,7 +210,6 @@ public abstract class Statement : IStatement
         var replace = replacements.ToArray();
         var children = Children.ToList();
         children.Remove(child);
-        child.Parent = null;
         Children = Merge(children, replace);
     }
 
