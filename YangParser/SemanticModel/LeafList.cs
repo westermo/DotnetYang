@@ -5,7 +5,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class LeafList : Statement, IPropertySource
+public class LeafList : Statement
 {
     public override ChildRule[] PermittedChildren { get; } =
     [
@@ -28,15 +28,15 @@ public class LeafList : Statement, IPropertySource
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
-        Type = TypeName(Children.OfType<Type>().First());
+
+        Type = Children.OfType<Type>().First();
         Default = Children.FirstOrDefault(child => child is DefaultValue) as DefaultValue;
     }
 
     private DefaultValue? Default { get; }
 
     public const string Keyword = "leaf-list";
-    public string Type { get; }
+    public Type Type { get; }
 
     public override string ToCode()
     {
@@ -45,11 +45,55 @@ public class LeafList : Statement, IPropertySource
             child.ToCode();
         }
 
-        var defaulting = Default is null ? string.Empty : $"= {Default?.ToCode()}";
+        var defaultValue = Default?.ToCode();
+
+        var defaulting = defaultValue is null ? string.Empty : $"= {defaultValue}";
+        var name = MakeName(Argument);
+        var typeName = TypeName(Type);
+        string addendum = string.Empty;
+        if (Type.Argument is "enumeration" or "union" or "leafref" or "instance-identifier" or "bits" or "leafref")
+        {
+            typeName = $"{name}Definition";
+            addendum = HandleType(Type, typeName);
+        }
+
+        if (Type.Argument is "enumeration" or "bits")
+        {
+            defaulting = defaultValue is null ? string.Empty : $"= {typeName}.{MakeName(defaultValue)}";
+        }
+        else if (Type.Argument.Contains("identityref"))
+        {
+            var ifaceName = InterfaceName(Type.GetChild<Base>());
+            if (ifaceName.Contains(':'))
+            {
+                typeName = ifaceName;
+            }
+            else
+            {
+                typeName = typeName.Replace("Identityref", ifaceName);
+            }
+        }
+        // else if (Type.Argument is "identityref")
+        // {
+        //     defaulting = defaultValue is null ? string.Empty : $"= new {MakeName(defaultValue).Replace(";", "")}();";
+        //     var components = MakeName(Type.GetChild<Base>().Argument).Split(':');
+        //     components[components.Length - 1] = "I" + components[components.Length - 1];
+        //
+        //     typeName = string.Join(":", components);
+        // }
+        else if (defaultValue?.Contains('"') == false) //Is not a string 
+        {
+            if (!double.TryParse(defaultValue, out _)) //Is not a number
+            {
+                //Assume is enum;
+                defaulting = $"= {typeName}.{MakeName(defaultValue)}";
+            }
+        }
+
         return $$"""
-                 {{DescriptionString}}
-                 {{AttributeString}}
-                 public{{KeywordString}}{{Type}}[]? {{MakeName(Argument)}} { get; set; } {{defaulting}}
+                 {{addendum}}
+                 {{DescriptionString}}{{AttributeString}}
+                 public{{KeywordString}}{{typeName}}[]? {{MakeName(Argument)}} { get; set; } {{defaulting}}
                  """;
     }
 }

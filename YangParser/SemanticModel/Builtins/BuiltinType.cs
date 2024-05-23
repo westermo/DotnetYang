@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace YangParser.SemanticModel.Builtins;
 
@@ -31,9 +32,10 @@ public static class BuiltinTypeReference
     public static bool IsBuiltin(Type type, out string? cSharpType)
     {
         cSharpType = null;
+        var comparison = type.Argument.Split(':').Last();
         foreach (var builtin in m_builtIns)
         {
-            if (builtin.Name != type.Argument) continue;
+            if (builtin.Name != comparison) continue;
             cSharpType = builtin.CorrespondingCSharpType(type);
             return true;
         }
@@ -56,13 +58,13 @@ public class Boolean() : BuiltinType("boolean", (s) => "bool");
 
 public class Decimal64() : BuiltinType("decimal64", (s) => "double");
 
-public class Empty() : BuiltinType("empty", (s) => null);
+public class Empty() : BuiltinType("empty", (s) => "object");
 
 public class Enumeration() : BuiltinType("enumeration", (s) => "enum");
 
 public class IdentityReference() : BuiltinType("identityref", (s) => null);
 
-public class InstanceIdentifier() : BuiltinType("instance-identifier", (s) => null);
+public class InstanceIdentifier() : BuiltinType("instance-identifier", (s) => "InstanceIdentifier");
 
 public class Int8() : BuiltinType("int8", (s) => "sbyte");
 

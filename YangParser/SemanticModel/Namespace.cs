@@ -17,6 +17,6 @@ public class Namespace : Statement
 
     public override string ToCode()
     {
-        return $"public const string Namespace = \"{Argument}\";";
+        return $"public const string Namespace = \"{Argument.Replace("\n","")}\";";
     }
 }

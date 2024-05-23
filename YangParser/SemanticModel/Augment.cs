@@ -47,14 +47,12 @@ public class Augment : Statement
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
         var name = MakeName(Argument.Split('/', ':').Last()) + "Augmentation";
-        Attributes.Add($"Target(\"{Argument}\")");
+        Attributes.Add($"Target(\"{Argument.Replace("\n", "")}\")");
+        //TODO: Add Augmentation logic
         return $$"""
-                 {{DescriptionString}}
-                 {{AttributeString}}
-                 public partial interface {{name}}
-                 {
-                     {{string.Join("\n\t", nodes.Select(Indent))}}
-                 }
+                 /*
+                 {{Print(this)}}
+                 */
                  """;
     }
 }

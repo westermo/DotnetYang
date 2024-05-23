@@ -14,7 +14,7 @@ public class Rpc : Statement, IFunctionSource
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
+
         ValidateChildren(statement);
         Flags = Children.OfType<FeatureFlag>().ToArray();
         Description = Children.FirstOrDefault(child => child is Description)?.Argument;
@@ -23,9 +23,9 @@ public class Rpc : Statement, IFunctionSource
         Outgoing = Children.FirstOrDefault(x => x is Output) as Output;
     }
 
-    public Input? Ingoing { get; set; }
+    private Input? Ingoing { get; set; }
 
-    public Output? Outgoing { get; set; }
+    private Output? Outgoing { get; set; }
 
     private FeatureFlag[] Flags { get; }
     private string? Description { get; }
@@ -47,21 +47,12 @@ public class Rpc : Statement, IFunctionSource
     public override string ToCode()
     {
         StringBuilder builder = new();
-        if (Description is not null)
-        {
-            builder.AppendLine("///<summary>" +
-                               $"///{Description}" +
-                               "///</summary>");
-        }
-
-        foreach (var flag in Flags)
-        {
-            builder.AppendLine($"[IfFeature(\"{flag.Argument}\")]");
-        }
-
+        builder.AppendLine(DescriptionString);
+        builder.AppendLine(AttributeString);
         var returnType = Outgoing is null ? "void" : MakeName(Argument) + "Output";
         var inputType = Ingoing is null ? string.Empty : ", " + MakeName(Argument) + "Input input";
-        builder.AppendLine($"public static {returnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
+        builder.AppendLine(
+            $"public static {returnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
         builder.AppendLine("{");
         var ns = Parent is Module module ? "xmlns=\\\"" + module.XmlNamespace.Argument + "\\\"" : string.Empty;
         builder.AppendLine(inputType != string.Empty
@@ -72,10 +63,10 @@ public class Rpc : Statement, IFunctionSource
                     var xml = $"<rpc message-id=\"{messageID}\" xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\"><{{Argument}} {{ns}}/></rpc>";
                 """);
 
-        builder.AppendLine(returnType != string.Empty
+        builder.AppendLine(returnType != "void"
             ? "\tvar response = channel.Send(xml);"
             : "\tchannel.Send(xml);");
-        if (returnType != string.Empty)
+        if (returnType != "void")
         {
             builder.AppendLine($"\treturn {returnType}.Parse(response);");
         }

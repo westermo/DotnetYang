@@ -13,6 +13,13 @@
 
     <ItemGroup>
         <AdditionalFiles Include="*.yang" />
+        <AdditionalFiles Include="iana/*.yang" />
+        <AdditionalFiles Include="IEEE/published/802/*.yang" />
+        <AdditionalFiles Include="IEEE/published/802.1/*.yang" />
+        <AdditionalFiles Include="IEEE/published/802.3/*.yang" />
+        <AdditionalFiles Include="IEEE/published/802.11/*.yang" />
+        <AdditionalFiles Include="IEEE/published/1588/*.yang" />
+        <AdditionalFiles Include="IEEE/published/1906.1/*.yang" />
     </ItemGroup>
 
 </Project>

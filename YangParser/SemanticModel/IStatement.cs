@@ -5,11 +5,10 @@ namespace YangParser.SemanticModel;
 
 public interface IStatement
 {
-    string Argument { get; }
-    Dictionary<string, IStatement> GroupingDictionary { get; }
+    string Argument { get; set;  }
     ChildRule[] PermittedChildren { get; }
-    List<string> Attributes { get; }
-    List<string> Keywords { get; }
+    HashSet<string> Attributes { get; }
+    HashSet<string> Keywords { get; }
     IStatement[] Children { get; set; }
     IStatement? Parent { get; set; }
     Metadata Metadata { get; }

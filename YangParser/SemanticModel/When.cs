@@ -10,7 +10,6 @@ public class When : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
     public override ChildRule[] PermittedChildren { get; } =
@@ -28,7 +27,7 @@ public class When : Statement
             Argument = Argument.Replace("  ", " ");
         }
 
-        Parent?.Attributes.Add($"When(\"{Argument.Replace("\n", "").Replace("\"", "'")}\")");
+        Parent?.Attributes.Add($"When(\"{SingleLine(Argument).Replace("\"", "'")}\")");
         return string.Empty;
     }
 }

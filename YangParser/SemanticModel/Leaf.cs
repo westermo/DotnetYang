@@ -27,7 +27,7 @@ public class Leaf : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
+
         Type = Children.OfType<Type>().First();
 
         Default = Children.FirstOrDefault(child => child is DefaultValue) as DefaultValue;
@@ -54,32 +54,78 @@ public class Leaf : Statement
             child.ToCode();
         }
 
-        var defaulting = Default is null ? string.Empty : $"= {Default.ToCode()}";
+        var defaultValue = Default?.ToCode();
+
+        var defaulting = defaultValue is null ? string.Empty : $"= {defaultValue}";
         var nullable = Required ? string.Empty : "?";
         var name = MakeName(Argument);
-        if (TypeName(Type) == "enum")
+        var typeName = TypeName(Type);
+        string addendum = string.Empty;
+        if (Type.Argument is "enumeration" or "union" or "leafref" or "instance-identifier" or "bits" or "leafref")
         {
-            defaulting = Default is null ? string.Empty : $"= {name}Values.{MakeName(Default.ToCode())}";
-            var enums = Type.Children.OfType<Enum>();
-            var stringified = enums.Select(e =>
-                e.Children.FirstOrDefault(c => c is Value) is Value value
-                    ? $"{MakeName(e.Argument)} = {value.Argument}"
-                    : $"{MakeName(e.Argument)}");
-            return $$"""
-                     public enum {{name}}Values
-                     {
-                         {{Indent(string.Join(",\n", stringified))}}
-                     }
-                     {{DescriptionString}}
-                     {{AttributeString}}
-                     public{{KeywordString}}{{name}}Values {{name}} { get; set; } {{defaulting}}
-                     """;
+            typeName = $"{name}Definition";
+            addendum = HandleType(Type, typeName);
+        }
+
+        if (Type.Argument is "enumeration" or "bits")
+        {
+            defaulting = defaultValue is null ? string.Empty : $"= {typeName}.{MakeName(defaultValue)}";
+        }
+        else if (Type.Argument.Contains("identityref"))
+        {
+            var ifaceName = InterfaceName(Type.GetChild<Base>());
+            if (ifaceName.Contains(':'))
+            {
+                typeName = ifaceName;
+            }
+            else
+            {
+                typeName = typeName.Replace("Identityref", ifaceName);
+            }
+
+            if (Default is not null)
+            {
+                var className = MakeName(defaultValue!).Replace(";", "");
+                defaulting = $"= new {className.Split(':').Last()}Impl();";
+                addendum = $"public class {className.Split(':').Last()}Impl : {InterfaceName(className)};";
+            }
+        }
+        else if (Type.Argument is "string")
+        {
+            defaulting = Default is null ? string.Empty : $"= \"{Default?.Argument}\";";
+        }
+        else if (Type.Argument is "boolean")
+        {
+            defaulting = Default is null ? string.Empty : $"= {Default?.Argument.ToLower()};";
+        }
+        else if (Type.Argument is "union")
+        {
+            if (Default is not null)
+            {
+                foreach (var e in Type.Unwrap().OfType<Enum>())
+                {
+                    if (e.Argument == Default.Argument)
+                    {
+                        defaulting =
+                            $"= {name}Union{Array.IndexOf(e.Parent!.Parent!.Children, e.Parent)}.{MakeName(e.Argument)};";
+                    }
+                }
+            }
+        }
+        else if (defaultValue?.Contains('"') == false) //Is not a string 
+        {
+            if (!double.TryParse(defaultValue.Replace(";", ""), out _)) //Is not a number
+            {
+                //Assume is enum;
+                defaulting = $"= {typeName}.{MakeName(defaultValue)}";
+            }
         }
 
         return $$"""
-                 {{DescriptionString}}
-                 {{AttributeString}}
-                 public{{KeywordString}}{{TypeName(Type)}}{{nullable}} {{name}} { get; set; } {{defaulting}}
+                 //{{Type.Argument}}
+                 {{addendum}}
+                 {{DescriptionString}}{{AttributeString}}
+                 public{{KeywordString}}{{typeName}}{{nullable}} {{name}} { get; set; } {{defaulting}}
                  """;
     }
 }

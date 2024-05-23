@@ -73,11 +73,11 @@ namespace YangParser.SemanticModel;
 public class Case : Statement, IClassSource
 {
     public List<string> Comments { get; } = new();
+
     public Case(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
     public const string Keyword = "case";
@@ -98,4 +98,22 @@ public class Case : Statement, IClassSource
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(When.Keyword, Cardinality.ZeroOrMore)
     ];
+
+    public override string ToCode()
+    {
+        var nodes = Children.Select(c => c.ToCode()).ToArray();
+
+        return $$"""
+                 public {{MakeName(Parent!.Argument)}}Choice({{MakeName(Argument)}}Case input)
+                 {
+                     {{MakeName(Argument)}} = input;
+                 }
+                 public {{MakeName(Argument)}}Case? {{MakeName(Argument)}};
+                 {{DescriptionString}}{{AttributeString}}
+                 public class {{MakeName(Argument)}}Case
+                 {
+                    {{Indent(string.Join("\n", nodes))}}
+                 }
+                 """;
+    }
 }

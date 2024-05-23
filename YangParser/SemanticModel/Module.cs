@@ -1,21 +1,8 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
-
-public class CompilationUnit : Statement
-{
-    public CompilationUnit(Module[] modules) : base(new YangStatement(String.Empty, string.Empty, [], new Metadata(string.Empty, new Parser.Position(), 0)))
-    {
-        Children = modules;
-    }
-    public override ChildRule[] PermittedChildren { get; } =
-    [
-        new ChildRule(Module.Keyword, Cardinality.ZeroOrMore),
-    ];
-}
 
 public class Module : Statement
 {
@@ -24,9 +11,19 @@ public class Module : Statement
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         XmlNamespace = Children.First(child => child is Namespace);
+        Usings = new();
+        foreach (var import in Children.OfType<Import>())
+        {
+            var use = MakeNamespace(import.Argument) + ".YangNode.";
+            var prefix = import.GetChild<Prefix>().Argument;
+            Usings[prefix] = use;
+        }
+
+        Usings[this.GetChild<Prefix>().Argument] = MakeNamespace(Argument) + ".YangNode.";
     }
 
     public IStatement XmlNamespace { get; set; }
+    public Dictionary<string, string> Usings { get; }
 
     public override ChildRule[] PermittedChildren { get; } =
     [
@@ -58,33 +55,12 @@ public class Module : Statement
         new ChildRule(YangVersion.Keyword),
     ];
 
-    public string Filename => MakeNamespace(Argument) + "." + "Module.cs";
+    public string Filename => "YangModules/" + Argument.Split('-').First() + "/" + Argument + ".cs";
     public const string Keyword = "module";
 
     public override string ToCode()
     {
-        var usings = new Dictionary<string, string>();
         string ns = MakeNamespace(Argument);
-        foreach (var child in Children)
-        {
-            if (child is Import import)
-            {
-                var use = MakeNamespace(import.Argument) + ".Module.";
-                if (child.Children.FirstOrDefault(x => x is Prefix) is Prefix prefix)
-                {
-                    usings[prefix.Argument] = use;
-                }
-                else
-                {
-                    usings[use] = use;
-                }
-            }
-
-            if (child is Prefix modulePrefix)
-            {
-                usings[modulePrefix.Argument] = string.Empty;
-            }
-        }
 
         var nodes = Children.Select(child => child.ToCode()).ToArray();
         var raw = $$"""
@@ -93,18 +69,19 @@ public class Module : Statement
                     using System.Runtime.CompilerServices;
                     using System.Xml.Linq;
                     using Yang.Attributes;
-                    {{string.Join("\n", usings.Values.Where(p => p != string.Empty).Select(value => $"using {value.Replace(".Module.", "")};"))}}
+                    {{string.Join("\n", Usings.Values.Where(p => p != MakeNamespace(Argument) + ".YangNode.").Select(value => $"using {value.Replace(".YangNode.", "")};").Distinct())}}
                     namespace {{ns}};
-                    {{DescriptionString}}
-                    {{AttributeString}}
-                    public static class Module
+                    {{DescriptionString}}{{AttributeString}}
+                    public class YangNode
                     {
+                        {{string.Join("\n\t", Usings.Select(p => $"//Importing {p.Value} as {p.Key}"))}}
                         {{string.Join("\n\t", nodes.Select(Indent))}}
                     }
                     """;
-        foreach (var prefix in usings.Keys)
+        foreach (var prefix in Usings.Keys)
         {
-            raw = raw.Replace(" " + prefix + ":", " " + usings[prefix]);
+            raw = raw.Replace(" " + prefix + ":", " " + Usings[prefix]);
+            raw = raw.Replace("(" + prefix + ":", "(" + Usings[prefix]);
         }
 
         return raw;

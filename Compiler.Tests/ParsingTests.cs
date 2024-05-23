@@ -80,7 +80,23 @@ public class ParsingTests(ITestOutputHelper output)
                                           yang-version 1.1;
                                           namespace "urn:three";
                                           prefix three;
-                                          
+                                          typedef operator {
+                                            type bits {
+                                                bit not {
+                                                    position 0;
+                                                    description "If set, logical negation of operation.";
+                                                }
+                                                bit match {
+                                                    position 1;
+                                                    description "Match bit.  This is a bitwise match operation defined as '(data & value) == value'.";
+                                                }
+                                                bit any {
+                                                    position 3;
+                                                    description "Any bit.  This is a match on any of the bits in bitmask.  It evaluates to 'true' if any of the bits in the value mask are set in the data, i.e., '(data & value) != 0'.";
+                                                }
+                                            }
+                                            description "Specifies how to apply the defined bitmask. 'any' and 'match' bits must not be set simultaneously.";
+                                        }
                                           grouping A {
                                               container modules-state {
                                                   config false;
@@ -93,6 +109,7 @@ public class ParsingTests(ITestOutputHelper output)
                                                       server MUST change the value of this leaf if the information represented by the 'module' list instances
                                                       has changed.";
                                                   }
+                                                  leaf test { type operator; }
                                               }
                                           }
                                       }
@@ -139,7 +156,12 @@ public class ParsingTests(ITestOutputHelper output)
         {
             Assert.IsNotType<Uses>(statement);
         }
-        Print(compilationUnit);
+
+        IncludeSubmodules(compilationUnit.Children.OfType<Module>().ToDictionary(x => x.Argument),
+            compilationUnit.Children.ToDictionary(x => x.Argument));
+        UnwrapUses(compilationUnit);
+
+        output.WriteLine(Clean(compilationUnit.ToCode()));
     }
 
     [Fact]
@@ -185,6 +207,11 @@ public class ParsingTests(ITestOutputHelper output)
         output.WriteLine($"{tabs}}}");
     }
 
+    private string Clean(string input)
+    {
+        return string.Join("\n", input.Split('\n').Where(line => !string.IsNullOrWhiteSpace(line)));
+    }
+
     private void Print(IStatement statement, int indent = 0)
     {
         var terminator = statement.Children.Length == 0 ? ";" : "";
@@ -199,5 +226,52 @@ public class ParsingTests(ITestOutputHelper output)
         output.WriteLine($"{tabs}{{");
         foreach (var sub in statement.Children) Print(sub, indent + 1);
         output.WriteLine($"{tabs}}}");
+    }
+
+    private static void UnwrapUses(IStatement compilation)
+    {
+        foreach (var module in compilation.Children.OfType<Module>())
+        {
+            var usings = module.Unwrap().OfType<Uses>().ToArray();
+            foreach (var use in usings)
+            {
+                if (use.IsUnderGrouping())
+                {
+                    continue;
+                }
+
+                use.Expand();
+            }
+        }
+    }
+
+    private static void IncludeSubmodules(Dictionary<string, Module> modules,
+        Dictionary<string, IStatement> topLevels)
+    {
+        foreach (var module in modules.Values)
+        {
+            var includes = module.Unwrap().OfType<Include>().ToArray();
+            foreach (var include in includes)
+            {
+                if (!topLevels.TryGetValue(include.Argument, out var submodule))
+                {
+                    throw new SemanticError(
+                        $"Could not find a subModule with the key {include.Argument}",
+                        include.Source);
+                }
+
+                if (submodule.TryGetChild<BelongsTo>(out var belongsTo))
+                {
+                    if (module.Argument != belongsTo?.Argument)
+                    {
+                        throw new SemanticError(
+                            $"Include of module {submodule.Argument} that does not belong to module {module.Argument} (belongs to {belongsTo?.Argument})",
+                            include.Source);
+                    }
+                }
+
+                include.Parent?.Replace(include, submodule.Children);
+            }
+        }
     }
 }

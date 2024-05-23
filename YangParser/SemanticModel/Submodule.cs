@@ -10,7 +10,6 @@ public class Submodule : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
 
@@ -45,6 +44,11 @@ public class Submodule : Statement
     ];
 
     public const string Keyword = "submodule";
+
+    public override string ToCode()
+    {
+        return string.Join("\n", Children.Select(child => child.ToCode()).ToArray());
+    }
 }
 
 public class BelongsTo : Statement
@@ -53,7 +57,6 @@ public class BelongsTo : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
     public const string Keyword = "belongs-to";

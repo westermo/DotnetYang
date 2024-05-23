@@ -26,11 +26,14 @@ public class Enum : Statement
 
     public override string ToCode()
     {
+        // foreach (var child in Children)
+        // {
+        //     child.ToCode();
+        // }
         var assignment = Children.FirstOrDefault(child => child is Value)?.Argument;
-        assignment = assignment is null ? null : $"= {assignment}";
+        assignment = assignment is null ? null : $" = {assignment}";
         return $"""
-                {DescriptionString}
-                {AttributeString}
+                {DescriptionString}{AttributeString}
                 {MakeName(Argument)}{assignment},
                 """;
     }

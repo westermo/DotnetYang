@@ -10,7 +10,6 @@ public class Organization : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
 
@@ -18,6 +17,6 @@ public class Organization : Statement
 
     public override string ToCode()
     {
-        return $"public const string Organization = \"{Argument}\";";
+        return $"public const string Organization = \"{SingleLine(Argument)}\";";
     }
 }

@@ -10,7 +10,6 @@ public class Identity : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
     public const string Keyword = "identity";
@@ -35,8 +34,7 @@ public class Identity : Statement
             .Select(Selector).ToArray();
         var inheritance = inherits.Length == 0 ? string.Empty : " : " + string.Join(", ", inherits);
         return $"""
-                {DescriptionString}
-                {AttributeString}
+                {DescriptionString}{AttributeString}
                 public interface I{MakeName(Argument)}{inheritance};
                 """;
     }

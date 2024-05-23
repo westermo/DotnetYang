@@ -26,7 +26,7 @@ public class Revision : Statement
 
     public override string ToCode()
     {
-        Parent?.Attributes.Add($"Revision(\"{Argument}\")");
+        Parent?.Attributes.Add($"Revision(\"{Argument.Replace("\n","")}\")");
         return string.Empty;
     }
 }

@@ -34,9 +34,10 @@ public class Input : Statement
     public override string ToCode()
     {
         return $$"""
-                 public class {{MakeName(Parent!.Argument)}}Input
+                 public class {{MakeName(Parent!.Argument)}}Input : IXMLSource
                  {
                      {{string.Join("\n\t", Children.Select(child => Indent(child.ToCode())))}}
+                     public string ToXML() => string.Empty; //TODO
                  }
                  """;
     }

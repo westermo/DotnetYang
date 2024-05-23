@@ -42,7 +42,7 @@ public class List : Statement, IClassSource
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
+
         m_source = statement;
     }
 
@@ -53,15 +53,10 @@ public class List : Statement, IClassSource
     public override string ToCode()
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
-        string property = Parent is Module
-            ? string.Empty
-            : $"public{KeywordString}List<{MakeName(Argument)}Entry> {MakeName(Argument)} {{ get; }} = new();";
+        string property =
+            $"\n{DescriptionString}\npublic{KeywordString}List<{MakeName(Argument)}Entry> {MakeName(Argument)} {{ get; }} = new();";
         return $$"""
-                 /*
-                 {{Print(m_source)}}
-                 */
                  {{property}}
-                 {{DescriptionString}}
                  {{AttributeString}}
                  public class {{MakeName(Argument)}}Entry
                  {

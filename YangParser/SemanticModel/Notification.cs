@@ -37,8 +37,7 @@ public class Notification : Statement
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
         return $$"""
-                 {{DescriptionString}}
-                 {{AttributeString}}
+                 {{DescriptionString}}{{AttributeString}}
                  public class {{MakeName(Argument)}}
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}

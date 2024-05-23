@@ -13,7 +13,7 @@ public class Choice : Statement, IClassSource
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
+
         m_source = statement;
     }
 
@@ -42,14 +42,13 @@ public class Choice : Statement, IClassSource
 
     public override string ToCode()
     {
-        var nodes = Children.Select(child => child.ToCode()).ToArray();
+        var nodes = Children.Where(t => t is not DefaultValue).Select(child => child.ToCode()).ToArray();
         string property = Parent is Module
             ? string.Empty
             : $"public{KeywordString}{MakeName(Argument)}Choice? {MakeName(Argument)} {{ get; set; }}";
         return $$"""
                  {{property}}
-                 {{DescriptionString}}
-                 {{AttributeString}}
+                 {{DescriptionString}}{{AttributeString}}
                  public class {{MakeName(Argument)}}Choice
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}

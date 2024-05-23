@@ -38,6 +38,7 @@ public class Output : Statement
                  public class {{MakeName(Parent!.Argument)}}Output
                  {
                      {{string.Join("\n\t", Children.Select(child => Indent(child.ToCode())))}}
+                     public static {{MakeName(Parent!.Argument)}}Output Parse(string xml) => new(); //TODO
                  }
                  """;
     }

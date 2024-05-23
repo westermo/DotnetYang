@@ -76,15 +76,20 @@ public class YangGenerator : IIncrementalGenerator
             //Replace Uses by their respective groupings
             UnwrapUses(context, compilation);
 
-            foreach (var module in compilation.Children)
+            foreach (var module in compilation.Children.OfType<Module>())
             {
-                context.AddSource(module.Argument + ".cs", module.ToCode());
+                context.AddSource(module.Filename, Clean(module.ToCode()));
             }
         }
         catch (Exception e)
         {
             ReportDiagnostics(context, new ResultOrException<IStatement>(e));
         }
+    }
+
+    private string Clean(string input)
+    {
+        return string.Join("\n", input.Split('\n').Where(line => !string.IsNullOrWhiteSpace(line)));
     }
 
     private static void UnwrapUses(SourceProductionContext context, IStatement compilation)
@@ -262,67 +267,80 @@ public class YangGenerator : IIncrementalGenerator
 
     private void AddAttributesClass(IncrementalGeneratorPostInitializationContext context)
     {
-        context.AddSource("Yang.Attributes.cs", """
-                                                using System;
-                                                namespace Yang.Attributes;
-                                                [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-                                                public class RevisionAttribute(string date) : Attribute
-                                                {
-                                                    public string Date { get; } = date;
-                                                }
+        context.AddSource("YangModules/Attributes/Yang.Attributes.cs", """
+                                                                       using System;
+                                                                       namespace Yang.Attributes;
+                                                                       [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+                                                                       public class RevisionAttribute(string date) : Attribute
+                                                                       {
+                                                                           public string Date { get; } = date;
+                                                                       }
 
-                                                [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-                                                public class PresenceAttribute(string meaning) : Attribute
-                                                {
-                                                    public string Meaning { get; } = meaning;
-                                                }
-                                                [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-                                                public class ProvidesFeatureAttribute(string flag) : Attribute
-                                                {
-                                                    public string FeatureFlag { get; } = flag;
-                                                }
-                                                [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                                                public class IfFeatureAttribute(string flag) : Attribute
-                                                {
-                                                    public string FeatureFlag { get; } = flag;
-                                                }
-                                                [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                                                public class ReferenceAttribute(string reference) : Attribute
-                                                {
-                                                    public string Reference { get; } = reference;
-                                                }
-                                                [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                                                public class WhenAttribute(string xPath) : Attribute
-                                                {
-                                                    public string XPath { get; } = xPath;
-                                                }
-                                                [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                                                public class TargetAttribute(string xPath) : Attribute
-                                                {
-                                                    public string XPath { get; } = xPath;
-                                                }
-                                                [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                                                public class KeyAttribute(string value) : Attribute
-                                                {
-                                                    public string Value { get; } = value;
-                                                }
-                                                [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-                                                public class MinElements(int value) : Attribute
-                                                {
-                                                    public int Value { get; } = value;
-                                                }
-                                                [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-                                                public class MaxElements(int value) : Attribute
-                                                {
-                                                    public int Value { get; } = value;
-                                                }
-                                                [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                                                public class NotConfigurationData : Attribute;
+                                                                       [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+                                                                       public class PresenceAttribute(string meaning) : Attribute
+                                                                       {
+                                                                           public string Meaning { get; } = meaning;
+                                                                       }
+                                                                       [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+                                                                       public class ProvidesFeatureAttribute(string flag) : Attribute
+                                                                       {
+                                                                           public string FeatureFlag { get; } = flag;
+                                                                       }
+                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                                                                       public class IfFeatureAttribute(string flag) : Attribute
+                                                                       {
+                                                                           public string FeatureFlag { get; } = flag;
+                                                                       }
+                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                                                                       public class ReferenceAttribute(string reference) : Attribute
+                                                                       {
+                                                                           public string Reference { get; } = reference;
+                                                                       }
+                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                                                                       public class WhenAttribute(string xPath) : Attribute
+                                                                       {
+                                                                           public string XPath { get; } = xPath;
+                                                                       }
+                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                                                                       public class TargetAttribute(string xPath) : Attribute
+                                                                       {
+                                                                           public string XPath { get; } = xPath;
+                                                                       }
+                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                                                                       public class KeyAttribute(params string[] value) : Attribute
+                                                                       {
+                                                                           public string[] Value { get; } = value;
+                                                                       }
+                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                                                                       public class MinElementsAttribute(int value) : Attribute
+                                                                       {
+                                                                           public int Value { get; } = value;
+                                                                       }
+                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                                                                       public class MaxElementsAttribute(int value) : Attribute
+                                                                       {
+                                                                           public int Value { get; } = value;
+                                                                       }
+                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                                                                       public class OrderedByAttribute(string value) : Attribute
+                                                                       {
+                                                                           public string Value { get; } = value;
+                                                                       }
+                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                                                                       public class NotConfigurationData : Attribute;
 
-                                                public interface IInstanceIdentifier
-                                                {
-                                                    public string Path { get; }
-                                                }
-                                                """);
+                                                                       public class InstanceIdentifier(string path)
+                                                                       {
+                                                                            public string Path { get; } = path;
+                                                                       }
+                                                                       public interface IChannel
+                                                                       {
+                                                                           string Send(string xml);
+                                                                       }
+                                                                       public interface IXMLSource
+                                                                       {
+                                                                           string ToXML();
+                                                                       }
+                                                                       """);
     }
 }

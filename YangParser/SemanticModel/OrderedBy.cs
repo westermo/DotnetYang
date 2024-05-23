@@ -10,7 +10,7 @@ public class OrderedBy : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
+
         ValidateChildren(statement);
         switch (Argument)
         {
@@ -23,4 +23,10 @@ public class OrderedBy : Statement
     }
 
     public const string Keyword = "ordered-by";
+
+    public override string ToCode()
+    {
+        Parent?.Attributes.Add($"OrderedBy(\"{Argument}\")");
+        return string.Empty;
+    }
 }

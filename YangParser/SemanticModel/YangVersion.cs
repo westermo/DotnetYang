@@ -10,15 +10,12 @@ public class YangVersion : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
-        Value = new Version(Argument);
     }
 
     public const string Keyword = "yang-version";
-    private Version Value { get; }
 
     public override string ToCode()
     {
-        return $"//Yang Version {Value}";
+        return $"//Yang Version {Argument}";
     }
 }

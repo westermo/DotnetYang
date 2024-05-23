@@ -10,7 +10,7 @@ public class Import : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
+
         Revision = Children.FirstOrDefault(child => child is RevisionDate)?.Argument;
         Prefix = Children.First(child => child is Prefix).Argument;
         var reference = Children.FirstOrDefault(child => child is Reference);
@@ -35,7 +35,6 @@ public class Import : Statement
 
     public override string ToCode()
     {
-        return
-            $"//{Keyword} {Argument}, Revision: \"{Revision}\", Prefix: \"{Prefix}\", {AdditionalInformation?.Replace("\n", " ")}";
+        return string.Empty;
     }
 }

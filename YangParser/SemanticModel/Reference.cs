@@ -16,7 +16,7 @@ public class Reference : Statement, ICommentSource
     public const string Keyword = "reference";
     public override string ToCode()
     {
-        Parent?.Attributes.Add($"Reference(\"{Argument.Replace("\n","")}\")");
+        Parent?.Attributes.Add($"Reference(\"\"\"{string.Join(" ", Argument.Split('\n').Select(s => s.Trim()))}\"\"\")");
         return string.Empty;
     }
 }

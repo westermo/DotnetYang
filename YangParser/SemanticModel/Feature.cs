@@ -10,7 +10,6 @@ public class Feature : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
     public override ChildRule[] PermittedChildren { get; } =
@@ -25,7 +24,7 @@ public class Feature : Statement
 
     public override string ToCode()
     {
-        Parent?.Attributes.Add($"ProvidesFeature(\"{Argument}\")");
-        return $"//Feature Declaration: {Argument}, Parent is {Parent?.GetType()}";
+        Parent?.Attributes.Add($"ProvidesFeature(\"{Argument.Replace("\n", "")}\")");
+        return $"//Feature Declaration: {Argument.Replace("\n", "")}, Parent is {Parent?.GetType().Name}";
     }
 }

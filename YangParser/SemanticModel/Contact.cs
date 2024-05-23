@@ -17,13 +17,12 @@ public class Contact : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
     public const string Keyword = "contact";
 
     public override string ToCode()
     {
-        return $"//Contact: {Argument.Replace("\n", "\n//")}";
+        return $"//Contact: {SingleLine(Argument)}";
     }
 }

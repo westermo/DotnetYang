@@ -13,7 +13,6 @@ public class Container : Statement, IClassSource
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
     public const string Keyword = "container";
@@ -31,6 +30,7 @@ public class Container : Statement, IClassSource
         new ChildRule(Leaf.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(LeafList.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(List.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Notification.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Must.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Presence.Keyword),
         new ChildRule(Reference.Keyword),
@@ -48,30 +48,11 @@ public class Container : Statement, IClassSource
             : $"public{KeywordString}{MakeName(Argument)}Container? {MakeName(Argument)} {{ get; set; }}";
         return $$"""
                  {{property}}
-                 {{DescriptionString}}
-                 {{AttributeString}}
+                 {{DescriptionString}}{{AttributeString}}
                  public class {{MakeName(Argument)}}Container
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}
                  }
                  """;
-    }
-}
-
-public class Presence : Statement
-{
-    public Presence(YangStatement statement) : base(statement)
-    {
-        if (statement.Keyword != Keyword)
-            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
-    }
-
-    public const string Keyword = "presence";
-
-    public override string ToCode()
-    {
-        Parent?.Attributes.Add($"Presence(\"{Argument.Replace("\n", "")}\")");
-        return string.Empty;
     }
 }

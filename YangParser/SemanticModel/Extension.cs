@@ -10,7 +10,6 @@ public class Extension : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
     public const string Keyword = "extension";
@@ -29,15 +28,15 @@ public class Extension : Statement
         var argStr = arg is null
             ? string.Empty
             : $$"""
-                public string {{arg.Argument}} { get; set; }
-                public {{Argument}}(string {{arg.Argument}})
+                public string {{MakeName(arg.Argument)}} { get; set; }
+                public {{MakeName(Argument)}}Attribute(string {{MakeName(arg.Argument)}})
                 {
-                    this.{{arg.Argument}} = {{arg.Argument}};
+                    this.{{MakeName(arg.Argument)}} = {{MakeName(arg.Argument)}};
                 }
                 """;
         return $$"""
                  [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-                 public class {{MakeName(Argument)}} : Attribute
+                 public class {{MakeName(Argument)}}Attribute : Attribute
                  {
                      {{Indent(argStr)}}
                  }

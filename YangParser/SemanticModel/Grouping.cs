@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using YangParser.Parser;
+using YangParser.SemanticModel.Builtins;
 
 namespace YangParser.SemanticModel;
 
@@ -38,9 +39,36 @@ public class Grouping : Statement
 
     public IStatement[] WithUse(Uses use)
     {
+        foreach (var child in this.Unwrap())
+        {
+            if (child is not Type type) continue;
+            if (BuiltinTypeReference.IsBuiltin(type, out _) && type.Argument != "identityref")
+            {
+                continue;
+            }
+
+            if (type.Argument.Contains(':')) //Is prefixed already, leave be
+            {
+                continue;
+            }
+
+            type.Argument = this.GetInheritedPrefix() + ":" + type.Argument;
+        }
+
         foreach (var inner in this.Unwrap().OfType<Uses>().ToArray())
         {
             inner.Expand();
+        }
+        //Propogate usings upwards
+        if (use.GetModule() is Module target)
+        {
+            if (this.GetModule() is Module source)
+            {
+                foreach (var pair in source.Usings)
+                {
+                    target.Usings[pair.Key] = pair.Value;
+                }
+            }
         }
 
         return Children;
