@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
@@ -43,9 +42,10 @@ public class YangGenerator : IIncrementalGenerator
 
     private void MakeClasses(SourceProductionContext context, ImmutableArray<ResultOrException<IStatement>> models)
     {
+        Log.Clear();
         try
         {
-            Dictionary<string, IStatement> topLevels = new();
+            Dictionary<string, ITopLevelStatement> topLevels = new();
             Dictionary<string, Module> modules = new();
             foreach (var model in models)
             {
@@ -54,6 +54,7 @@ public class YangGenerator : IIncrementalGenerator
                     ReportDiagnostics(context, model);
                     continue;
                 }
+
 
                 var statement = model.Result!;
                 switch (statement)
@@ -65,26 +66,43 @@ public class YangGenerator : IIncrementalGenerator
                     case Submodule submodule:
                         topLevels[submodule.Argument] = submodule;
                         break;
+                    default:
+                        throw new SemanticError(
+                            $"Unexpected top level statement of type {statement.GetType().Name} from {statement.Argument}",
+                            statement.Source);
                 }
             }
-
 
             //Replace Includes with their respective submodules
             IncludeSubmodules(context, modules, topLevels);
             var compilation = new CompilationUnit(modules.Values.ToArray());
+            Log.Write(
+                $"available modules are:\n-{string.Join("\n-", compilation.Children.OfType<Module>().Select(i => i.Argument))}");
+
 
             //Replace Uses by their respective groupings
             UnwrapUses(context, compilation);
-
             foreach (var module in compilation.Children.OfType<Module>())
             {
-                context.AddSource(module.Filename, Clean(module.ToCode()));
+                try
+                {
+                    context.AddSource(module.Filename, Clean(module.ToCode()));
+                }
+                catch (Exception e)
+                {
+                    context.AddSource(module.Filename + ".errors",
+                        $"#error Exception when generating code for {module.Filename}" + "\n/*\n" + e.Message + "\n" +
+                        e.StackTrace + "\n*/");
+                }
             }
         }
         catch (Exception e)
         {
-            ReportDiagnostics(context, new ResultOrException<IStatement>(e));
+            context.AddSource("errors",
+                "#error General Exception" + "\n/*\n" + e.Message + "\n" + e.StackTrace + "\n*/");
         }
+
+        context.AddSource("log.cs", "/*\n" + Log.Get() + "\n*/");
     }
 
     private string Clean(string input)
@@ -117,7 +135,7 @@ public class YangGenerator : IIncrementalGenerator
     }
 
     private static void IncludeSubmodules(SourceProductionContext context, Dictionary<string, Module> modules,
-        Dictionary<string, IStatement> topLevels)
+        Dictionary<string, ITopLevelStatement> topLevels)
     {
         foreach (var module in modules.Values)
         {
@@ -145,6 +163,12 @@ public class YangGenerator : IIncrementalGenerator
                 }
 
                 include.Parent?.Replace(include, submodule.Children);
+                Log.Write($"Including submodule '{submodule.Argument}' into module '{module.Argument}'");
+                foreach (var pair in submodule.Usings)
+                {
+                    module.Usings[pair.Key] = pair.Value;
+                    Log.Write($"Added prefix '{pair.Key}' as '{pair.Value}' to '{module.Argument}'");
+                }
             }
         }
     }

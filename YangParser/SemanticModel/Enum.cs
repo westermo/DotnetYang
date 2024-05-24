@@ -10,7 +10,6 @@ public class Enum : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
     public const string Keyword = "enum";

@@ -34,8 +34,9 @@ public class Identity : Statement
             .Select(Selector).ToArray();
         var inheritance = inherits.Length == 0 ? string.Empty : " : " + string.Join(", ", inherits);
         return $"""
+                public interface I{MakeName(Argument)}BaseIdentity{inheritance};
                 {DescriptionString}{AttributeString}
-                public interface I{MakeName(Argument)}{inheritance};
+                public class I{MakeName(Argument)} : I{MakeName(Argument)}BaseIdentity;
                 """;
     }
 
@@ -44,10 +45,10 @@ public class Identity : Statement
         if (b.Argument.Contains(":"))
         {
             var parts = b.Argument.Split(':');
-            parts[parts.Length - 1] = "I" + MakeName(parts[parts.Length - 1]);
+            parts[parts.Length - 1] = "I" + MakeName(parts[parts.Length - 1]) + "BaseIdentity";
             return string.Join(":", parts);
         }
 
-        return "I" + MakeName(b.Argument);
+        return "I" + MakeName(b.Argument) + "BaseIdentity";
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using YangParser.Generator;
 using YangParser.Parser;
 using YangParser.SemanticModel.Builtins;
 
@@ -42,12 +43,28 @@ public class Grouping : Statement
         foreach (var child in this.Unwrap())
         {
             if (child is not Type type) continue;
-            if (BuiltinTypeReference.IsBuiltin(type, out _) && type.Argument != "identityref")
+            if (type.Argument.Contains("identityref"))
+            {
+                foreach (var baseType in type.Children.OfType<Base>())
+                {
+                    if (baseType.Argument.Contains(':') ||
+                        baseType.Argument.Contains('.')) //Is prefixed already, leave be
+                    {
+                        continue;
+                    }
+
+                    baseType.Argument = this.GetInheritedPrefix() + ":" + baseType.Argument;
+                }
+
+                continue;
+            }
+
+            if (BuiltinTypeReference.IsBuiltin(type, out _, out _))
             {
                 continue;
             }
 
-            if (type.Argument.Contains(':')) //Is prefixed already, leave be
+            if (type.Argument.Contains(':') || type.Argument.Contains('.')) //Is prefixed already, leave be
             {
                 continue;
             }
@@ -59,17 +76,36 @@ public class Grouping : Statement
         {
             inner.Expand();
         }
-        //Propogate usings upwards
-        if (use.GetModule() is Module target)
+
+        var containingModule = this.GetModule();
+        if (containingModule is null)
         {
-            if (this.GetModule() is Module source)
+            Log.Write($"Error, could not find containing module for grouping '{Argument}'");
+        }
+        else
+        {
+            foreach (var child in Children)
             {
-                foreach (var pair in source.Usings)
-                {
-                    target.Usings[pair.Key] = pair.Value;
-                }
+                containingModule.ExpandPrefixes(child);
             }
         }
+
+        // //Propogate usings upwards
+        // if (use.GetModule() is Module target)
+        // {
+        //     if (this.GetModule() is Module source)
+        //     {
+        //         if (source == target) return Children;
+        //         foreach (var pair in source.Usings)
+        //         {
+        //             if (!target.Usings.ContainsKey(pair.Key))
+        //             {
+        //                 Log.Write($"Adding prefix {pair.Key} to '{target.Argument}' from '{source.Argument}");
+        //                 target.Usings[pair.Key] = pair.Value;
+        //             }
+        //         }
+        //     }
+        // }
 
         return Children;
     }

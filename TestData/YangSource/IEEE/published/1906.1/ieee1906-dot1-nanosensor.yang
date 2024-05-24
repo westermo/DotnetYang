@@ -6,7 +6,7 @@ module ieee1906-dot1-nanosensor
 
   import ietf-interfaces { prefix if; }
   import ieee1906-dot1-components { prefix components; }
-  import ieee1906-dot1-components { prefix definitions; }
+  import ieee1906-dot1-definitions { prefix definitions; }
   import ieee1906-dot1-types { prefix types; }
 
   organization "IEEE 1906.1.1 Working Group";

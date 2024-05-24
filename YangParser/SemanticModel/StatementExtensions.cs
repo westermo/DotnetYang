@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using YangParser.Generator;
 
 namespace YangParser.SemanticModel;
 
@@ -38,7 +39,7 @@ public static class StatementExtensions
     public static bool TryGetChild<T>(this IStatement statement, out T? child) where T : class, IStatement
     {
         child = null;
-        if (statement.Children.FirstOrDefault(c => c is T) is T chosen)
+        if (statement?.Children.FirstOrDefault(c => c is T) is T chosen)
         {
             child = chosen;
             return true;
@@ -59,7 +60,7 @@ public static class StatementExtensions
         }
     }
 
-    public static IStatement? GetModule(this IStatement? source)
+    public static ITopLevelStatement? GetModule(this IStatement? source)
     {
         while (source is not null)
         {
@@ -78,8 +79,8 @@ public static class StatementExtensions
 
     public static IStatement? FindSourceFor(this IStatement source, string prefix)
     {
-        var module = GetModule(source);
-        var imports = module?.Children.OfType<Import>();
+        var module = source.Root();
+        var imports = module?.Unwrap().OfType<Import>();
         return imports?.FirstOrDefault(import => import.GetChild<Prefix>().Argument == prefix);
     }
 
@@ -157,7 +158,7 @@ public static class StatementExtensions
                 if (grouping is null)
                 {
                     throw new SemanticError(
-                        $"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{source.Argument} from prefix {prefix}'",
+                        $"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{source.Argument}' from prefix '{prefix}', import was {Statement.SingleLine(import.ToString())}",
                         use.Source);
                 }
 
@@ -182,5 +183,53 @@ public static class StatementExtensions
         var grouping = use.GetGrouping();
         var parent = use.Parent;
         parent!.Replace(use, grouping.WithUse(use));
+    }
+
+    public static IStatement? FindReference(this IStatement source, string reference)
+    {
+        var components = reference.Split(':');
+        IStatement? module;
+        string name;
+        if (components.Length == 1)
+        {
+            module = source.GetModule();
+            name = components[0];
+        }
+        else
+        {
+            var prefix = components[0];
+            if (source.GetInheritedPrefix() == prefix)
+            {
+                module = source.GetModule();
+                name = components[1];
+            }
+            else
+            {
+                var import = source.FindSourceFor(prefix);
+                var moduleName = import?.Argument;
+                if (import is null)
+                {
+                    Log.Write(
+                        $"Failed to find import for '{reference}' from module '{source.GetModule()?.Argument}', available imports are {string.Join(",", source.GetModule()?.Unwrap().OfType<Import>().Select(i => $"[{i.GetChild<Prefix>().Argument} -> {i.Argument}]") ?? [])}");
+                    return null;
+                }
+
+                module = source.Root().Children.FirstOrDefault(c => c.Argument == moduleName);
+                if (module is null)
+                {
+                    Log.Write(
+                        $"Failed to find module for '{moduleName}'");
+                    return null;
+                }
+
+                name = components[1];
+            }
+        }
+
+
+        var value = module?.Unwrap().FirstOrDefault(c => c.Argument == name && c is not DefaultValue && c != source);
+        value ??= source.Root().Unwrap()
+            .FirstOrDefault(c => c.Argument == name && c is not DefaultValue && c != source);
+        return value;
     }
 }

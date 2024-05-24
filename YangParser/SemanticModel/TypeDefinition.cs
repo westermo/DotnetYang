@@ -43,6 +43,7 @@ public class TypeDefinition : Statement, IFunctionSource
             child.ToCode();
         }
 
-        return HandleType(BaseType, Argument);
+        return BaseType.Definition ??
+               BuiltinTypeReference.DefaultPattern(this, [], [], TypeName(BaseType), MakeName(Argument));
     }
 }

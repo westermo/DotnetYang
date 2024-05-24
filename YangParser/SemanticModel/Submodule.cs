@@ -1,15 +1,23 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Submodule : Statement
+public class Submodule : Statement, ITopLevelStatement
 {
     public Submodule(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
+        Usings = new();
+        foreach (var import in Children.OfType<Import>())
+        {
+            var use = MakeNamespace(import.Argument) + ".YangNode.";
+            var prefix = import.GetChild<Prefix>().Argument;
+            Usings[prefix] = use;
+        }
     }
 
 
@@ -48,6 +56,28 @@ public class Submodule : Statement
     public override string ToCode()
     {
         return string.Join("\n", Children.Select(child => child.ToCode()).ToArray());
+    }
+
+    public Dictionary<string, string> Usings { get; }
+
+    public void ExpandPrefixes(IStatement statement)
+    {
+        foreach (var prefix in Usings.Keys)
+        {
+            statement.Argument = statement.Argument.Replace(prefix + ":", Usings[prefix]);
+            if (statement is KeywordReference keywordReference)
+            {
+                if (keywordReference.ReferenceNamespace == prefix)
+                {
+                    keywordReference.ReferenceNamespace = Usings[prefix];
+                }
+            }
+        }
+
+        foreach (var child in statement.Children)
+        {
+            ExpandPrefixes(child);
+        }
     }
 }
 

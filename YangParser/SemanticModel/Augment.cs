@@ -51,7 +51,7 @@ public class Augment : Statement
         //TODO: Add Augmentation logic
         return $$"""
                  /*
-                 {{Print(this)}}
+                 {{this}}
                  */
                  """;
     }

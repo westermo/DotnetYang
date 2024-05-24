@@ -4,7 +4,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Module : Statement
+public class Module : Statement, ITopLevelStatement
 {
     public Module(YangStatement statement) : base(statement)
     {
@@ -68,6 +68,7 @@ public class Module : Statement
                     using System.Collections.Generic;
                     using System.Runtime.CompilerServices;
                     using System.Xml.Linq;
+                    using System.Text.RegularExpressions;
                     using Yang.Attributes;
                     {{string.Join("\n", Usings.Values.Where(p => p != MakeNamespace(Argument) + ".YangNode.").Select(value => $"using {value.Replace(".YangNode.", "")};").Distinct())}}
                     namespace {{ns}};
@@ -78,6 +79,13 @@ public class Module : Statement
                         {{string.Join("\n\t", nodes.Select(Indent))}}
                     }
                     """;
+        raw = ReplacePrefixes(raw);
+
+        return raw;
+    }
+
+    private string ReplacePrefixes(string raw)
+    {
         foreach (var prefix in Usings.Keys)
         {
             raw = raw.Replace(" " + prefix + ":", " " + Usings[prefix]);
@@ -85,6 +93,26 @@ public class Module : Statement
         }
 
         return raw;
+    }
+
+    public void ExpandPrefixes(IStatement statement)
+    {
+        foreach (var prefix in Usings.Keys)
+        {
+            statement.Argument = statement.Argument.Replace(prefix + ":", Usings[prefix]);
+            if (statement is KeywordReference keywordReference)
+            {
+                if (keywordReference.ReferenceNamespace == prefix)
+                {
+                    keywordReference.ReferenceNamespace = Usings[prefix];
+                }
+            }
+        }
+
+        foreach (var child in statement.Children)
+        {
+            ExpandPrefixes(child);
+        }
     }
 
     // public string Capability
@@ -101,4 +129,10 @@ public class Module : Statement
     //         return builder.ToString();
     //     }
     // }
+}
+
+public interface ITopLevelStatement : IStatement
+{
+    public Dictionary<string, string> Usings { get; }
+    public void ExpandPrefixes(IStatement statement);
 }

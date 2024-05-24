@@ -11,6 +11,8 @@ public interface IStatement
     HashSet<string> Keywords { get; }
     IStatement[] Children { get; set; }
     IStatement? Parent { get; set; }
+    string AttributeString { get; }
+    string DescriptionString { get; }
     Metadata Metadata { get; }
     YangStatement Source { get; }
     string ToCode();

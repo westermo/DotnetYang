@@ -18,7 +18,7 @@ public class LeafList : Statement
         new ChildRule(OrderedBy.Keyword),
         new ChildRule(Reference.Keyword),
         new ChildRule(Status.Keyword),
-        new ChildRule(SemanticModel.Type.Keyword, Cardinality.Required),
+        new ChildRule(Type.Keyword, Cardinality.Required),
         new ChildRule(Units.Keyword),
         new ChildRule(DefaultValue.Keyword),
         new ChildRule(When.Keyword)
@@ -36,7 +36,7 @@ public class LeafList : Statement
     private DefaultValue? Default { get; }
 
     public const string Keyword = "leaf-list";
-    public Type Type { get; }
+    private Type Type { get; }
 
     public override string ToCode()
     {
@@ -51,49 +51,12 @@ public class LeafList : Statement
         var name = MakeName(Argument);
         var typeName = TypeName(Type);
         string addendum = string.Empty;
-        if (Type.Argument is "enumeration" or "union" or "leafref" or "instance-identifier" or "bits" or "leafref")
-        {
-            typeName = $"{name}Definition";
-            addendum = HandleType(Type, typeName);
-        }
-
-        if (Type.Argument is "enumeration" or "bits")
-        {
-            defaulting = defaultValue is null ? string.Empty : $"= {typeName}.{MakeName(defaultValue)}";
-        }
-        else if (Type.Argument.Contains("identityref"))
-        {
-            var ifaceName = InterfaceName(Type.GetChild<Base>());
-            if (ifaceName.Contains(':'))
-            {
-                typeName = ifaceName;
-            }
-            else
-            {
-                typeName = typeName.Replace("Identityref", ifaceName);
-            }
-        }
-        // else if (Type.Argument is "identityref")
-        // {
-        //     defaulting = defaultValue is null ? string.Empty : $"= new {MakeName(defaultValue).Replace(";", "")}();";
-        //     var components = MakeName(Type.GetChild<Base>().Argument).Split(':');
-        //     components[components.Length - 1] = "I" + components[components.Length - 1];
-        //
-        //     typeName = string.Join(":", components);
-        // }
-        else if (defaultValue?.Contains('"') == false) //Is not a string 
-        {
-            if (!double.TryParse(defaultValue, out _)) //Is not a number
-            {
-                //Assume is enum;
-                defaulting = $"= {typeName}.{MakeName(defaultValue)}";
-            }
-        }
-
         return $$"""
                  {{addendum}}
                  {{DescriptionString}}{{AttributeString}}
-                 public{{KeywordString}}{{typeName}}[]? {{MakeName(Argument)}} { get; set; } {{defaulting}}
+                 public{{KeywordString}}{{Type.Name}}[]? {{name}} { get; set; } {{defaulting}}
+                 {{Type.Definition}}
+                 {{Default?.Addendum}}
                  """;
     }
 }
