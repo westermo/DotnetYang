@@ -26,6 +26,10 @@ public class DefaultValue : Statement
 
     private string GetTypeSpecification(string prefix, string value, Type type)
     {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "null";
+        }
         var aPrefix = string.IsNullOrEmpty(prefix) ? "" : prefix.Contains('.') ? prefix : prefix + ":";
         switch (type.Argument)
         {
@@ -56,7 +60,12 @@ public class DefaultValue : Statement
                 var enumeration = type.SearchDownwards<Enum>(Argument);
                 if (enumeration != null)
                 {
-                    return aPrefix + type.Name + "." + enumeration.Ancestor<Type>()!.Name + "." + MakeName(Argument) + "/*Union*/";
+                    return aPrefix + type.Name + "." + enumeration.Ancestor<Type>()!.Name + "." + MakeName(Argument);
+                }
+                var bit = type.SearchDownwards<Bit>(Argument);
+                if (bit != null)
+                {
+                    return aPrefix + type.Name + "." + bit.Ancestor<Type>()!.Name + "." + MakeName(Argument);
                 }
                 return $"new(\"{Argument}\")/*Union*/";
             default:
@@ -67,7 +76,7 @@ public class DefaultValue : Statement
                     {
                         prefix = type.Argument.Prefix(out _);
                     }
-                    return GetTypeSpecification(prefix, value, source.GetChild<Type>()) + $"\n/*\nChaining to {source.GetChild<Type>()} in {source.GetInheritedPrefix()}\n*/";
+                    return GetTypeSpecification(prefix, value, source.GetChild<Type>());
                 }
                 if (onlyNumbers.Match(Argument).Success)
                 {
