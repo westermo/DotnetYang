@@ -26,11 +26,12 @@ public class DefaultValue : Statement
 
     private string GetTypeSpecification(string prefix, string value, Type type)
     {
+        var aPrefix = string.IsNullOrEmpty(prefix) ? "" : prefix.Contains('.') ? prefix : prefix + ":";
         switch (type.Argument)
         {
             case "bits":
             case "enumeration":
-                return prefix + type.Name + "." + MakeName(value);
+                return aPrefix + type.Name + "." + MakeName(value);
             case "identityref":
                 return $"\"{Argument}\"";
             case "string":
@@ -52,12 +53,12 @@ public class DefaultValue : Statement
                 {
                     return $"new({Argument})";
                 }
-                var enumeration = Parent!.GetChild<Type>().SearchDownwards<Enum>(Argument);
+                var enumeration = type.SearchDownwards<Enum>(Argument);
                 if (enumeration != null)
                 {
-                    return prefix + Parent!.GetChild<Type>().Name + "." + enumeration.Ancestor<Type>()!.Name + "." + MakeName(Argument);
+                    return aPrefix + type.Name + "." + enumeration.Ancestor<Type>()!.Name + "." + MakeName(Argument) + "/*Union*/";
                 }
-                return $"new(\"{Argument}\")";
+                return $"new(\"{Argument}\")/*Union*/";
             default:
                 var source = this.FindReference<TypeDefinition>(type.Argument);
                 if (source is not null)
@@ -66,7 +67,7 @@ public class DefaultValue : Statement
                     {
                         prefix = type.Argument.Prefix(out _);
                     }
-                    return GetTypeSpecification(prefix, value, source.GetChild<Type>());
+                    return GetTypeSpecification(prefix, value, source.GetChild<Type>()) + $"\n/*\nChaining to {source.GetChild<Type>()} in {source.GetInheritedPrefix()}\n*/";
                 }
                 if (onlyNumbers.Match(Argument).Success)
                 {
