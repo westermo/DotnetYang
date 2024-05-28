@@ -40,7 +40,7 @@ public static class StatementExtensions
     public static bool TryGetChild<T>(this IStatement statement, out T? child) where T : class, IStatement
     {
         child = null;
-        if (statement?.Children.FirstOrDefault(c => c is T) is T chosen)
+        if (statement.Children.FirstOrDefault(c => c is T) is T chosen)
         {
             child = chosen;
             return true;
@@ -81,7 +81,7 @@ public static class StatementExtensions
     public static IStatement? FindSourceFor(this IStatement source, string prefix)
     {
         var module = source.GetModule();
-        var imports = module.Imports;
+        var imports = module?.Imports;
         return imports?.FirstOrDefault(import => import.GetChild<Prefix>().Argument == prefix);
     }
 
@@ -120,7 +120,7 @@ public static class StatementExtensions
                 use.Source);
         }
 
-        var prefix = use.Argument.Prefix(out var name);
+        var prefix = use.Argument.Prefix(out _);
         if (!string.IsNullOrEmpty(prefix)) //Is 'outside-of-tree'
         {
             if (prefix == use.GetInheritedPrefix())
@@ -135,7 +135,8 @@ public static class StatementExtensions
 
                 return grouping;
             }
-            else if (!prefix.Contains("."))
+
+            if (!prefix.Contains("."))
             {
                 var import = use.FindSourceFor(prefix);
                 if (import is null)
@@ -157,7 +158,10 @@ public static class StatementExtensions
             {
                 var source = use.Root().Children.OfType<Module>().FirstOrDefault(m => m.Namespace == prefix) ??
                              throw new SemanticError($"Could not find a module with the key {prefix}", use.Source);
-                var grouping = use.FindGrouping(source);
+                var grouping = use.FindGrouping(source) ?? throw new SemanticError(
+                    $"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{source.Argument}' from prefix '{prefix}'",
+                    use.Source);
+                return grouping;
             }
         }
 

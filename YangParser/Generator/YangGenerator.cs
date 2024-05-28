@@ -96,26 +96,29 @@ public class YangGenerator : IIncrementalGenerator
         }
         catch (Exception e)
         {
-            WriteFile(context, "errors", "#error General Exception" + "\n/*\n" + e.Message + "\n" + e.StackTrace + "\n*/");
+            WriteFile(context, "errors",
+                "#error General Exception" + "\n/*\n" + e.Message + "\n" + e.StackTrace + "\n*/");
         }
+
         Log.Clear();
+        WriteFile(context, "log.cs", Log.Content);
     }
+
     public void WriteFile(SourceProductionContext context, string fileName, string content)
     {
         context.AddSource(fileName, content);
-        Log.Write($"Writing file {fileName}");
-        var file = "C:/tmp/YangGenerator/" + fileName;
-        var dir = System.IO.Path.GetDirectoryName(file);
-#pragma warning disable RS1035 // Do not use APIs banned for analyzers
-        if (Directory.Exists(dir) == false)
-        {
-            Directory.CreateDirectory(dir);
-        }
-#pragma warning restore RS1035 // Do not use APIs banned for analyzers
-        using var fs = new FileStream(file, FileMode.Create);
-        using var writer = new StreamWriter(fs);
-        writer.Write(content);
-        Log.Clear();
+//         Log.Write($"Writing file {fileName}");
+//         var file = "C:/tmp/YangGenerator/" + fileName;
+//         var dir = System.IO.Path.GetDirectoryName(file);
+// #pragma warning disable RS1035 // Do not use APIs banned for analyzers
+//         if (Directory.Exists(dir) == false)
+//         {
+//             Directory.CreateDirectory(dir);
+//         }
+// #pragma warning restore RS1035 // Do not use APIs banned for analyzers
+//         using var fs = new FileStream(file, FileMode.Create);
+//         using var writer = new StreamWriter(fs);
+//         writer.Write(content);
     }
 
     private string Clean(string input)
@@ -263,14 +266,7 @@ public class YangGenerator : IIncrementalGenerator
 
     private static readonly DiagnosticDescriptor SemanticError = new DiagnosticDescriptor("YANG0002", "Semantic Error",
         "Semantic Error: {0}", "SemanticModel", DiagnosticSeverity.Error, true);
-
-    // private void MakeClasses(SourceProductionContext context, AdditionalText text)
-    // {
-    //     if (!Parse(context, text, out var parsed)) return;
-    //     if (!MakeSemanticModel(context, parsed, out var statement)) return;
-    //     if (statement is not Module module) return;
-    //     context.AddSource(module.Filename, module.ToCode());
-    // }
+    
 
     private static ResultOrException<IStatement> MakeSemanticModel(ResultOrException<YangStatement> statement)
 
@@ -305,99 +301,99 @@ public class YangGenerator : IIncrementalGenerator
     {
         var fileName = "YangModules/Attributes/Yang.Attributes.cs";
         var contents = """
-                        using System;
-                        namespace Yang.Attributes;
-                        [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-                        public class RevisionAttribute(string date) : Attribute
-                        {
-                            public string Date { get; } = date;
-                        }
+                       using System;
+                       namespace Yang.Attributes;
+                       [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+                       public class RevisionAttribute(string date) : Attribute
+                       {
+                           public string Date { get; } = date;
+                       }
 
-                        [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-                        public class PresenceAttribute(string meaning) : Attribute
-                        {
-                            public string Meaning { get; } = meaning;
-                        }
-                        [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-                        public class ProvidesFeatureAttribute(string flag) : Attribute
-                        {
-                            public string FeatureFlag { get; } = flag;
-                        }
-                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                        public class IfFeatureAttribute(string flag) : Attribute
-                        {
-                            public string FeatureFlag { get; } = flag;
-                        }
-                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                        public class ReferenceAttribute(string reference) : Attribute
-                        {
-                            public string Reference { get; } = reference;
-                        }
-                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                        public class WhenAttribute(string xPath) : Attribute
-                        {
-                            public string XPath { get; } = xPath;
-                        }
-                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                        public class TargetAttribute(string xPath) : Attribute
-                        {
-                            public string XPath { get; } = xPath;
-                        }
-                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                        public class KeyAttribute(params string[] value) : Attribute
-                        {
-                            public string[] Value { get; } = value;
-                        }
-                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                        public class MinElementsAttribute(int value) : Attribute
-                        {
-                            public int Value { get; } = value;
-                        }
-                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                        public class MaxElementsAttribute(int value) : Attribute
-                        {
-                            public int Value { get; } = value;
-                        }
-                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                        public class InheritsAttribute(string baseName) : Attribute
-                        {
-                            public string BaseName { get; } = baseName;
-                        }
-                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                        public class OrderedByAttribute(string value) : Attribute
-                        {
-                            public string Value { get; } = value;
-                        }
-                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                        public class NotConfigurationData : Attribute;
+                       [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+                       public class PresenceAttribute(string meaning) : Attribute
+                       {
+                           public string Meaning { get; } = meaning;
+                       }
+                       [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+                       public class ProvidesFeatureAttribute(string flag) : Attribute
+                       {
+                           public string FeatureFlag { get; } = flag;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                       public class IfFeatureAttribute(string flag) : Attribute
+                       {
+                           public string FeatureFlag { get; } = flag;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                       public class ReferenceAttribute(string reference) : Attribute
+                       {
+                           public string Reference { get; } = reference;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                       public class WhenAttribute(string xPath) : Attribute
+                       {
+                           public string XPath { get; } = xPath;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                       public class TargetAttribute(string xPath) : Attribute
+                       {
+                           public string XPath { get; } = xPath;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                       public class KeyAttribute(params string[] value) : Attribute
+                       {
+                           public string[] Value { get; } = value;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                       public class MinElementsAttribute(int value) : Attribute
+                       {
+                           public int Value { get; } = value;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                       public class MaxElementsAttribute(int value) : Attribute
+                       {
+                           public int Value { get; } = value;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                       public class InheritsAttribute(string baseName) : Attribute
+                       {
+                           public string BaseName { get; } = baseName;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                       public class OrderedByAttribute(string value) : Attribute
+                       {
+                           public string Value { get; } = value;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                       public class NotConfigurationData : Attribute;
 
-                        public class InstanceIdentifier(string path)
-                        {
-                            public string Path { get; } = path;
-                        }
-                        public interface IChannel
-                        {
-                            string Send(string xml);
-                        }
-                        public interface IXMLSource
-                        {
-                            string ToXML();
-                        }
-                        """;
+                       public class InstanceIdentifier(string path)
+                       {
+                           public string Path { get; } = path;
+                       }
+                       public interface IChannel
+                       {
+                           string Send(string xml);
+                       }
+                       public interface IXMLSource
+                       {
+                           string ToXML();
+                       }
+                       """;
         context.AddSource(fileName, contents);
 
         Log.Write($"Writing file {fileName}");
-        var file = "C:/tmp/YangGenerator/" + fileName;
-        var dir = System.IO.Path.GetDirectoryName(file);
-#pragma warning disable RS1035 // Do not use APIs banned for analyzers
-        if (Directory.Exists(dir) == false)
-        {
-            Directory.CreateDirectory(dir);
-        }
-#pragma warning restore RS1035 // Do not use APIs banned for analyzers
-        using var fs = new FileStream(file, FileMode.Create);
-        using var writer = new StreamWriter(fs);
-        writer.Write(contents);
-        Log.Clear();
+//         var file = "C:/tmp/YangGenerator/" + fileName;
+//         var dir = System.IO.Path.GetDirectoryName(file);
+// #pragma warning disable RS1035 // Do not use APIs banned for analyzers
+//         if (Directory.Exists(dir) == false)
+//         {
+//             Directory.CreateDirectory(dir);
+//         }
+// #pragma warning restore RS1035 // Do not use APIs banned for analyzers
+//         using var fs = new FileStream(file, FileMode.Create);
+//         using var writer = new StreamWriter(fs);
+//         writer.Write(contents);
+//         Log.Clear();
     }
 }

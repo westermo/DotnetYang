@@ -7,7 +7,7 @@ namespace YangParser.Generator;
 
 public static class Log
 {
-    private static DateTime Start;
+    private static DateTime Start = DateTime.Now;
     private static FileStream? m_stream;
 
     private static FileStream Stream
@@ -22,7 +22,6 @@ public static class Log
 
     public static void Clear()
     {
-        Write("END OF LOG\n*/");
         // m_stream?.Dispose();
         // m_writer?.Dispose();
         // m_stream = null;
@@ -30,11 +29,11 @@ public static class Log
     }
 
     private static StringBuilder? m_writer;
-    private static StringBuilder writer => m_writer ??= new StringBuilder("/*\n");
+    private static StringBuilder writer => m_writer ??= new StringBuilder();
 
     public static void Write(string message)
     {
-        writer.AppendLine($"{(DateTime.Now - Start).TotalSeconds:F2}: " + message);
+        writer.AppendLine($"/*\n{(DateTime.Now - Start).TotalSeconds:F2}: " + message + "\n*/");
     }
 
     public static string Content => writer.ToString();

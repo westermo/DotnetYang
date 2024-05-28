@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using YangParser.Parser;
 using YangParser.SemanticModel.Builtins;
@@ -40,7 +39,7 @@ public class Type : Statement
             if (!BuiltinTypeReference.IsBuiltin(this, out var typeName, out var definition))
             {
                 if (this.FindReference<IStatement>(Argument) != null) return null;
-                m_definition = BuiltinTypeReference.DefaultPattern(this, [], [], TypeName(this), m_name);
+                m_definition = BuiltinTypeReference.DefaultPattern(this, [], [], TypeName(this), Name!);
                 return m_definition;
             }
             m_name = typeName;
