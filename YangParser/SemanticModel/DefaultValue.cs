@@ -67,7 +67,7 @@ public class DefaultValue : Statement
                 {
                     return aPrefix + type.Name + "." + bit.Ancestor<Type>()!.Name + "." + MakeName(Argument);
                 }
-                return $"new(\"{Argument}\")/*Union*/";
+                return $"new(\"{Argument}\")";
             default:
                 var source = this.FindReference<TypeDefinition>(type.Argument);
                 if (source is not null)

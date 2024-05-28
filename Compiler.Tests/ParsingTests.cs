@@ -1,6 +1,7 @@
 using System.Text;
 using Xunit.Abstractions;
 using YangParser;
+using YangParser.Generator;
 using YangParser.Parser;
 using YangParser.SemanticModel;
 
@@ -19,7 +20,7 @@ public class ParsingTests(ITestOutputHelper output)
     public const string ModuleOne = """
                                     module one {
                                         yang-version 1.1;
-                                        namespace "urn:one";
+                                        namespace "urn:ns:one";
                                         prefix one;
                                         import two {
                                             prefix b;
@@ -46,7 +47,7 @@ public class ParsingTests(ITestOutputHelper output)
     public const string ModuleTwo = """
                                     module two {
                                         yang-version 1.1;
-                                        namespace "urn:two";
+                                        namespace "urn:ns:two";
                                         prefix two;
                                         import three {
                                             prefix b;
@@ -78,7 +79,7 @@ public class ParsingTests(ITestOutputHelper output)
     public const string ModuleThree = """
                                       module three {
                                           yang-version 1.1;
-                                          namespace "urn:three";
+                                          namespace "urn:NS:three";
                                           prefix three;
                                           typedef operator {
                                             type bits {
@@ -128,27 +129,18 @@ public class ParsingTests(ITestOutputHelper output)
         }
 
         CompilationUnit compilationUnit = new CompilationUnit(modules.OfType<Module>().ToArray());
+        IncludeSubmodules(compilationUnit.Children.OfType<Module>().ToDictionary(x => x.Argument),
+            compilationUnit.Children.ToDictionary(x => x.Argument));
         foreach (var module in compilationUnit.Children.OfType<Module>())
         {
-            var usings = module.Unwrap().OfType<Uses>().ToArray();
-            foreach (var use in usings)
+            foreach (var use in module.Uses)
             {
                 if (use.IsUnderGrouping())
                 {
                     continue;
                 }
 
-                if (use.Parent == null) continue;
-
-                var grouping = use.GetGrouping();
-                var parent = use.Parent;
-                parent!.Replace(use, grouping.WithUse(use));
-                if (parent.Children.Contains(use))
-                {
-                    throw new SemanticError(
-                        $"'Failed to replace '{use.Argument}' in '{parent.GetType().Name} {parent.Argument}'",
-                        module.Source, usings.Select(u => u.Source).ToArray());
-                }
+                use.Expand();
             }
         }
 
@@ -156,11 +148,8 @@ public class ParsingTests(ITestOutputHelper output)
         {
             Assert.IsNotType<Uses>(statement);
         }
-
-        IncludeSubmodules(compilationUnit.Children.OfType<Module>().ToDictionary(x => x.Argument),
-            compilationUnit.Children.ToDictionary(x => x.Argument));
-        UnwrapUses(compilationUnit);
-
+        Log.Clear();
+        output.WriteLine(Log.Content);
         output.WriteLine(Clean(compilationUnit.ToCode()));
     }
 
@@ -228,22 +217,6 @@ public class ParsingTests(ITestOutputHelper output)
         output.WriteLine($"{tabs}}}");
     }
 
-    private static void UnwrapUses(IStatement compilation)
-    {
-        foreach (var module in compilation.Children.OfType<Module>())
-        {
-            var usings = module.Unwrap().OfType<Uses>().ToArray();
-            foreach (var use in usings)
-            {
-                if (use.IsUnderGrouping())
-                {
-                    continue;
-                }
-
-                use.Expand();
-            }
-        }
-    }
 
     private static void IncludeSubmodules(Dictionary<string, Module> modules,
         Dictionary<string, IStatement> topLevels)

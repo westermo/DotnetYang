@@ -258,7 +258,7 @@ public abstract class Statement : IStatement
 
     public virtual string ToCode()
     {
-        return $"#error ToCode() call on non-overriden type {GetType()}";
+        return $"#warning ToCode() call on non-overriden type {GetType()}:\n/*{this}\n*/";
     }
 
     public static string InterfaceName(Base b)

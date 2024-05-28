@@ -42,19 +42,6 @@ public class Augment : Statement, IUnexpandable
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Keyword, Cardinality.ZeroOrMore)
     ];
-
-    public override string ToCode()
-    {
-        var nodes = Children.Select(child => child.ToCode()).ToArray();
-        var name = MakeName(Argument.Split('/', ':').Last()) + "Augmentation";
-        Attributes.Add($"Target(\"{Argument.Replace("\n", "")}\")");
-        //TODO: Add Augmentation logic
-        return $$"""
-                 /*
-                 {{this}}
-                 */
-                 """;
-    }
     protected override void ValidateParent()
     {
         this.GetModule()?.Augments.Add(this);

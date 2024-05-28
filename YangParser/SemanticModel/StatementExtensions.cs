@@ -80,8 +80,8 @@ public static class StatementExtensions
 
     public static IStatement? FindSourceFor(this IStatement source, string prefix)
     {
-        var module = source.Root();
-        var imports = module.Children.OfType<Module>().SelectMany(module => module.Imports);
+        var module = source.GetModule();
+        var imports = module.Imports;
         return imports?.FirstOrDefault(import => import.GetChild<Prefix>().Argument == prefix);
     }
 
@@ -145,13 +145,18 @@ public static class StatementExtensions
                         use.Source);
                 }
 
-                var source = use.Root().Children.OfType<Module>().FirstOrDefault(m => m.Argument == import.Argument) ?? throw new SemanticError($"Could not find a module with the key {import.Argument}", import.Source);
-                var grouping = use.FindGrouping(source) ?? throw new SemanticError($"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{source.Argument}' from prefix '{prefix}', import was {Statement.SingleLine(import.ToString())}", use.Source);
+                var source = use.Root().Children.OfType<Module>().FirstOrDefault(m => m.Argument == import.Argument) ??
+                             throw new SemanticError($"Could not find a module with the key {import.Argument}",
+                                 import.Source);
+                var grouping = use.FindGrouping(source) ?? throw new SemanticError(
+                    $"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{source.Argument}' from prefix '{prefix}', import was {Statement.SingleLine(import.ToString())}",
+                    use.Source);
                 return grouping;
             }
             else
             {
-                var source = use.Root().Children.OfType<Module>().FirstOrDefault(m => m.Namespace == prefix) ?? throw new SemanticError($"Could not find a module with the key {prefix}", use.Source);
+                var source = use.Root().Children.OfType<Module>().FirstOrDefault(m => m.Namespace == prefix) ??
+                             throw new SemanticError($"Could not find a module with the key {prefix}", use.Source);
                 var grouping = use.FindGrouping(source);
             }
         }
@@ -160,7 +165,7 @@ public static class StatementExtensions
         if (findGrouping is null)
         {
             throw new SemanticError(
-                $"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{module.Argument}'",
+                $"Could not find a grouping statement to use for 'uses {use.Argument}' [{use.Parent}] in module '{module.Argument}'",
                 use.Source);
         }
 
@@ -170,10 +175,12 @@ public static class StatementExtensions
 
     public static void Expand(this Uses use)
     {
+        if (use.Parent?.Children.Contains(use) != true) return;
         var grouping = use.GetGrouping();
         var parent = use.Parent;
         parent!.Replace(use, grouping.WithUse(use));
     }
+
     public static string Prefix(this string argument, out string name)
     {
         if (argument.Contains(":"))
@@ -191,15 +198,17 @@ public static class StatementExtensions
                 builder.Append(components[i]);
                 builder.Append(".");
             }
+
             name = components.Last();
             return builder.ToString();
-
         }
+
         name = argument;
         return string.Empty;
-
     }
+
     static Dictionary<(System.Type, string), IStatement?> _cache = [];
+
     public static T? FindReference<T>(this IStatement source, string reference) where T : IStatement
     {
         var key = (typeof(T), reference);
@@ -207,6 +216,7 @@ public static class StatementExtensions
         {
             return (T?)cached;
         }
+
         var prefix = reference.Prefix(out var name);
         if (string.IsNullOrEmpty(prefix))
         {
@@ -222,7 +232,7 @@ public static class StatementExtensions
                 _cache[key] = value;
                 return value;
             }
-            else if(!prefix.Contains('.'))
+            else if (!prefix.Contains('.'))
             {
                 IStatement? module;
                 var import = source.FindSourceFor(prefix);
@@ -241,6 +251,7 @@ public static class StatementExtensions
                         $"Failed to find module for '{moduleName}'");
                     return default;
                 }
+
                 var value = module.SearchDownwards<T>(name) ?? module.SearchUpwards<T>(name);
                 _cache[key] = value;
                 return value;
@@ -254,12 +265,14 @@ public static class StatementExtensions
                         $"Failed to find module for '{prefix}'");
                     return default;
                 }
+
                 var value = module.SearchDownwards<T>(name) ?? module.SearchUpwards<T>(name);
                 _cache[key] = value;
                 return value;
             }
         }
     }
+
     public static T? Ancestor<T>(this IStatement source) where T : IStatement
     {
         while (source.Parent is not null)
@@ -270,9 +283,12 @@ public static class StatementExtensions
                 return t;
             }
         }
+
         return default;
     }
-    public static T? SearchDownwards<T>(this IStatement source, string argument, params IStatement[] except) where T : IStatement
+
+    public static T? SearchDownwards<T>(this IStatement source, string argument, params IStatement[] except)
+        where T : IStatement
     {
         if (source.Argument == argument && source is T t && source is not DefaultValue)
         {
@@ -290,12 +306,14 @@ public static class StatementExtensions
 
         return default;
     }
+
     public static T? SearchUpwards<T>(this IStatement source, string argument) where T : IStatement
     {
         if (source.Argument == argument && source is T t && source is not DefaultValue)
         {
             return t;
         }
+
         if (source.Parent is null) return default;
         var result = SearchDownwards<T>(source.Parent, argument, source);
         if (result is not null) return result;

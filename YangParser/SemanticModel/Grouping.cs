@@ -42,6 +42,11 @@ public class Grouping : Statement
     {
         foreach (var child in this.Unwrap())
         {
+            if (child is Uses inner)
+            {
+                inner.Expand();
+            }
+
             if (child is not Type type) continue;
             if (type.Argument.Contains("identityref"))
             {
@@ -72,27 +77,25 @@ public class Grouping : Statement
             type.Argument = this.GetInheritedPrefix() + ":" + type.Argument;
         }
 
-        foreach (var inner in this.Unwrap().OfType<Uses>().ToArray())
-        {
-            inner.Expand();
-        }
-
         //Propogate usings upwards
         if (use.GetModule() is Module target)
         {
             if (this.GetModule() is Module source)
             {
-                if (source == target) return Children;
-                foreach (var pair in source.Usings)
+                if (source != target)
                 {
-                    if (!target.Usings.ContainsKey(pair.Key))
+                    foreach (var pair in source.Usings)
                     {
-                        // Log.Write($"Adding prefix {pair.Key} to '{target.Argument}' from '{source.Argument}'");
-                        target.Usings[pair.Key] = pair.Value;
+                        if (!target.Usings.ContainsKey(pair.Key))
+                        {
+                            // Log.Write($"Adding prefix {pair.Key} to '{target.Argument}' from '{source.Argument}'");
+                            target.Usings[pair.Key] = pair.Value;
+                        }
                     }
                 }
             }
         }
+
         var containingModule = this.GetModule();
         if (containingModule is null)
         {
@@ -106,6 +109,7 @@ public class Grouping : Statement
 
         return Children;
     }
+
     protected override void ValidateParent()
     {
         this.GetModule()?.Groupings.Add(this);
