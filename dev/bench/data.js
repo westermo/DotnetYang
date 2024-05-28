@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1715934378084,
+  "lastUpdate": 1716903687523,
   "repoUrl": "https://github.com/westermo/DotnetYang",
   "entries": {
     "Benchmark.Net Benchmark": [
@@ -72,6 +72,42 @@ window.BENCHMARK_DATA = {
             "value": 22033.54964396159,
             "unit": "ns",
             "range": "± 86.62216518343588"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "committer": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "distinct": true,
+          "id": "8c5259ddce0e8cc00241cc0ffcea637fc49bd973",
+          "message": "Builds, with warnings.. many warnings",
+          "timestamp": "2024-05-28T15:39:47+02:00",
+          "tree_id": "54cb4ad5f08cd0d14fc432398a4a5f6ebaa68525",
+          "url": "https://github.com/westermo/DotnetYang/commit/8c5259ddce0e8cc00241cc0ffcea637fc49bd973"
+        },
+        "date": 1716903687158,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmarks.ParsingBenchmarks.Parse",
+            "value": 90883.65318885216,
+            "unit": "ns",
+            "range": "± 158.45715283183807"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.SemanticModel",
+            "value": 35274.74607966496,
+            "unit": "ns",
+            "range": "± 163.48057353691757"
           }
         ]
       }
