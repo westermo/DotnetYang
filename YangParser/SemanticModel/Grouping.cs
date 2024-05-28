@@ -109,9 +109,4 @@ public class Grouping : Statement
 
         return Children;
     }
-
-    protected override void ValidateParent()
-    {
-        this.GetModule()?.Groupings.Add(this);
-    }
 }

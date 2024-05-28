@@ -42,8 +42,4 @@ public class Augment : Statement, IUnexpandable
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Keyword, Cardinality.ZeroOrMore)
     ];
-    protected override void ValidateParent()
-    {
-        this.GetModule()?.Augments.Add(this);
-    }
 }

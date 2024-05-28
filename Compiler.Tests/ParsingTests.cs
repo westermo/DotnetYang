@@ -10,7 +10,29 @@ namespace Compiler.Tests;
 public class ParsingTests(ITestOutputHelper output)
 {
     [Fact]
-    public void IetfYangLibrary()
+    public void AugmentationIsFoundTest()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module test {
+                prefix this;
+                yang-version 1.1;
+                namespace "urn:ns:test";
+                augment a;
+                augment b;
+            }
+            """));
+        Assert.IsType<Module>(top);
+        if (top is Module module)
+        {
+            Assert.Equal(2, module.Augments.Count);
+            Assert.Equal("a",module.Augments[0].Argument);
+            Assert.Equal("b",module.Augments[1].Argument);
+        }
+    }
+
+    [Fact]
+    public void BaseParsingTest()
     {
         var result = Parser.Parse("memory", File.ReadAllText("ietf-inet-types@2013-07-15.yang"));
         var statements = StatementFactory.Create(result);
@@ -148,9 +170,8 @@ public class ParsingTests(ITestOutputHelper output)
         {
             Assert.IsNotType<Uses>(statement);
         }
+
         Log.Clear();
-        output.WriteLine(Log.Content);
-        output.WriteLine(Clean(compilationUnit.ToCode()));
     }
 
     [Fact]
@@ -178,22 +199,6 @@ public class ParsingTests(ITestOutputHelper output)
                 Assert.False(ReferenceEquals(array[i], array[j]));
             }
         }
-    }
-
-    private void Print(YangStatement statement, int indent = 0)
-    {
-        var terminator = statement.Children.Count == 0 ? ";" : "";
-        var tabs = new StringBuilder();
-        for (var i = 0; i < indent; i++)
-        {
-            tabs.Append('\t');
-        }
-
-        output.WriteLine($"{tabs}{statement.Prefix}{statement.Keyword} {statement.Argument}{terminator}");
-        if (statement.Children.Count <= 0) return;
-        output.WriteLine($"{tabs}{{");
-        foreach (var sub in statement.Children) Print(sub, indent + 1);
-        output.WriteLine($"{tabs}}}");
     }
 
     private string Clean(string input)
