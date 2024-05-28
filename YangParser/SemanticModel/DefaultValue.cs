@@ -62,6 +62,10 @@ public class DefaultValue : Statement
                 var source = this.FindReference<TypeDefinition>(type.Argument);
                 if (source is not null)
                 {
+                    if (string.IsNullOrEmpty(prefix))
+                    {
+                        prefix = type.Argument.Prefix(out _);
+                    }
                     return GetTypeSpecification(prefix, value, source.GetChild<Type>());
                 }
                 if (onlyNumbers.Match(Argument).Success)
