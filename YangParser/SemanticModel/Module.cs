@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using YangParser.Generator;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
@@ -11,20 +12,41 @@ public class Module : Statement, ITopLevelStatement
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         XmlNamespace = Children.First(child => child is Namespace);
-        Usings = new();
-        foreach (var import in Children.OfType<Import>())
+        var localPrefix = this.GetChild<Prefix>().Argument;
+        var localNS = MakeNamespace(Argument) + ".YangNode.";
+        Usings = new()
         {
-            var use = MakeNamespace(import.Argument) + ".YangNode.";
-            var prefix = import.GetChild<Prefix>().Argument;
-            Usings[prefix] = use;
-        }
+            [localPrefix] = localNS
+        };
+        Namespace = localNS;
 
-        Usings[this.GetChild<Prefix>().Argument] = MakeNamespace(Argument) + ".YangNode.";
+        foreach (var child in this.Unwrap())
+        {
+            if (child is Uses use)
+            {
+                Uses.Add(use);
+            }
+            if (child is Grouping grouping)
+            {
+                Groupings.Add(grouping);
+            }
+            if (child is Augment augment)
+            {
+                Augments.Add(augment);
+            }
+            if (child is Import import)
+            {
+                Imports.Add(import);
+                var reference = MakeNamespace(import.Argument) + ".YangNode.";
+                var prefix = import.GetChild<Prefix>().Argument;
+                Usings[prefix] = reference;
+            }
+        }
     }
 
     public IStatement XmlNamespace { get; set; }
     public Dictionary<string, string> Usings { get; }
-
+    public string Namespace { get; private set; }
     public override ChildRule[] PermittedChildren { get; } =
     [
         new ChildRule(AnyXml.Keyword, Cardinality.ZeroOrMore),
@@ -43,7 +65,7 @@ public class Module : Statement, ITopLevelStatement
         new ChildRule(List.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Leaf.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(LeafList.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(Namespace.Keyword, Cardinality.Required),
+        new ChildRule(SemanticModel.Namespace.Keyword, Cardinality.Required),
         new ChildRule(Notification.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Organization.Keyword),
         new ChildRule(Prefix.Keyword, Cardinality.Required),
@@ -51,7 +73,7 @@ public class Module : Statement, ITopLevelStatement
         new ChildRule(Revision.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Rpc.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(TypeDefinition.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(SemanticModel.Uses.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(YangVersion.Keyword),
     ];
 
@@ -62,7 +84,7 @@ public class Module : Statement, ITopLevelStatement
     {
         string ns = MakeNamespace(Argument);
 
-        var nodes = Children.Select(child => child.ToCode()).ToArray();
+        var nodes = Children.Select(child => child.ToCode()).Select(Indent).ToArray();
         var raw = $$"""
                     using System;
                     using System.Collections.Generic;
@@ -76,7 +98,7 @@ public class Module : Statement, ITopLevelStatement
                     public class YangNode
                     {
                         {{string.Join("\n\t", Usings.Select(p => $"//Importing {p.Value} as {p.Key}"))}}
-                        {{string.Join("\n\t", nodes.Select(Indent))}}
+                        {{string.Join("\n\t", nodes)}}
                     }
                     """;
         raw = ReplacePrefixes(raw);
@@ -94,26 +116,51 @@ public class Module : Statement, ITopLevelStatement
 
         return raw;
     }
-
-    public void ExpandPrefixes(IStatement statement)
+    private bool IsExpanded = false;
+    public void Expand()
     {
-        foreach (var prefix in Usings.Keys)
+        if (IsExpanded) return;
+        foreach (var child in Children)
         {
-            statement.Argument = statement.Argument.Replace(prefix + ":", Usings[prefix]);
-            if (statement is KeywordReference keywordReference)
+            ExpandPrefixes(child);
+        }
+        IsExpanded = true;
+    }
+
+    private void ExpandPrefixes(IStatement statement)
+    {
+        if (statement is not IUnexpandable)
+        {
+
+            if (!statement.Argument.Contains(' ') && !statement.Argument.Contains('(') && !statement.Argument.Contains('['))
+            //Only occurs in string arguments, which are unaffected by prefixes, 
+            // and in function calls, which are unaffected by prefixes
+            // or in regex expressions, which are unaffected by prefixes
             {
-                if (keywordReference.ReferenceNamespace == prefix)
+
+                var argPrefix = statement.Argument.Split(':');
+                if (argPrefix.Length > 1 && argPrefix.Length < 3) //ignore cases where there are multiple colons, since that's an XML-namespace reference
                 {
-                    keywordReference.ReferenceNamespace = Usings[prefix];
+                    if (Usings.ContainsKey(argPrefix[0]))
+                    {
+                        statement.Argument = statement.Argument.Replace(argPrefix[0] + ":", Usings[argPrefix[0]]);
+                    }
+                    else
+                    {
+                        Log.Write($"No prefix found for {statement.Argument} in module {Argument}");
+                    }
                 }
             }
         }
-
         foreach (var child in statement.Children)
         {
             ExpandPrefixes(child);
         }
     }
+    public List<Uses> Uses { get; } = [];
+    public List<Grouping> Groupings { get; } = [];
+    public List<Augment> Augments { get; } = [];
+    public List<Import> Imports { get; } = [];
 
     // public string Capability
     // {
@@ -134,5 +181,9 @@ public class Module : Statement, ITopLevelStatement
 public interface ITopLevelStatement : IStatement
 {
     public Dictionary<string, string> Usings { get; }
-    public void ExpandPrefixes(IStatement statement);
+    public void Expand();
+    public List<Uses> Uses { get; }
+    public List<Grouping> Groupings { get; }
+    public List<Augment> Augments { get; }
+    public List<Import> Imports { get; }
 }

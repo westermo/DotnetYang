@@ -49,13 +49,18 @@ public class LeafList : Statement
 
         var defaulting = defaultValue is null ? string.Empty : $"= {defaultValue}";
         var name = MakeName(Argument);
-        var typeName = TypeName(Type);
         string addendum = string.Empty;
+        var typeName = Type.Name;
+        var definition = Type.Definition;
+        if (typeName == name)
+        {
+            name += "Value";
+        }
         return $$"""
                  {{addendum}}
                  {{DescriptionString}}{{AttributeString}}
-                 public{{KeywordString}}{{Type.Name}}[]? {{name}} { get; set; } {{defaulting}}
-                 {{Type.Definition}}
+                 public{{KeywordString}}{{typeName}}[]? {{name}} { get; set; } {{defaulting}}
+                 {{definition}}
                  {{Default?.Addendum}}
                  """;
     }

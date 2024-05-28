@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -42,6 +43,10 @@ public static class BuiltinTypeReference
 
         return false;
     }
+    public static bool IsBuiltinKeyword(string keyword)
+    {
+        return m_builtIns.Any(b => b.Name == keyword);
+    }
 
     public static string DefaultPattern(IStatement statement, IEnumerable<string> staticFields,
         IEnumerable<string> constructorStatements,
@@ -63,5 +68,16 @@ public static class BuiltinTypeReference
                      
                  }
                  """;
+    }
+    public static string TypeName(IStatement type)
+    {
+        string Postfix = string.Empty;
+        var parent = type.Parent!;
+        while (IsBuiltinKeyword(parent.Argument))
+        {
+            Postfix += Array.IndexOf(parent.Children, type);
+            parent = parent.Parent!;
+        }
+        return Statement.MakeName(parent.Argument) + Postfix;
     }
 }

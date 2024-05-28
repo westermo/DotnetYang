@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
@@ -42,7 +43,6 @@ public class YangGenerator : IIncrementalGenerator
 
     private void MakeClasses(SourceProductionContext context, ImmutableArray<ResultOrException<IStatement>> models)
     {
-        Log.Clear();
         try
         {
             Dictionary<string, ITopLevelStatement> topLevels = new();
@@ -76,21 +76,19 @@ public class YangGenerator : IIncrementalGenerator
             //Replace Includes with their respective submodules
             IncludeSubmodules(context, modules, topLevels);
             var compilation = new CompilationUnit(modules.Values.ToArray());
-            Log.Write(
-                $"available modules are:\n-{string.Join("\n-", compilation.Children.OfType<Module>().Select(i => i.Argument))}");
-
-
+            Log.Write("IncludeSubmodules Complete");
             //Replace Uses by their respective groupings
             UnwrapUses(context, compilation);
+            Log.Write("UnwrapUses Complete");
             foreach (var module in compilation.Children.OfType<Module>())
             {
                 try
                 {
-                    context.AddSource(module.Filename, Clean(module.ToCode()));
+                    WriteFile(context, module.Filename, Clean(module.ToCode()));
                 }
                 catch (Exception e)
                 {
-                    context.AddSource(module.Filename + ".errors",
+                    WriteFile(context, module.Filename + ".errors",
                         $"#error Exception when generating code for {module.Filename}" + "\n/*\n" + e.Message + "\n" +
                         e.StackTrace + "\n*/");
                 }
@@ -98,11 +96,26 @@ public class YangGenerator : IIncrementalGenerator
         }
         catch (Exception e)
         {
-            context.AddSource("errors",
-                "#error General Exception" + "\n/*\n" + e.Message + "\n" + e.StackTrace + "\n*/");
+            WriteFile(context, "errors", "#error General Exception" + "\n/*\n" + e.Message + "\n" + e.StackTrace + "\n*/");
         }
-
-        context.AddSource("log.cs", "/*\n" + Log.Get() + "\n*/");
+        Log.Clear();
+    }
+    public void WriteFile(SourceProductionContext context, string fileName, string content)
+    {
+        context.AddSource(fileName, content);
+        Log.Write($"Writing file {fileName}");
+        var file = "C:/tmp/YangGenerator/" + fileName;
+        var dir = System.IO.Path.GetDirectoryName(file);
+#pragma warning disable RS1035 // Do not use APIs banned for analyzers
+        if (Directory.Exists(dir) == false)
+        {
+            Directory.CreateDirectory(dir);
+        }
+#pragma warning restore RS1035 // Do not use APIs banned for analyzers
+        using var fs = new FileStream(file, FileMode.Create);
+        using var writer = new StreamWriter(fs);
+        writer.Write(content);
+        Log.Clear();
     }
 
     private string Clean(string input)
@@ -114,8 +127,7 @@ public class YangGenerator : IIncrementalGenerator
     {
         foreach (var module in compilation.Children.OfType<Module>())
         {
-            var usings = module.Unwrap().OfType<Uses>().ToArray();
-            foreach (var use in usings)
+            foreach (var use in module.Uses)
             {
                 if (use.IsUnderGrouping())
                 {
@@ -252,13 +264,13 @@ public class YangGenerator : IIncrementalGenerator
     private static readonly DiagnosticDescriptor SemanticError = new DiagnosticDescriptor("YANG0002", "Semantic Error",
         "Semantic Error: {0}", "SemanticModel", DiagnosticSeverity.Error, true);
 
-// private void MakeClasses(SourceProductionContext context, AdditionalText text)
-// {
-//     if (!Parse(context, text, out var parsed)) return;
-//     if (!MakeSemanticModel(context, parsed, out var statement)) return;
-//     if (statement is not Module module) return;
-//     context.AddSource(module.Filename, module.ToCode());
-// }
+    // private void MakeClasses(SourceProductionContext context, AdditionalText text)
+    // {
+    //     if (!Parse(context, text, out var parsed)) return;
+    //     if (!MakeSemanticModel(context, parsed, out var statement)) return;
+    //     if (statement is not Module module) return;
+    //     context.AddSource(module.Filename, module.ToCode());
+    // }
 
     private static ResultOrException<IStatement> MakeSemanticModel(ResultOrException<YangStatement> statement)
 
@@ -291,80 +303,101 @@ public class YangGenerator : IIncrementalGenerator
 
     private void AddAttributesClass(IncrementalGeneratorPostInitializationContext context)
     {
-        context.AddSource("YangModules/Attributes/Yang.Attributes.cs", """
-                                                                       using System;
-                                                                       namespace Yang.Attributes;
-                                                                       [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-                                                                       public class RevisionAttribute(string date) : Attribute
-                                                                       {
-                                                                           public string Date { get; } = date;
-                                                                       }
+        var fileName = "YangModules/Attributes/Yang.Attributes.cs";
+        var contents = """
+                        using System;
+                        namespace Yang.Attributes;
+                        [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+                        public class RevisionAttribute(string date) : Attribute
+                        {
+                            public string Date { get; } = date;
+                        }
 
-                                                                       [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-                                                                       public class PresenceAttribute(string meaning) : Attribute
-                                                                       {
-                                                                           public string Meaning { get; } = meaning;
-                                                                       }
-                                                                       [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-                                                                       public class ProvidesFeatureAttribute(string flag) : Attribute
-                                                                       {
-                                                                           public string FeatureFlag { get; } = flag;
-                                                                       }
-                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                                                                       public class IfFeatureAttribute(string flag) : Attribute
-                                                                       {
-                                                                           public string FeatureFlag { get; } = flag;
-                                                                       }
-                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                                                                       public class ReferenceAttribute(string reference) : Attribute
-                                                                       {
-                                                                           public string Reference { get; } = reference;
-                                                                       }
-                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                                                                       public class WhenAttribute(string xPath) : Attribute
-                                                                       {
-                                                                           public string XPath { get; } = xPath;
-                                                                       }
-                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-                                                                       public class TargetAttribute(string xPath) : Attribute
-                                                                       {
-                                                                           public string XPath { get; } = xPath;
-                                                                       }
-                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                                                                       public class KeyAttribute(params string[] value) : Attribute
-                                                                       {
-                                                                           public string[] Value { get; } = value;
-                                                                       }
-                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                                                                       public class MinElementsAttribute(int value) : Attribute
-                                                                       {
-                                                                           public int Value { get; } = value;
-                                                                       }
-                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                                                                       public class MaxElementsAttribute(int value) : Attribute
-                                                                       {
-                                                                           public int Value { get; } = value;
-                                                                       }
-                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                                                                       public class OrderedByAttribute(string value) : Attribute
-                                                                       {
-                                                                           public string Value { get; } = value;
-                                                                       }
-                                                                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
-                                                                       public class NotConfigurationData : Attribute;
+                        [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+                        public class PresenceAttribute(string meaning) : Attribute
+                        {
+                            public string Meaning { get; } = meaning;
+                        }
+                        [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+                        public class ProvidesFeatureAttribute(string flag) : Attribute
+                        {
+                            public string FeatureFlag { get; } = flag;
+                        }
+                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                        public class IfFeatureAttribute(string flag) : Attribute
+                        {
+                            public string FeatureFlag { get; } = flag;
+                        }
+                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                        public class ReferenceAttribute(string reference) : Attribute
+                        {
+                            public string Reference { get; } = reference;
+                        }
+                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                        public class WhenAttribute(string xPath) : Attribute
+                        {
+                            public string XPath { get; } = xPath;
+                        }
+                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                        public class TargetAttribute(string xPath) : Attribute
+                        {
+                            public string XPath { get; } = xPath;
+                        }
+                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                        public class KeyAttribute(params string[] value) : Attribute
+                        {
+                            public string[] Value { get; } = value;
+                        }
+                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                        public class MinElementsAttribute(int value) : Attribute
+                        {
+                            public int Value { get; } = value;
+                        }
+                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                        public class MaxElementsAttribute(int value) : Attribute
+                        {
+                            public int Value { get; } = value;
+                        }
+                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                        public class InheritsAttribute(string baseName) : Attribute
+                        {
+                            public string BaseName { get; } = baseName;
+                        }
+                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                        public class OrderedByAttribute(string value) : Attribute
+                        {
+                            public string Value { get; } = value;
+                        }
+                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                        public class NotConfigurationData : Attribute;
 
-                                                                       public class InstanceIdentifier(string path)
-                                                                       {
-                                                                            public string Path { get; } = path;
-                                                                       }
-                                                                       public interface IChannel
-                                                                       {
-                                                                           string Send(string xml);
-                                                                       }
-                                                                       public interface IXMLSource
-                                                                       {
-                                                                           string ToXML();
-                                                                       }
-                                                                       """);
+                        public class InstanceIdentifier(string path)
+                        {
+                            public string Path { get; } = path;
+                        }
+                        public interface IChannel
+                        {
+                            string Send(string xml);
+                        }
+                        public interface IXMLSource
+                        {
+                            string ToXML();
+                        }
+                        """;
+        context.AddSource(fileName, contents);
+
+        Log.Write($"Writing file {fileName}");
+        var file = "C:/tmp/YangGenerator/" + fileName;
+        var dir = System.IO.Path.GetDirectoryName(file);
+#pragma warning disable RS1035 // Do not use APIs banned for analyzers
+        if (Directory.Exists(dir) == false)
+        {
+            Directory.CreateDirectory(dir);
+        }
+#pragma warning restore RS1035 // Do not use APIs banned for analyzers
+        using var fs = new FileStream(file, FileMode.Create);
+        using var writer = new StreamWriter(fs);
+        writer.Write(contents);
+        Log.Clear();
     }
 }

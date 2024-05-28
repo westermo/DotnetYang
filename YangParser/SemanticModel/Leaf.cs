@@ -61,11 +61,9 @@ public class Leaf : Statement
         var name = MakeName(Argument);
         var typeName = Type.Name;
         var definition = Type.Definition;
-        if (definition != null)
+        if (typeName == name)
         {
-            typeName += "Type";
-            definition = definition.Replace(" " + Type.Name!, " " + typeName)
-                .Replace("(" + Type.Name!, "(" + typeName);
+            name += "Value";
         }
 
         return $$"""

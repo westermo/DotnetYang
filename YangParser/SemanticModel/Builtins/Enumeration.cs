@@ -2,11 +2,11 @@ using System.Linq;
 
 namespace YangParser.SemanticModel.Builtins;
 
-public class Enumeration() : BuiltinType("enumeration", (s) =>
+public class Enumeration() : BuiltinType("enumeration", (statement) =>
 {
-    var name = Statement.MakeName(s.Parent!.Argument);
-    var enums = s.Children.OfType<Enum>().ToArray();
-    var others = s.Children.Except(enums);
+    var name = BuiltinTypeReference.TypeName(statement);
+    var enums = statement.Children.OfType<Enum>().ToArray();
+    var others = statement.Children.Except(enums);
     var strings = enums.Select(e => e.ToCode());
     foreach (var child in others)
     {
@@ -14,7 +14,7 @@ public class Enumeration() : BuiltinType("enumeration", (s) =>
     }
 
     var definition = $$"""
-                       {{s.DescriptionString}}{{s.AttributeString}}
+                       {{statement.DescriptionString}}{{statement.AttributeString}}
                        public enum {{name}}
                        {
                            {{Statement.Indent(string.Join("\n", strings))}}

@@ -1,10 +1,11 @@
 using System;
 using System.Linq;
+using YangParser.Generator;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Uses : Statement
+public class Uses : Statement, IUnexpandable
 {
     public Uses(YangStatement statement) : base(statement)
     {

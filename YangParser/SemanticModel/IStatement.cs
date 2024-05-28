@@ -40,3 +40,5 @@ public interface IAttributeSource : IStatement
     string AttributeName { get; }
     bool Active { get; }
 }
+
+public interface IUnexpandable : IStatement;

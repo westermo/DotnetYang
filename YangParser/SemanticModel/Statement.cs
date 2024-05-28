@@ -73,18 +73,13 @@ public abstract class Statement : IStatement
             var replacement = component.Replace(".", "dot");
             argument = argument.Replace(component, replacement);
         }
-
-        var unexpanded = argument.Contains(':');
-        var prefixing = argument.Split(':', '.');
-        argument = prefixing.Last();
-
-        foreach (var section in argument.Split('-', ' ', '/', '.'))
+        var prefix = argument.Prefix(out var value);
+        var addColon = !prefix.Contains('.') && !string.IsNullOrWhiteSpace(prefix);
+        foreach (var section in value.Split('-', ' ', '/', '.'))
         {
             output.Append(Capitalize(section));
         }
-
-        prefixing[prefixing.Length - 1] = output.ToString();
-        var result = string.Join(unexpanded ? ":" : ".", prefixing).Replace("*", "Any");
+        var result = (prefix + (addColon ? ":" : "") + output.ToString()).Replace("*", "Any");
         return result;
     }
 
@@ -172,20 +167,20 @@ public abstract class Statement : IStatement
             switch (allowed.Cardinality)
             {
                 case Cardinality.Required when occurances.TryGetValue(allowed.Keyword, out var count):
-                {
-                    if (count == 1) break;
-                    throw new SemanticError(
-                        $"Child of type {allowed.Keyword} can only exist once in {GetType()}", statement);
-                }
+                    {
+                        if (count == 1) break;
+                        throw new SemanticError(
+                            $"Child of type {allowed.Keyword} can only exist once in {GetType()}", statement);
+                    }
                 case Cardinality.Required:
                     throw new SemanticError(
                         $"Child of type {allowed.Keyword} must exist in type {GetType()}", statement);
                 case Cardinality.ZeroOrOne when occurances.TryGetValue(allowed.Keyword, out var count):
-                {
-                    if (count <= 1) break;
-                    throw new SemanticError(
-                        $"Child of type {allowed.Keyword} can only exist up to once in {GetType()}", statement);
-                }
+                    {
+                        if (count <= 1) break;
+                        throw new SemanticError(
+                            $"Child of type {allowed.Keyword} can only exist up to once in {GetType()}", statement);
+                    }
                 case Cardinality.ZeroOrOne:
                 case Cardinality.ZeroOrMore:
                     break;

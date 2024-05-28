@@ -4,7 +4,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Augment : Statement
+public class Augment : Statement, IUnexpandable
 {
     public Augment(YangStatement statement) : base(statement)
     {
@@ -54,5 +54,9 @@ public class Augment : Statement
                  {{this}}
                  */
                  """;
+    }
+    protected override void ValidateParent()
+    {
+        this.GetModule()?.Augments.Add(this);
     }
 }

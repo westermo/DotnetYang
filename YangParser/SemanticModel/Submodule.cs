@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using YangParser.Generator;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
@@ -18,8 +19,37 @@ public class Submodule : Statement, ITopLevelStatement
             var prefix = import.GetChild<Prefix>().Argument;
             Usings[prefix] = use;
         }
+        foreach (var child in this.Unwrap())
+        {
+            if (child is Uses use)
+            {
+                Uses.Add(use);
+            }
+            if (child is Grouping grouping)
+            {
+                Groupings.Add(grouping);
+            }
+            if (child is Augment augment)
+            {
+                Augments.Add(augment);
+            }
+            if (child is Import import)
+            {
+                Imports.Add(import);
+            }
+        }
     }
 
+    private bool IsExpanded = false;
+    public void Expand()
+    {
+        if (IsExpanded) return;
+        foreach (var child in Children)
+        {
+            ExpandPrefixes(child);
+        }
+        IsExpanded = true;
+    }
 
     public override ChildRule[] PermittedChildren { get; } =
     [
@@ -47,7 +77,7 @@ public class Submodule : Statement, ITopLevelStatement
         new ChildRule(Revision.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Rpc.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(TypeDefinition.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(SemanticModel.Uses.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(YangVersion.Keyword, Cardinality.Required),
     ];
 
@@ -60,25 +90,34 @@ public class Submodule : Statement, ITopLevelStatement
 
     public Dictionary<string, string> Usings { get; }
 
-    public void ExpandPrefixes(IStatement statement)
+    private void ExpandPrefixes(IStatement statement)
     {
-        foreach (var prefix in Usings.Keys)
+
+        if (!statement.Argument.Contains(" "))
         {
-            statement.Argument = statement.Argument.Replace(prefix + ":", Usings[prefix]);
-            if (statement is KeywordReference keywordReference)
+            var argPrefix = statement.Argument.Split(':');
+            if (argPrefix.Length > 1 && argPrefix.Length < 3) //ignore cases where there are multiple colons, since that's an XML-namespace reference
             {
-                if (keywordReference.ReferenceNamespace == prefix)
+                if (Usings.ContainsKey(argPrefix[0]))
                 {
-                    keywordReference.ReferenceNamespace = Usings[prefix];
+                    statement.Argument = statement.Argument.Replace(argPrefix[0] + ":", Usings[argPrefix[0]]);
+                }
+                else
+                {
+                    Log.Write($"No prefix found for {argPrefix[0]} in {Argument}");
                 }
             }
         }
-
         foreach (var child in statement.Children)
         {
             ExpandPrefixes(child);
         }
     }
+    public List<Uses> Uses { get; } = [];
+    public List<Grouping> Groupings { get; } = [];
+    public List<Augment> Augments { get; } = [];
+    public List<Import> Imports { get; } = [];
+
 }
 
 public class BelongsTo : Statement

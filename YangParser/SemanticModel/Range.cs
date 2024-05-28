@@ -25,7 +25,7 @@ public class Range : Statement
         {
             var components = entry.Replace("..", "|").Split('|');
             var lower = double.Parse(components[0]);
-            var upper = components[1] == "max" ? double.MaxValue : double.Parse(components[1]);
+            var upper = components[1] == "max" ? double.NaN : double.Parse(components[1]);
             return (lower, upper);
         }
 
@@ -35,7 +35,7 @@ public class Range : Statement
 
     public string GetConstructorValidation()
     {
-        var qualifiers = Bounds.Select(bound => $"input is >= {bound.Item1} and <= {bound.Item2}");
+        var qualifiers = Bounds.Select(bound => double.IsNaN(bound.Item2) ? $"input >= {bound.Item1}" : $"input is >= {bound.Item1} and <= {bound.Item2}");
         var all = string.Join("||", qualifiers);
         var hasError = this.TryGetChild<ErrorMessage>(out var errorMessage);
         var hasTag = this.TryGetChild<ErrorAppTag>(out var appTag);

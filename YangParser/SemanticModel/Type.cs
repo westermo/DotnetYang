@@ -39,14 +39,12 @@ public class Type : Statement
             if (m_definition != null) return m_definition;
             if (!BuiltinTypeReference.IsBuiltin(this, out var typeName, out var definition))
             {
-                if (this.FindReference(Argument) != null) return null;
-                m_name = MakeName(Parent!.Argument) + "Type";
+                if (this.FindReference<IStatement>(Argument) != null) return null;
                 m_definition = BuiltinTypeReference.DefaultPattern(this, [], [], TypeName(this), m_name);
                 return m_definition;
             }
-
-            m_definition = definition;
             m_name = typeName;
+            m_definition = definition;
             return m_definition;
         }
     }
@@ -62,17 +60,16 @@ public class Type : Statement
                 m_name = typeName;
                 return m_name;
             }
-
-            var components = Argument.Split(':');
-            string prefix = components.Length > 1 ? components[0] + ":" : string.Empty;
-            var reference = this.FindReference(Argument);
+            var prefix = Argument.Prefix(out var value);
+            var reference = this.FindReference<IStatement>(Argument);
             if (reference is TypeDefinition def)
             {
-                return prefix + MakeName(def.Argument);
+                if (prefix.Contains('.')) return prefix + MakeName(def.Argument);
+                else return prefix + ":" + MakeName(def.Argument);
             }
 
-            if (reference != null) return MakeName(Argument);
-            m_name = MakeName(Parent!.Argument) + "Type";
+            if (reference != null && !BuiltinTypeReference.IsBuiltinKeyword(Argument)) return MakeName(Argument);
+            m_name = BuiltinTypeReference.TypeName(this);
             return m_name;
         }
     }

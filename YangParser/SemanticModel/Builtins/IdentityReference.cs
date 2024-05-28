@@ -3,20 +3,20 @@ using YangParser.Generator;
 
 namespace YangParser.SemanticModel.Builtins;
 
-public class IdentityReference() : BuiltinType("identityref", s =>
+public class IdentityReference() : BuiltinType("identityref", statement =>
 {
-    var inherits = s.Children.OfType<Base>().Select(Statement.InterfaceName).ToArray();
-    if (inherits.Length == 1)
-    {
-        var value = inherits[0];
-        return (value, null);
-    }
-
-    var inheritance = inherits.Length == 0 ? string.Empty : " : " + string.Join(", ", inherits);
-    var name = Statement.MakeName(s.Parent!.Argument);
-    var definition = $"""
-                      {s.DescriptionString}{s.AttributeString}
-                      public class {name}{inheritance};
+    var inherits = statement.Children.OfType<Base>().Select(x => '"' + x.Argument + '"').ToArray();
+    var name = BuiltinTypeReference.TypeName(statement);
+    var definition = $$"""
+                      {{statement.DescriptionString}}{{statement.AttributeString}}
+                      public class {{name}}
+                      {
+                        public string Value { get; }
+                        public static string[] Bases = [{{string.Join(", ", inherits)}}];
+                        public {{name}}(string input) => Value = input;
+                        public static implicit operator string({{name}} input) => input.Value;
+                        public static implicit operator {{name}}(string input) => new(input);
+                      }
                       """;
     return (name, definition);
 });

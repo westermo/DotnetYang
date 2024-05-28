@@ -4,13 +4,13 @@ using System.Linq;
 
 namespace YangParser.SemanticModel.Builtins;
 
-public class String() : BuiltinType("string", s =>
+public class String() : BuiltinType("string", statement =>
 {
-    var hasPattern = s.TryGetChild<Pattern>(out var pattern);
-    var hasLength = s.TryGetChild<Length>(out var length);
+    var hasPattern = statement.TryGetChild<Pattern>(out var pattern);
+    var hasLength = statement.TryGetChild<Length>(out var length);
     if (hasPattern || hasLength)
     {
-        var name = Statement.MakeName(s.Parent!.Argument);
+        var name = BuiltinTypeReference.TypeName(statement);
         List<string> staticFields = new();
         List<string> constructorStatements = new();
         if (hasPattern)
@@ -29,7 +29,7 @@ public class String() : BuiltinType("string", s =>
             constructorStatements.Add(length!.GetConstructorValidation());
         }
 
-        return (name, BuiltinTypeReference.DefaultPattern(s, staticFields, constructorStatements, "string", name));
+        return (name, BuiltinTypeReference.DefaultPattern(statement, staticFields, constructorStatements, "string", name));
     }
 
     return ("string", null);
