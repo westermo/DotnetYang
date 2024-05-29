@@ -76,7 +76,7 @@ public abstract class Statement : IStatement
 
         var prefix = argument.Prefix(out var value);
         var addColon = !prefix.Contains('.') && !string.IsNullOrWhiteSpace(prefix);
-        foreach (var section in value.Split('-', ' ', '/', '.'))
+        foreach (var section in value.Split('-', ' ', '/', '.','^'))
         {
             output.Append(Capitalize(section));
         }

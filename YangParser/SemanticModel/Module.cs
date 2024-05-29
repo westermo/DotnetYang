@@ -55,6 +55,11 @@ public class Module : Statement, ITopLevelStatement
                     typeDefinition.Parent?.Replace(typeDefinition, []);
                 }
             }
+
+            if (child is Extension extension)
+            {
+                Extensions.Add(extension);
+            }
         }
     }
 
@@ -187,6 +192,7 @@ public class Module : Statement, ITopLevelStatement
     public List<Grouping> Groupings { get; } = [];
     public List<Augment> Augments { get; } = [];
     public List<Import> Imports { get; } = [];
+    public List<Extension> Extensions { get; } = [];
     public List<TypeDefinition> HiddenDefinitions { get; } = [];
 
     // public string Capability
@@ -213,5 +219,6 @@ public interface ITopLevelStatement : IStatement
     public List<Grouping> Groupings { get; }
     public List<Augment> Augments { get; }
     public List<Import> Imports { get; }
+    public List<Extension> Extensions { get; }
     Dictionary<string, string> ImportedModules { get; }
 }

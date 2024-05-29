@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using YangParser.Generator;
@@ -9,6 +8,7 @@ namespace YangParser.SemanticModel;
 public class Submodule : Statement, ITopLevelStatement
 {
     public Dictionary<string, string> ImportedModules { get; } = [];
+
     public Submodule(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
@@ -20,14 +20,17 @@ public class Submodule : Statement, ITopLevelStatement
             {
                 Uses.Add(use);
             }
+
             if (child is Grouping grouping)
             {
                 Groupings.Add(grouping);
             }
+
             if (child is Augment augment)
             {
                 Augments.Add(augment);
             }
+
             if (child is Import import)
             {
                 Imports.Add(import);
@@ -36,6 +39,7 @@ public class Submodule : Statement, ITopLevelStatement
                 Usings[prefix] = reference;
                 ImportedModules[prefix] = import.Argument;
             }
+
             if (child is TypeDefinition typeDefinition)
             {
                 if (typeDefinition.IsUnderGrouping())
@@ -44,11 +48,17 @@ public class Submodule : Statement, ITopLevelStatement
                     typeDefinition.Parent?.Replace(typeDefinition, []);
                 }
             }
+
+            if (child is Extension extension)
+            {
+                Extensions.Add(extension);
+            }
         }
     }
 
     public List<TypeDefinition> HiddenDefinitions { get; } = [];
     private bool IsExpanded = false;
+
     public void Expand()
     {
         if (IsExpanded) return;
@@ -56,6 +66,7 @@ public class Submodule : Statement, ITopLevelStatement
         {
             ExpandPrefixes(child);
         }
+
         IsExpanded = true;
     }
 
@@ -100,11 +111,12 @@ public class Submodule : Statement, ITopLevelStatement
 
     private void ExpandPrefixes(IStatement statement)
     {
-
         if (!statement.Argument.Contains(" "))
         {
             var argPrefix = statement.Argument.Split(':');
-            if (argPrefix.Length > 1 && argPrefix.Length < 3) //ignore cases where there are multiple colons, since that's an XML-namespace reference
+            if (argPrefix.Length > 1 &&
+                argPrefix.Length <
+                3) //ignore cases where there are multiple colons, since that's an XML-namespace reference
             {
                 if (Usings.ContainsKey(argPrefix[0]))
                 {
@@ -116,30 +128,16 @@ public class Submodule : Statement, ITopLevelStatement
                 }
             }
         }
+
         foreach (var child in statement.Children)
         {
             ExpandPrefixes(child);
         }
     }
+
     public List<Uses> Uses { get; } = [];
     public List<Grouping> Groupings { get; } = [];
     public List<Augment> Augments { get; } = [];
+    public List<Extension> Extensions { get; } = [];
     public List<Import> Imports { get; } = [];
-
-}
-
-public class BelongsTo : Statement
-{
-    public BelongsTo(YangStatement statement) : base(statement)
-    {
-        if (statement.Keyword != Keyword)
-            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-    }
-
-    public const string Keyword = "belongs-to";
-
-    public override ChildRule[] PermittedChildren { get; } =
-    [
-        new ChildRule(Prefix.Keyword, Cardinality.Required)
-    ];
 }

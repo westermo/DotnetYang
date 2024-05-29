@@ -4,24 +4,13 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class KeywordReference : Statement
-{
-    public KeywordReference(YangStatement statement) : base(statement, false)
-    {
-        ReferenceNamespace = statement.Prefix;
-        Argument = statement.Argument?.ToString() ?? string.Empty;
-    }
-
-    public string ReferenceNamespace { get; set; }
-}
-
 public static class StatementFactory
 {
     public static IStatement Create(YangStatement source)
     {
         if (!string.IsNullOrWhiteSpace(source.Prefix))
         {
-            return new KeywordReference(source);
+            return new ExtensionReference(source);
         }
 
         return source.Keyword switch

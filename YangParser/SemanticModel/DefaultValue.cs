@@ -24,7 +24,7 @@ public class DefaultValue : Statement
         return GetTypeSpecification(prefix, value, type);
     }
 
-    private string GetTypeSpecification(string prefix, string value, Type type)
+    private string GetTypeSpecification(string prefix, string value, Type type, bool chained = false)
     {
         if (string.IsNullOrEmpty(value))
         {
@@ -54,10 +54,10 @@ public class DefaultValue : Statement
             case "decimal64":
                 return Argument;
             case "union":
-                if (onlyNumbers.Match(Argument).Success)
-                {
-                    return $"new({Argument})";
-                }
+                // if (onlyNumbers.Match(Argument).Success)
+                // {
+                //     return $"new({Argument})";
+                // }
 
                 var enumeration = type.SearchDownwards<Enum>(Argument);
                 if (enumeration != null)
@@ -73,7 +73,7 @@ public class DefaultValue : Statement
 
                 foreach (var subType in type.Children.OfType<Type>())
                 {
-                    var possible = GetTypeSpecification(prefix, value, subType);
+                    var possible = GetTypeSpecification(prefix, value, subType, true);
                     if (possible != $"new(\"{Argument}\")")
                     {
                         if (possible == $"\"{Argument}\"")
@@ -81,7 +81,14 @@ public class DefaultValue : Statement
                             return $"new(\"{Argument}\")";
                         }
 
-                        return possible == Argument ? $"new({Argument})" : possible;
+                        if (BuiltinTypeReference.IsBuiltin(subType, out var typeName, out _))
+                        {
+                            return chained
+                                ? "new(" + possible + $"/*{typeName}*/" + ")"
+                                : possible + $"/*{typeName}*/";
+                        }
+
+                        return "new(new " + MakeName(subType.Argument) + "(" + possible + "))";
                     }
                 }
 
@@ -96,16 +103,16 @@ public class DefaultValue : Statement
                         prefix = type.Argument.Prefix(out _);
                     }
 
-                    return GetTypeSpecification(prefix, value, source.GetChild<Type>());
+                    return GetTypeSpecification(prefix, value, source.GetChild<Type>(), true);
                 }
 
                 if (onlyNumbers.Match(Argument).Success)
                 {
-                    return $"new({Argument})";
+                    return $"new(/*{type.Argument}*/{Argument})";
                 }
 
                 Log.Write($"Fallback for 'default {Argument}' to type {type}");
-                return $"new(\"{Argument}\")";
+                return $"new(/*{type.Argument}*/\"{Argument}\")";
         }
     }
 

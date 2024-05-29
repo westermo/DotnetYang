@@ -25,18 +25,24 @@ public class Extension : Statement
     public override string ToCode()
     {
         var arg = Children.FirstOrDefault(child => child is Argument);
-        var argStr = arg is null
+        var vargName = arg?.Argument;
+        if (vargName == Argument)
+        {
+            if (Argument != "value") vargName = "value";
+            else vargName = "_" + vargName;
+        }
+
+        var argStr = vargName is null
             ? string.Empty
             : $$"""
-                public string {{MakeName(arg.Argument)}} { get; set; }
-                public {{MakeName(Argument)}}Attribute(string {{MakeName(arg.Argument)}})
+                public string {{MakeName(vargName)}} { get; set; }
+                public {{MakeName(Argument)}}(string {{MakeName(vargName)}})
                 {
-                    this.{{MakeName(arg.Argument)}} = {{MakeName(arg.Argument)}};
+                    this.{{MakeName(vargName)}} = {{MakeName(vargName)}};
                 }
                 """;
         return $$"""
-                 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-                 public class {{MakeName(Argument)}}Attribute : Attribute
+                 public class {{MakeName(Argument)}}
                  {
                      {{Indent(argStr)}}
                  }
