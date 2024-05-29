@@ -73,14 +73,9 @@ public class Augment : Statement, IUnexpandable
             }
         }
 
-        if (Argument.StartsWith("/"))
-        {
-            top = GetModule(components);
-        }
-        else
-        {
-            throw new SemanticError("TODO: Uses/Augment", Source);
-        }
+        top = Argument.StartsWith("/") ? GetModule(components) : Parent!;
+        
+        Parent?.Replace(this,[]);
 
         var target = GetTarget(top, components, sourceNS);
 
@@ -148,7 +143,8 @@ public class Augment : Statement, IUnexpandable
             case Notification:
                 break;
             default:
-                throw new SemanticError($"Augment target was disallowed type {current.GetType().Name}", Source);
+                throw new SemanticError($"Augment target '{Argument}' was disallowed type " +
+                                        $"'{current.GetType().Name} {current.Argument}'", Source);
         }
 
         return current;
