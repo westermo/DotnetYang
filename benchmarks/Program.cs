@@ -12,12 +12,14 @@ public class ParsingBenchmarks
 {
     private string source;
     private YangStatement statement;
+    private IStatement model;
 
     [GlobalSetup]
     public void Setup()
     {
         source = File.ReadAllText("../../../../lin.yang");
         statement = Parser.Parse("lin.yang", source);
+        model = StatementFactory.Create(statement);
     }
 
     [Benchmark]
@@ -25,6 +27,9 @@ public class ParsingBenchmarks
 
     [Benchmark]
     public IStatement SemanticModel() => StatementFactory.Create(statement);
+
+    [Benchmark]
+    public string ToCode() => model.ToCode();
 }
 
 internal static class Program
