@@ -168,6 +168,11 @@ public class ParsingTests(ITestOutputHelper output)
 
         foreach (var statement in compilationUnit.Unwrap())
         {
+            if(statement.IsUnderGrouping()) continue;
+            if (statement is Uses uses)
+            {
+                output.WriteLine(uses.Parent!.ToString());
+            }
             Assert.IsNotType<Uses>(statement);
         }
 

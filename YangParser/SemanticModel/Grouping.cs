@@ -40,7 +40,10 @@ public class Grouping : Statement
 
     public IStatement[] WithUse(Uses use)
     {
-        foreach (var child in this.Unwrap())
+        var copy = StatementFactory.Create(Source);
+        Parent.Insert([copy]);
+        copy.Parent = Parent;
+        foreach (var child in copy.Unwrap())
         {
             if (child is Uses inner)
             {
@@ -58,7 +61,7 @@ public class Grouping : Statement
                         continue;
                     }
 
-                    baseType.Argument = this.GetInheritedPrefix() + ":" + baseType.Argument;
+                    baseType.Argument = copy.GetInheritedPrefix() + ":" + baseType.Argument;
                 }
 
                 continue;
@@ -74,13 +77,13 @@ public class Grouping : Statement
                 continue;
             }
 
-            type.Argument = this.GetInheritedPrefix() + ":" + type.Argument;
+            type.Argument = copy.GetInheritedPrefix() + ":" + type.Argument;
         }
 
         //Propogate usings upwards
         if (use.GetModule() is Module target)
         {
-            if (this.GetModule() is Module source)
+            if (copy.GetModule() is Module source)
             {
                 if (source != target)
                 {
@@ -91,6 +94,7 @@ public class Grouping : Statement
                             target.Usings[pair.Key] = pair.Value;
                         }
                     }
+
                     foreach (var pair in source.ImportedModules)
                     {
                         if (!target.ImportedModules.ContainsKey(pair.Key))
@@ -102,7 +106,7 @@ public class Grouping : Statement
             }
         }
 
-        var containingModule = this.GetModule();
+        var containingModule = copy.GetModule();
         if (containingModule is null)
         {
             Log.Write($"Error, could not find containing module for grouping '{Argument}'");
@@ -112,7 +116,8 @@ public class Grouping : Statement
             containingModule.Expand();
         }
 
+        Parent.Replace(copy, []);
 
-        return Children;
+        return copy.Children;
     }
 }
