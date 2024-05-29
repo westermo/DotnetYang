@@ -57,7 +57,7 @@ public class Container : Statement, IClassSource
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
         var name = Argument;
-        if (Parent.Argument == Argument)
+        if (Parent!.Argument == Argument)
         {
             name = "sub-" + name;
         }

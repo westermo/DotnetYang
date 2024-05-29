@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.IO;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
@@ -355,12 +354,22 @@ public class YangGenerator : IIncrementalGenerator
                            public string XPath { get; } = xPath;
                        }
                        [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                       public class MustAttribute(string xPath) : Attribute
+                       {
+                           public string XPath { get; } = xPath;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
                        public class TargetAttribute(string xPath) : Attribute
                        {
                            public string XPath { get; } = xPath;
                        }
                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
                        public class KeyAttribute(params string[] value) : Attribute
+                       {
+                           public string[] Value { get; } = value;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                       public class UniqueAttribute(params string[] value) : Attribute
                        {
                            public string[] Value { get; } = value;
                        }
