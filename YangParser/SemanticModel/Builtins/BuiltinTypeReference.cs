@@ -57,13 +57,13 @@ public static class BuiltinTypeReference
                  public class {{typeName}}
                  {
                      {{Statement.Indent(string.Join("\n", staticFields))}}
-                     public {{baseTypeName}} Value { get; }
-                     public static implicit operator {{baseTypeName}}({{typeName}} input) => input.Value;
+                     public {{baseTypeName}} WrittenValue { get; }
+                     public static implicit operator {{baseTypeName}}({{typeName}} input) => input.WrittenValue;
                      public static implicit operator {{typeName}}({{baseTypeName}} input) => new {{typeName}}(input);
                      public {{typeName}}({{baseTypeName}} input)
                      {
                          {{Statement.Indent(Statement.Indent(string.Join("\n", constructorStatements)))}}
-                         Value = input;
+                         WrittenValue = input;
                      }
                      
                  }

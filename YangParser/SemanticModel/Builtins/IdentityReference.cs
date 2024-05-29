@@ -11,10 +11,10 @@ public class IdentityReference() : BuiltinType("identityref", statement =>
                       {{statement.DescriptionString}}{{statement.AttributeString}}
                       public class {{name}}
                       {
-                        public string Value { get; }
+                        public string Identity { get; }
                         public static string[] Bases = [{{string.Join(", ", inherits)}}];
-                        public {{name}}(string input) => Value = input;
-                        public static implicit operator string({{name}} input) => input.Value;
+                        public {{name}}(string input) => Identity = input;
+                        public static implicit operator string({{name}} input) => input.Identity;
                         public static implicit operator {{name}}(string input) => new(input);
                       }
                       """;

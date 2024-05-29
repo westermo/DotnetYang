@@ -80,6 +80,8 @@ public class YangGenerator : IIncrementalGenerator
             //Replace Uses by their respective groupings
             UnwrapUses(context, compilation);
             Log.Write("UnwrapUses Complete");
+            InjectAugments(context, compilation);
+            Log.Write("Augments Injected");
             foreach (var module in compilation.Children.OfType<Module>())
             {
                 try
@@ -97,11 +99,29 @@ public class YangGenerator : IIncrementalGenerator
         catch (Exception e)
         {
             WriteFile(context, "errors",
-                "#error General Exception" + "\n/*\n" + e.Message + "\n" + e.StackTrace + "\n*/");
+                "#error General Exception" + "/*" + Statement.SingleLine(e.Message + "@" + e.StackTrace) + "*/");
         }
 
         Log.Clear();
         WriteFile(context, "log.cs", Log.Content);
+    }
+
+    private void InjectAugments(SourceProductionContext context, CompilationUnit compilation)
+    {
+        foreach (var module in compilation.Children.OfType<Module>())
+        {
+            foreach (var augment in module.Augments)
+            {
+                try
+                {
+                    augment.Inject();
+                }
+                catch (SemanticError error)
+                {
+                    ReportDiagnostics(context, new ResultOrException<IStatement>(error));
+                }
+            }
+        }
     }
 
     public void WriteFile(SourceProductionContext context, string fileName, string content)
@@ -266,7 +286,7 @@ public class YangGenerator : IIncrementalGenerator
 
     private static readonly DiagnosticDescriptor SemanticError = new DiagnosticDescriptor("YANG0002", "Semantic Error",
         "Semantic Error: {0}", "SemanticModel", DiagnosticSeverity.Error, true);
-    
+
 
     private static ResultOrException<IStatement> MakeSemanticModel(ResultOrException<YangStatement> statement)
 
@@ -361,6 +381,11 @@ public class YangGenerator : IIncrementalGenerator
                        }
                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
                        public class OrderedByAttribute(string value) : Attribute
+                       {
+                           public string Value { get; } = value;
+                       }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
+                       public class AugmentedAttribute(string value) : Attribute
                        {
                            public string Value { get; } = value;
                        }

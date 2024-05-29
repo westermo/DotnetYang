@@ -17,7 +17,7 @@ public class FeatureFlag : Statement
 
     public override string ToCode()
     {
-        Parent?.Attributes.Add($"IfFeature(\"{Argument.Replace("\n","")}\")");
+        Parent?.Attributes.Add($"IfFeature(\"{SingleLine(Argument)}\")");
         return string.Empty;
     }
 }

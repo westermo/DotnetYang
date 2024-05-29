@@ -30,6 +30,7 @@ public class DefaultValue : Statement
         {
             return "null";
         }
+
         var aPrefix = string.IsNullOrEmpty(prefix) ? "" : prefix.Contains('.') ? prefix : prefix + ":";
         switch (type.Argument)
         {
@@ -57,16 +58,34 @@ public class DefaultValue : Statement
                 {
                     return $"new({Argument})";
                 }
+
                 var enumeration = type.SearchDownwards<Enum>(Argument);
                 if (enumeration != null)
                 {
                     return aPrefix + type.Name + "." + enumeration.Ancestor<Type>()!.Name + "." + MakeName(Argument);
                 }
+
                 var bit = type.SearchDownwards<Bit>(Argument);
                 if (bit != null)
                 {
                     return aPrefix + type.Name + "." + bit.Ancestor<Type>()!.Name + "." + MakeName(Argument);
                 }
+
+                foreach (var subType in type.Children.OfType<Type>())
+                {
+                    var possible = GetTypeSpecification(prefix, value, subType);
+                    if (possible != $"new(\"{Argument}\")")
+                    {
+                        if (possible == $"\"{Argument}\"")
+                        {
+                            return $"new(\"{Argument}\")";
+                        }
+
+                        return possible == Argument ? $"new({Argument})" : possible;
+                    }
+                }
+
+                Log.Write($"Fallback for 'default {Argument}' to type {type}");
                 return $"new(\"{Argument}\")";
             default:
                 var source = this.FindReference<TypeDefinition>(type.Argument);
@@ -76,12 +95,16 @@ public class DefaultValue : Statement
                     {
                         prefix = type.Argument.Prefix(out _);
                     }
+
                     return GetTypeSpecification(prefix, value, source.GetChild<Type>());
                 }
+
                 if (onlyNumbers.Match(Argument).Success)
                 {
                     return $"new({Argument})";
                 }
+
+                Log.Write($"Fallback for 'default {Argument}' to type {type}");
                 return $"new(\"{Argument}\")";
         }
     }

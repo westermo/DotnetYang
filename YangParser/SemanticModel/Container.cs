@@ -15,6 +15,19 @@ public class Container : Statement, IClassSource
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
     }
 
+    public Container(string argument, Metadata metadata) : base(
+        new YangStatement(
+            string.Empty,
+            Keyword,
+            [],
+            metadata,
+            argument))
+    {
+        IsPlaceholder = true;
+    }
+
+    public bool IsPlaceholder { get; set; }
+
     public const string Keyword = "container";
 
     public override ChildRule[] PermittedChildren { get; } =
@@ -43,13 +56,17 @@ public class Container : Statement, IClassSource
     public override string ToCode()
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
-        string property = Parent is Module
-            ? string.Empty
-            : $"public{KeywordString}{MakeName(Argument)}Container? {MakeName(Argument)} {{ get; set; }}";
+        var name = Argument;
+        if (Parent.Argument == Argument)
+        {
+            name = "sub-" + name;
+        }
+
+        string property = $"public{KeywordString}{MakeName(name)}Container? {MakeName(name)} {{ get; set; }}";
         return $$"""
                  {{property}}
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{MakeName(Argument)}}Container
+                 public class {{MakeName(name)}}Container
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}
                  }

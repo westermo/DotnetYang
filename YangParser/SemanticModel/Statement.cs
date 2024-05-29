@@ -73,13 +73,15 @@ public abstract class Statement : IStatement
             var replacement = component.Replace(".", "dot");
             argument = argument.Replace(component, replacement);
         }
+
         var prefix = argument.Prefix(out var value);
         var addColon = !prefix.Contains('.') && !string.IsNullOrWhiteSpace(prefix);
         foreach (var section in value.Split('-', ' ', '/', '.'))
         {
             output.Append(Capitalize(section));
         }
-        var result = (prefix + (addColon ? ":" : "") + output.ToString()).Replace("*", "Any");
+
+        var result = (prefix + (addColon ? ":" : "") + output).Replace("*", "Any");
         return result;
     }
 
@@ -111,11 +113,11 @@ public abstract class Statement : IStatement
         return source.Replace("\n", "\n\t");
     }
 
-    private static Regex VersionIndicator = new(@"(?<target>[0-9]+(\.[0-9]+)+)");
+    public static readonly Regex VersionIndicator = new(@"(?<target>[0-9]+(\.[0-9]+)+)");
 
     protected static string TypeName(Type type)
     {
-        if (!BuiltinTypeReference.IsBuiltin(type, out var corresponding, out var definition))
+        if (!BuiltinTypeReference.IsBuiltin(type, out var corresponding, out _))
             return MakeName(type.Argument);
         return corresponding ?? MakeName(type.Argument);
     }
@@ -140,19 +142,19 @@ public abstract class Statement : IStatement
     /// <exception cref="ArgumentOutOfRangeException"></exception>
     protected void ValidateChildren(YangStatement statement)
     {
-        Dictionary<string, int> occurances = new();
+        Dictionary<string, int> occurrences = new();
         foreach (var child in statement.Children)
         {
             if (!string.IsNullOrWhiteSpace(child.Prefix)) continue;
             if (PermittedChildren.Any(p => p.Keyword == child.Keyword))
             {
-                if (occurances.ContainsKey(child.Keyword))
+                if (occurrences.ContainsKey(child.Keyword))
                 {
-                    occurances[child.Keyword]++;
+                    occurrences[child.Keyword]++;
                 }
                 else
                 {
-                    occurances[child.Keyword] = 1;
+                    occurrences[child.Keyword] = 1;
                 }
 
                 continue;
@@ -166,21 +168,21 @@ public abstract class Statement : IStatement
         {
             switch (allowed.Cardinality)
             {
-                case Cardinality.Required when occurances.TryGetValue(allowed.Keyword, out var count):
-                    {
-                        if (count == 1) break;
-                        throw new SemanticError(
-                            $"Child of type {allowed.Keyword} can only exist once in {GetType()}", statement);
-                    }
+                case Cardinality.Required when occurrences.TryGetValue(allowed.Keyword, out var count):
+                {
+                    if (count == 1) break;
+                    throw new SemanticError(
+                        $"Child of type {allowed.Keyword} can only exist once in {GetType()}", statement);
+                }
                 case Cardinality.Required:
                     throw new SemanticError(
                         $"Child of type {allowed.Keyword} must exist in type {GetType()}", statement);
-                case Cardinality.ZeroOrOne when occurances.TryGetValue(allowed.Keyword, out var count):
-                    {
-                        if (count <= 1) break;
-                        throw new SemanticError(
-                            $"Child of type {allowed.Keyword} can only exist up to once in {GetType()}", statement);
-                    }
+                case Cardinality.ZeroOrOne when occurrences.TryGetValue(allowed.Keyword, out var count):
+                {
+                    if (count <= 1) break;
+                    throw new SemanticError(
+                        $"Child of type {allowed.Keyword} can only exist up to once in {GetType()}", statement);
+                }
                 case Cardinality.ZeroOrOne:
                 case Cardinality.ZeroOrMore:
                     break;
@@ -190,7 +192,7 @@ public abstract class Statement : IStatement
         }
     }
 
-    public string Argument { get; set; } = string.Empty;
+    public string Argument { get; set; }
     public virtual ChildRule[] PermittedChildren { get; } = [];
     public HashSet<string> Attributes { get; } = [];
     public HashSet<string> Keywords { get; } = [];
@@ -216,19 +218,30 @@ public abstract class Statement : IStatement
         Children = Merge(children, replace);
     }
 
-    private IStatement[] Merge(List<IStatement> first, IEnumerable<IStatement> second)
+    public void Insert(IEnumerable<IStatement> augments)
+    {
+        Children = Merge(Children.ToList(), augments);
+    }
+
+    private static IStatement[] Merge(List<IStatement> first, IEnumerable<IStatement> second)
     {
         foreach (var insertion in second)
         {
             var inserted = false;
-            foreach (var original in first)
+            foreach (var original in first.ToArray())
             {
-                if (original.Argument == insertion.Argument && original.GetType() == insertion.GetType())
+                if (original.Argument != insertion.Argument) continue;
+                if (original.GetType() == insertion.GetType() || insertion is Container { IsPlaceholder: true })
                 {
                     original.Children = Merge(original.Children.ToList(), insertion.Children);
                     inserted = true;
                     break;
                 }
+
+                if (original is not Container { IsPlaceholder: true }) continue;
+                insertion.Children = Merge(insertion.Children.ToList(), original.Children);
+                first.Remove(original);
+                break;
             }
 
             if (!inserted)
@@ -259,19 +272,6 @@ public abstract class Statement : IStatement
     public virtual string ToCode()
     {
         return $"#warning ToCode() call on non-overriden type {GetType()}:\n/*{this}\n*/";
-    }
-
-    public static string InterfaceName(Base b)
-    {
-        return InterfaceName(b.Argument);
-    }
-
-    public static string InterfaceName(string arg)
-    {
-        var expanded = !arg.Contains(':');
-        var components = MakeName(arg).Split(':', '.');
-        components[components.Length - 1] = "I" + components[components.Length - 1];
-        return string.Join(expanded ? "." : ":", components);
     }
 
     public static string SingleLine(string multiline, string separator = " ")

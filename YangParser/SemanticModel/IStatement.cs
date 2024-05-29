@@ -17,6 +17,7 @@ public interface IStatement
     YangStatement Source { get; }
     string ToCode();
     void Replace(IStatement child, IEnumerable<IStatement> replacements);
+    void Insert(IEnumerable<IStatement> augments);
 }
 
 public interface ICommentable : IStatement

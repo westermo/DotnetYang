@@ -7,7 +7,7 @@ namespace YangParser.SemanticModel;
 
 public static class StatementExtensions
 {
-    public static IStatement Root(this IStatement statement)
+    private static IStatement Root(this IStatement statement)
     {
         while (statement.Parent is not null)
         {
@@ -78,14 +78,18 @@ public static class StatementExtensions
         return null;
     }
 
-    public static IStatement? FindSourceFor(this IStatement source, string prefix)
+    public static ITopLevelStatement? FindSourceFor(this IStatement source, string prefix)
     {
         var module = source.GetModule();
-        var imports = module?.Imports;
-        return imports?.FirstOrDefault(import => import.GetChild<Prefix>().Argument == prefix);
+        if (module?.ImportedModules.TryGetValue(prefix, out var moduleName) == true)
+        {
+            return module.Root().Children.OfType<Module>().FirstOrDefault(s => s.Argument == moduleName);
+        }
+
+        return null;
     }
 
-    public static Grouping? FindGrouping(this Uses source, ITopLevelStatement module)
+    private static Grouping? FindGrouping(this Uses source, ITopLevelStatement module)
     {
         _ = source.Argument.Prefix(out var key);
         foreach (var grouping in module.Groupings)
@@ -110,7 +114,7 @@ public static class StatementExtensions
         return false;
     }
 
-    public static Grouping GetGrouping(this Uses use)
+    private static Grouping GetGrouping(this Uses use)
     {
         var module = use.GetModule();
         if (module is null)
@@ -138,19 +142,10 @@ public static class StatementExtensions
 
             if (!prefix.Contains("."))
             {
-                var import = use.FindSourceFor(prefix);
-                if (import is null)
-                {
-                    throw new SemanticError(
-                        $"Could not find an import statement with prefix '{prefix}' for 'uses {use.Argument}' in module '{module.Argument}'",
-                        use.Source);
-                }
-
-                var source = use.Root().Children.OfType<Module>().FirstOrDefault(m => m.Argument == import.Argument) ??
-                             throw new SemanticError($"Could not find a module with the key {import.Argument}",
-                                 import.Source);
+                var source = use.FindSourceFor(prefix) ??
+                             throw new SemanticError($"Could not find a module with the key {prefix}", use.Source);
                 var grouping = use.FindGrouping(source) ?? throw new SemanticError(
-                    $"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{source.Argument}' from prefix '{prefix}', import was {Statement.SingleLine(import.ToString())}",
+                    $"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{source.Argument}' from prefix '{prefix}'",
                     use.Source);
                 return grouping;
             }
@@ -193,8 +188,17 @@ public static class StatementExtensions
             name = components[1];
             return components[0];
         }
-        else if (argument.Contains("."))
+
+        if (argument.Contains("."))
         {
+            var versioning = Statement.VersionIndicator.Match(argument);
+            if (versioning.Success)
+            {
+                var component = versioning.Groups["target"].Value;
+                var replacement = component.Replace(".", "[tmp]");
+                argument = argument.Replace(component, replacement);
+            }
+
             var components = argument.Split('.');
             StringBuilder builder = new();
             for (int i = 0; i < components.Length - 1; i++)
@@ -203,7 +207,7 @@ public static class StatementExtensions
                 builder.Append(".");
             }
 
-            name = components.Last();
+            name = components.Last().Replace("[tmp]", ".");
             return builder.ToString();
         }
 
@@ -211,7 +215,7 @@ public static class StatementExtensions
         return string.Empty;
     }
 
-    static Dictionary<(System.Type, string), IStatement?> _cache = [];
+    static readonly Dictionary<(System.Type, string), IStatement?> _cache = [];
 
     public static T? FindReference<T>(this IStatement source, string reference) where T : IStatement
     {
@@ -236,23 +240,14 @@ public static class StatementExtensions
                 _cache[key] = value;
                 return value;
             }
-            else if (!prefix.Contains('.'))
-            {
-                IStatement? module;
-                var import = source.FindSourceFor(prefix);
-                var moduleName = import?.Argument;
-                if (import is null)
-                {
-                    Log.Write(
-                        $"Failed to find import for '{reference}' from module '{source.GetModule()?.Argument}', available imports are {string.Join(",", source.GetModule()?.Unwrap().OfType<Import>().Select(i => $"[{i.GetChild<Prefix>().Argument} -> {i.Argument}]") ?? [])}");
-                    return default;
-                }
 
-                module = source.Root().Children.FirstOrDefault(c => c.Argument == moduleName);
+            if (!prefix.Contains('.'))
+            {
+                var module = source.FindSourceFor(prefix);
                 if (module is null)
                 {
                     Log.Write(
-                        $"Failed to find module for '{moduleName}'");
+                        $"Failed to find module for '{prefix}'");
                     return default;
                 }
 
@@ -294,7 +289,7 @@ public static class StatementExtensions
     public static T? SearchDownwards<T>(this IStatement source, string argument, params IStatement[] except)
         where T : IStatement
     {
-        if (source.Argument == argument && source is T t && source is not DefaultValue)
+        if (source.Argument == argument && source is T t and not DefaultValue)
         {
             return t;
         }
@@ -311,9 +306,9 @@ public static class StatementExtensions
         return default;
     }
 
-    public static T? SearchUpwards<T>(this IStatement source, string argument) where T : IStatement
+    private static T? SearchUpwards<T>(this IStatement source, string argument) where T : IStatement
     {
-        if (source.Argument == argument && source is T t && source is not DefaultValue)
+        if (source.Argument == argument && source is T t and not DefaultValue)
         {
             return t;
         }

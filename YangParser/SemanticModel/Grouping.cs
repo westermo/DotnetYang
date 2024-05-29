@@ -88,8 +88,14 @@ public class Grouping : Statement
                     {
                         if (!target.Usings.ContainsKey(pair.Key))
                         {
-                            // Log.Write($"Adding prefix {pair.Key} to '{target.Argument}' from '{source.Argument}'");
                             target.Usings[pair.Key] = pair.Value;
+                        }
+                    }
+                    foreach (var pair in source.ImportedModules)
+                    {
+                        if (!target.ImportedModules.ContainsKey(pair.Key))
+                        {
+                            target.ImportedModules[pair.Key] = pair.Value;
                         }
                     }
                 }

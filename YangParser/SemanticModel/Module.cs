@@ -18,6 +18,7 @@ public class Module : Statement, ITopLevelStatement
         {
             [localPrefix] = localNS
         };
+        ImportedModules[localPrefix] = Argument;
         Namespace = localNS;
 
         foreach (var child in this.Unwrap())
@@ -26,27 +27,44 @@ public class Module : Statement, ITopLevelStatement
             {
                 Uses.Add(use);
             }
+
             if (child is Grouping grouping)
             {
                 Groupings.Add(grouping);
             }
+
             if (child is Augment augment)
             {
                 Augments.Add(augment);
             }
+
             if (child is Import import)
             {
                 Imports.Add(import);
                 var reference = MakeNamespace(import.Argument) + ".YangNode.";
                 var prefix = import.GetChild<Prefix>().Argument;
                 Usings[prefix] = reference;
+                ImportedModules[prefix] = import.Argument;
+            }
+
+            if (child is TypeDefinition typeDefinition)
+            {
+                if (typeDefinition.IsUnderGrouping())
+                {
+                    HiddenDefinitions.Add(typeDefinition);
+                    typeDefinition.Parent?.Replace(typeDefinition, []);
+                }
             }
         }
     }
 
+    public Dictionary<string, string> ImportedModules { get; } = [];
+
+
     public IStatement XmlNamespace { get; set; }
     public Dictionary<string, string> Usings { get; }
     public string Namespace { get; private set; }
+
     public override ChildRule[] PermittedChildren { get; } =
     [
         new ChildRule(AnyXml.Keyword, Cardinality.ZeroOrMore),
@@ -85,6 +103,7 @@ public class Module : Statement, ITopLevelStatement
         string ns = MakeNamespace(Argument);
 
         var nodes = Children.Select(child => child.ToCode()).Select(Indent).ToArray();
+        var extraDefinitions = HiddenDefinitions.Select(t => Indent(t.ToCode())).ToArray();
         var raw = $$"""
                     using System;
                     using System.Collections.Generic;
@@ -99,6 +118,7 @@ public class Module : Statement, ITopLevelStatement
                     {
                         {{string.Join("\n\t", Usings.Select(p => $"//Importing {p.Value} as {p.Key}"))}}
                         {{string.Join("\n\t", nodes)}}
+                        {{string.Join("\n\t", extraDefinitions)}}
                     }
                     """;
         raw = ReplacePrefixes(raw);
@@ -116,7 +136,9 @@ public class Module : Statement, ITopLevelStatement
 
         return raw;
     }
-    private bool IsExpanded = false;
+
+    private bool IsExpanded;
+
     public void Expand()
     {
         if (IsExpanded) return;
@@ -124,6 +146,7 @@ public class Module : Statement, ITopLevelStatement
         {
             ExpandPrefixes(child);
         }
+
         IsExpanded = true;
     }
 
@@ -131,15 +154,16 @@ public class Module : Statement, ITopLevelStatement
     {
         if (statement is not IUnexpandable)
         {
-
-            if (!statement.Argument.Contains(' ') && !statement.Argument.Contains('(') && !statement.Argument.Contains('['))
-            //Only occurs in string arguments, which are unaffected by prefixes, 
-            // and in function calls, which are unaffected by prefixes
-            // or in regex expressions, which are unaffected by prefixes
+            if (!statement.Argument.Contains(' ') && !statement.Argument.Contains('(') &&
+                !statement.Argument.Contains('['))
+                //Only occurs in string arguments, which are unaffected by prefixes, 
+                // and in function calls, which are unaffected by prefixes
+                // or in regex expressions, which are unaffected by prefixes
             {
-
                 var argPrefix = statement.Argument.Split(':');
-                if (argPrefix.Length > 1 && argPrefix.Length < 3) //ignore cases where there are multiple colons, since that's an XML-namespace reference
+                if (argPrefix.Length > 1 &&
+                    argPrefix.Length <
+                    3) //ignore cases where there are multiple colons, since that's an XML-namespace reference
                 {
                     if (Usings.ContainsKey(argPrefix[0]))
                     {
@@ -152,15 +176,18 @@ public class Module : Statement, ITopLevelStatement
                 }
             }
         }
+
         foreach (var child in statement.Children)
         {
             ExpandPrefixes(child);
         }
     }
+
     public List<Uses> Uses { get; } = [];
     public List<Grouping> Groupings { get; } = [];
     public List<Augment> Augments { get; } = [];
     public List<Import> Imports { get; } = [];
+    public List<TypeDefinition> HiddenDefinitions { get; } = [];
 
     // public string Capability
     // {
@@ -186,4 +213,5 @@ public interface ITopLevelStatement : IStatement
     public List<Grouping> Groupings { get; }
     public List<Augment> Augments { get; }
     public List<Import> Imports { get; }
+    Dictionary<string, string> ImportedModules { get; }
 }

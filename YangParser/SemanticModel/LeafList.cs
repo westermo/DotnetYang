@@ -56,10 +56,11 @@ public class LeafList : Statement
         {
             name += "Value";
         }
+
         return $$"""
                  {{addendum}}
                  {{DescriptionString}}{{AttributeString}}
-                 public{{KeywordString}}{{typeName}}[]? {{name}} { get; set; } {{defaulting}}
+                 public{{KeywordString}}{{typeName}}[]? {{name}}List { get; set; } {{defaulting}}
                  {{definition}}
                  {{Default?.Addendum}}
                  """;

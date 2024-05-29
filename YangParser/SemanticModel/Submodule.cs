@@ -8,17 +8,12 @@ namespace YangParser.SemanticModel;
 
 public class Submodule : Statement, ITopLevelStatement
 {
+    public Dictionary<string, string> ImportedModules { get; } = [];
     public Submodule(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         Usings = new();
-        foreach (var import in Children.OfType<Import>())
-        {
-            var use = MakeNamespace(import.Argument) + ".YangNode.";
-            var prefix = import.GetChild<Prefix>().Argument;
-            Usings[prefix] = use;
-        }
         foreach (var child in this.Unwrap())
         {
             if (child is Uses use)
@@ -36,10 +31,23 @@ public class Submodule : Statement, ITopLevelStatement
             if (child is Import import)
             {
                 Imports.Add(import);
+                var reference = MakeNamespace(import.Argument) + ".YangNode.";
+                var prefix = import.GetChild<Prefix>().Argument;
+                Usings[prefix] = reference;
+                ImportedModules[prefix] = import.Argument;
+            }
+            if (child is TypeDefinition typeDefinition)
+            {
+                if (typeDefinition.IsUnderGrouping())
+                {
+                    HiddenDefinitions.Add(typeDefinition);
+                    typeDefinition.Parent?.Replace(typeDefinition, []);
+                }
             }
         }
     }
 
+    public List<TypeDefinition> HiddenDefinitions { get; } = [];
     private bool IsExpanded = false;
     public void Expand()
     {

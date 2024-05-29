@@ -4,7 +4,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class When : Statement
+public class When : Statement, IUnexpandable
 {
     public When(YangStatement statement) : base(statement)
     {
@@ -27,7 +27,7 @@ public class When : Statement
             Argument = Argument.Replace("  ", " ");
         }
 
-        Parent?.Attributes.Add($"When(\"{SingleLine(Argument).Replace("\"", "'")}\")");
+        Parent?.Attributes.Add($"When(\"{SingleLine(Argument).Replace("\"", "\\\"")}\")");
         return string.Empty;
     }
 }
