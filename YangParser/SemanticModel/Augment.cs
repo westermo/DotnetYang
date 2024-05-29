@@ -51,7 +51,6 @@ public class Augment : Statement, IUnexpandable
         var sourceNS = this.GetInheritedPrefix();
         this.GetModule()?.Expand();
         var components = Argument.Split('/');
-        IStatement top;
         foreach (var child in Children.ToArray())
         {
             if (child is When when)
@@ -73,7 +72,7 @@ public class Augment : Statement, IUnexpandable
             }
         }
 
-        top = Argument.StartsWith("/") ? GetModule(components) : Parent!;
+        var top = Argument.StartsWith("/") ? GetModule(components) : Parent!;
         
         Parent?.Replace(this,[]);
 
@@ -184,7 +183,7 @@ public class Augment : Statement, IUnexpandable
             type.Argument = this.GetInheritedPrefix() + ":" + type.Argument;
         }
 
-        //Propogate usings upwards
+        //Propagate usings upwards
         if (this.GetModule() is Module source)
         {
             if (top is Module target)
