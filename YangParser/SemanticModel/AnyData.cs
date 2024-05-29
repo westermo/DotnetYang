@@ -1,18 +1,16 @@
-using System;
-using System.Linq;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class AnyXml : Statement
+public class AnyData : Statement
 {
-    public AnyXml(YangStatement statement) : base(statement)
+    public AnyData(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
     }
 
-    public const string Keyword = "anyxml";
+    public const string Keyword = "anydata";
 
     public override ChildRule[] PermittedChildren { get; } =
     [
@@ -28,6 +26,6 @@ public class AnyXml : Statement
 
     public override string ToCode()
     {
-        return "public string? XML { get; }";
+        return "public string? Data { get; }";
     }
 }

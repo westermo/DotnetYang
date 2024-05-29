@@ -35,7 +35,7 @@ public class ExtensionReference : Statement
         if (source.TryGetChild<Argument>(out _))
         {
             return $$"""
-                     public {{MakeName(classNameSource)}}Extension {{MakeName(classNameSource)}}ExtensionValue { get; }
+                     public {{MakeName(classNameSource)}}Extension? {{MakeName(classNameSource)}}ExtensionValue { get; }
                      {{DescriptionString}}{{AttributeString}}
                      public class {{MakeName(classNameSource)}}Extension : {{inheritance}}
                      {
@@ -48,7 +48,7 @@ public class ExtensionReference : Statement
         }
 
         return $$"""
-                 public {{MakeName(classNameSource)}}Extension {{MakeName(classNameSource)}}ExtensionValue { get; }
+                 public {{MakeName(classNameSource)}}Extension? {{MakeName(classNameSource)}}ExtensionValue { get; }
                  {{DescriptionString}}{{AttributeString}}
                  public class {{MakeName(classNameSource)}}Extension : {{inheritance}}
                  {

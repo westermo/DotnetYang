@@ -31,6 +31,11 @@ public class Type : Statement
         new ChildRule(Keyword, Cardinality.ZeroOrMore),
     ];
 
+    public override string ToCode()
+    {
+        return string.Empty;
+    }
+
     public string? Definition
     {
         get
@@ -42,6 +47,7 @@ public class Type : Statement
                 m_definition = BuiltinTypeReference.DefaultPattern(this, [], [], TypeName(this), Name!);
                 return m_definition;
             }
+
             m_name = typeName;
             m_definition = definition;
             return m_definition;
@@ -59,6 +65,7 @@ public class Type : Statement
                 m_name = typeName;
                 return m_name;
             }
+
             var prefix = Argument.Prefix(out var value);
             var reference = this.FindReference<IStatement>(Argument);
             if (reference is TypeDefinition def)
