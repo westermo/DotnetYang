@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717056056746,
+  "lastUpdate": 1717061758177,
   "repoUrl": "https://github.com/westermo/DotnetYang",
   "entries": {
     "Benchmark.Net Benchmark": [
@@ -462,6 +462,48 @@ window.BENCHMARK_DATA = {
             "value": 19233.989813668388,
             "unit": "ns",
             "range": "± 55.2505939245484"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "committer": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "distinct": true,
+          "id": "fae9fb058c78f31046804b7adfbed51d4f33d146",
+          "message": "Started work on XML Serialization",
+          "timestamp": "2024-05-30T11:34:25+02:00",
+          "tree_id": "81372dc31528d77d04a6d50f7860c42fab721038",
+          "url": "https://github.com/westermo/DotnetYang/commit/fae9fb058c78f31046804b7adfbed51d4f33d146"
+        },
+        "date": 1717061757789,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmarks.ParsingBenchmarks.Parse",
+            "value": 92001.71023995536,
+            "unit": "ns",
+            "range": "± 760.1492964164066"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.SemanticModel",
+            "value": 34829.96310628255,
+            "unit": "ns",
+            "range": "± 290.05641778489263"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.ToCode",
+            "value": 21847.212036132812,
+            "unit": "ns",
+            "range": "± 109.66554968699035"
           }
         ]
       }
