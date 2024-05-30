@@ -10,7 +10,6 @@ public class Notification : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
     }
 
     public const string Keyword = "notification";
@@ -36,12 +35,61 @@ public class Notification : Statement
     public override string ToCode()
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
+        var xmlWrite = GetXmlWriting();
         return $$"""
                  {{DescriptionString}}{{AttributeString}}
                  public class {{MakeName(Argument)}}
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}
+                     public async Task<string> ToXML()
+                     {
+                         XmlWriterSettings settings = new XmlWriterSettings();
+                         settings.Indent = true;
+                         settings.OmitXmlDeclaration = true;
+                         settings.NewLineOnAttributes = true;
+                         settings.Async = true;
+                         StringBuilder stringBuilder = new StringBuilder();
+                         using XmlWriter writer = XmlWriter.Create(stringBuilder, settings);
+                         await writer.WriteStartElementAsync(null,"notification","urn:ietf:params:xml:ns:netconf:notification:1.0");
+                         await writer.WriteStartElementAsync(null,"eventTime",null);
+                         await writer.WriteStringAsync(DateTime.UtcNow.ToString("yyyy-MM-ddThh:mm:ssZ"));
+                         await writer.WriteEndElementAsync();
+                         await writer.WriteStartElementAsync("{{XmlNamespace?.Prefix}}","{{Argument}}","{{XmlNamespace?.Namespace}}");
+                         {{xmlWrite}}
+                         await writer.WriteEndElementAsync();
+                         await writer.WriteEndElementAsync();
+                         return stringBuilder.ToString();
+                     }
+                     {{Indent(XmlFunction())}}
                  }
                  """;
+    }
+
+    private string GetXmlWriting()
+    {
+        if (Parent is Module)
+        {
+            return "await WriteXML(writer);";
+        }
+
+        var parent = Parent;
+        while (parent != null)
+        {
+            if (parent.Parent is Module or Submodule)
+            {
+                break;
+            }
+
+            parent = parent.Parent;
+        }
+
+        if (parent is IXMLSource source)
+        {
+            return $"await WriteXML(writer);";
+        }
+
+        throw new SemanticError(
+            $"Top level statement of 'notification {Argument}' ({parent?.Source.Keyword} {parent?.Argument}) was not a valid XML source",
+            Source);
     }
 }

@@ -56,19 +56,11 @@ public class Container : Statement, IClassSource, IXMLSource
     public override string ToCode()
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
-        var name = Argument;
-        if (Parent!.Argument == Argument)
-        {
-            name = "sub-" + name;
-        }
-
-        TargetName = MakeName(name);
-
-        string property = $"public{KeywordString}{MakeName(name)}Container? {MakeName(name)} {{ get; set; }}";
+        string property = $"public{KeywordString}{TargetName}Container? {TargetName} {{ get; set; }}";
         return $$"""
                  {{property}}
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{MakeName(name)}}Container
+                 public class {{TargetName}}Container
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}
                      {{Indent(XmlFunction())}}
@@ -76,5 +68,17 @@ public class Container : Statement, IClassSource, IXMLSource
                  """;
     }
 
-    public string TargetName { get; private set; } = string.Empty;
+    public string TargetName
+    {
+        get
+        {
+            var name = Argument;
+            if (Parent!.Argument == Argument)
+            {
+                name = "sub-" + name;
+            }
+
+            return MakeName(name);
+        }
+    }
 }

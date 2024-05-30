@@ -50,6 +50,7 @@ public class Action : Statement, IXMLValue
                                settings.Indent = true;
                                settings.OmitXmlDeclaration = true;
                                settings.NewLineOnAttributes = true;
+                               settings.Async = true;
                                StringBuilder stringBuilder = new StringBuilder();
                                using XmlWriter writer = XmlWriter.Create(stringBuilder, settings);
                                await writer.WriteStartElementAsync(null,"rpc","urn:ietf:params:xml:ns:netconf:base:1.0");
