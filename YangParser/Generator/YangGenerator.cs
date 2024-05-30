@@ -37,16 +37,18 @@ public class YangGenerator : IIncrementalGenerator
         var yangFiles = context.AdditionalTextsProvider.Where(text => text.Path.EndsWith(".yang"));
         var parsed = yangFiles.Select((p, _) => Parse(p));
         var model = parsed.Select((p, _) => MakeSemanticModel(p));
-        context.RegisterSourceOutput(model.Collect(), MakeClasses);
+        var combined = context.CompilationProvider.Combine(model.Collect());
+        context.RegisterSourceOutput(combined, MakeClasses);
     }
 
-    private void MakeClasses(SourceProductionContext context, ImmutableArray<ResultOrException<IStatement>> models)
+    private void MakeClasses(SourceProductionContext context,
+        (Compilation compilation, ImmutableArray<ResultOrException<IStatement>> models) data)
     {
         try
         {
             Dictionary<string, ITopLevelStatement> topLevels = new();
             Dictionary<string, Module> modules = new();
-            foreach (var model in models)
+            foreach (var model in data.models)
             {
                 if (!model.Success)
                 {
@@ -74,7 +76,7 @@ public class YangGenerator : IIncrementalGenerator
 
             //Replace Includes with their respective submodules
             IncludeSubmodules(context, modules, topLevels);
-            var compilation = new CompilationUnit(modules.Values.ToArray());
+            var compilation = new CompilationUnit(modules.Values.ToArray(), data.compilation.AssemblyName!);
             Log.Write("IncludeSubmodules Complete");
             //Replace Uses by their respective groupings
             UnwrapUses(context, compilation);
@@ -94,6 +96,7 @@ public class YangGenerator : IIncrementalGenerator
                         e.StackTrace + "\n*/");
                 }
             }
+            WriteFile(context, "Configuration.cs", compilation.ToCode());
         }
         catch (Exception e)
         {

@@ -135,7 +135,7 @@ public abstract class Statement : IStatement
     {
         get
         {
-            Attributes.Add("XPath(\"" + XPath + '"' + ')');
+            Attributes.Add("XPath(@\"" + XPath + '"' + ')');
             return "\n" + string.Join("\n", Attributes.OrderBy(x => x.Length).Select(attr => $"[{attr}]"));
         }
     }
