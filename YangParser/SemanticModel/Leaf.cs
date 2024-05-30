@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using YangParser.Parser;
+using YangParser.SemanticModel.Builtins;
 
 namespace YangParser.SemanticModel;
 
@@ -82,14 +83,39 @@ public class Leaf : Statement, IXMLValue
     {
         get
         {
-            var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
-            if (Type.Argument is "enumeration" or "bits")
+            if (Type.GetBaseType(out var prefix) is "enumeration" or "bits")
             {
+                if (string.IsNullOrEmpty(prefix))
+                {
+                    if (BuiltinTypeReference.IsBuiltin(Type, out _, out _)) //Is direct subtype
+                    {
+                        return $$"""
+                                 if({{TargetName}} != default)
+                                 {
+                                     await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                                     await writer.WriteStringAsync(GetEncodedValue({{TargetName}}!));
+                                     await writer.WriteEndElementAsync();
+                                 }
+                                 """;
+                    }
+
+                    //Is local reference.
+                    return $$"""
+                             if({{TargetName}} != default)
+                             {
+                                 await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                                 await writer.WriteStringAsync(YangNode.GetEncodedValue({{TargetName}}!));
+                                 await writer.WriteEndElementAsync();
+                             }
+                             """;
+                }
+                //Is imported reference
+                var p = prefix.Contains('.') ? prefix : prefix + ":";
                 return $$"""
                          if({{TargetName}} != default)
                          {
-                             await writer.WriteStartElementAsync({{pre}},"{{Argument}}",null);
-                             await writer.WriteStringAsync(GetEncodedValue({{TargetName}}!));
+                             await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                             await writer.WriteStringAsync({{p}}GetEncodedValue({{TargetName}}!));
                              await writer.WriteEndElementAsync();
                          }
                          """;
@@ -98,7 +124,7 @@ public class Leaf : Statement, IXMLValue
             return $$"""
                      if({{TargetName}} != default)
                      {
-                         await writer.WriteStartElementAsync({{pre}},"{{Argument}}",null);
+                         await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
                          await writer.WriteStringAsync({{TargetName}}!.ToString());
                          await writer.WriteEndElementAsync();
                      }

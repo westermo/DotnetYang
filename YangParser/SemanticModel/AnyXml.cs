@@ -30,18 +30,17 @@ public class AnyXml : Statement
     {
         return $"public string? {TargetName} {{ get; set; }}";
     }
-    
+
     public string TargetName => MakeName(Argument);
 
     public string WriteCall
     {
         get
         {
-            var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
             return $$"""
                      if({{TargetName}} != null)
                      {
-                         await writer.WriteStartElementAsync({{pre}},"{{Argument}}",null);
+                         await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
                          await writer.WriteStringAsync({{TargetName}});
                          await writer.WriteEndElementAsync();
                      }

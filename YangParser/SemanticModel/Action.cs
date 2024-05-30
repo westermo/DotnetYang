@@ -70,6 +70,7 @@ public class Action : Statement, IXMLValue
                                await WriteXML(writer);
                                await writer.WriteEndElementAsync();
                                await writer.WriteEndElementAsync();
+                               await writer.FlushAsync();
                                var xml = stringBuilder.ToString();
                            """);
         builder.AppendLine(returnType != "Task"
@@ -135,7 +136,7 @@ public class Action : Statement, IXMLValue
                 return $$"""
                          if({{MakeName(Argument)}}InputValue is not null)
                          {
-                             await writer.WriteStartElementAsync(null,"{{Source.Argument}}",null);
+                             await writer.WriteStartElementAsync({{xmlPrefix}},"{{Source.Argument}}",{{xmlNs}});
                              await {{MakeName(Argument)}}InputValue.WriteXML(writer);
                              await writer.WriteEndElementAsync();
                          }

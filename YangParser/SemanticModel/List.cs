@@ -72,7 +72,6 @@ public class List : Statement, IClassSource, IXMLValue
     {
         get
         {
-            var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
             return $$"""
                      if({{TargetName}} != null)
                      {

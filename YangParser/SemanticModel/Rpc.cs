@@ -77,6 +77,7 @@ public class Rpc : Statement, IFunctionSource
         builder.AppendLine($$"""
                                  await writer.WriteEndElementAsync();
                                  await writer.WriteEndElementAsync();
+                                 await writer.FlushAsync();
                                  var xml = stringBuilder.ToString();
                              """);
         builder.AppendLine(returnType != "Task"

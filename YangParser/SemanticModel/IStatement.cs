@@ -21,6 +21,7 @@ public interface IStatement
     string XPath { get; }
     (string Namespace, string Prefix)? XmlNamespace { get; set; }
     string Prefix { get; }
+    string Namespace { get; }
 }
 
 /// <summary>

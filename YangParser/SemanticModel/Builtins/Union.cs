@@ -32,6 +32,11 @@ public class Union() : BuiltinType("union", s =>
                            {{Statement.Indent(string.Join("\n", types.Select(typeName => $"public static implicit operator {typeName}?({name}? input) => input is null ? null : input.{varName(typeName)} ?? throw new InvalidOperationException(\"Union was not of effective type '{typeName}'\");")))}}
                            {{Statement.Indent(string.Join("\n", types.Select(typeName => $"public static implicit operator {name}({typeName} input) => new {name}(input);")))}}
                            {{Statement.Indent(string.Join("\n", declarations))}}
+                           public override string? ToString()
+                           {
+                               {{Statement.Indent(Statement.Indent(string.Join("\n", types.Select(typeName => $"if({varName(typeName)} is not null) return {varName(typeName)}.ToString();"))))}}
+                               return string.Empty;
+                           }
                        }
                        """;
     return (name, definition);

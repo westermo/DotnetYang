@@ -35,11 +35,10 @@ public class AnyData : Statement, IXMLValue
     {
         get
         {
-            var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
             return $$"""
                      if({{TargetName}} != null)
                      {
-                         await writer.WriteStartElementAsync({{pre}},"{{Argument}}",null);
+                         await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
                          await writer.WriteStringAsync({{TargetName}});
                          await writer.WriteEndElementAsync();
                      }

@@ -11,11 +11,11 @@ public class CompilationUnit : Statement
         string.Empty, [],
         new Metadata(string.Empty, new Parser.Position(), 0)))
     {
-        this.Namespace = Namespace;
+        this.MyNamespace = Namespace;
         Children = modules;
     }
 
-    public string Namespace { get; set; }
+    public string MyNamespace { get; set; }
 
     public override ChildRule[] PermittedChildren { get; } =
     [
@@ -27,7 +27,7 @@ public class CompilationUnit : Statement
         var members = new List<string>();
         foreach (var module in Children.OfType<Module>())
         {
-            var typeName = module.Namespace.Substring(0, module.Namespace.Length - 1);
+            var typeName = module.MyNamespace.Substring(0, module.MyNamespace.Length - 1);
             var memberName = MakeName(module.Argument);
             members.Add($"public {typeName}? {memberName} {{ get; set; }}");
         }
@@ -36,9 +36,9 @@ public class CompilationUnit : Statement
                  using System;
                  using System.Xml;
                  using Yang.Attributes;
-                 namespace {{Namespace}};
+                 namespace {{MyNamespace}};
                  ///<summary>
-                 ///Configuration root object for {{Namespace}} based on provided .yang modules
+                 ///Configuration root object for {{MyNamespace}} based on provided .yang modules
                  ///</summary>{{AttributeString}}
                  public class Configuration
                  {

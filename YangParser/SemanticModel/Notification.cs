@@ -54,10 +54,9 @@ public class Notification : Statement
                          await writer.WriteStartElementAsync(null,"eventTime",null);
                          await writer.WriteStringAsync(DateTime.UtcNow.ToString("yyyy-MM-ddThh:mm:ssZ"));
                          await writer.WriteEndElementAsync();
-                         await writer.WriteStartElementAsync("{{XmlNamespace?.Prefix}}","{{Argument}}","{{XmlNamespace?.Namespace}}");
                          {{xmlWrite}}
                          await writer.WriteEndElementAsync();
-                         await writer.WriteEndElementAsync();
+                         await writer.FlushAsync();
                          return stringBuilder.ToString();
                      }
                      {{Indent(XmlFunction())}}

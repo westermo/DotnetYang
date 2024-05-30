@@ -13,13 +13,13 @@ public class Module : Statement, ITopLevelStatement
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         var localPrefix = this.GetChild<Prefix>().Argument;
         var localNS = MakeNamespace(Argument) + ".YangNode.";
-        XmlNamespace = (Children.First(child => child is Namespace).Argument, localPrefix);
+        XmlNamespace = (Children.First(child => child is Namespace).Argument, string.Empty);
         Usings = new()
         {
             [localPrefix] = localNS
         };
         ImportedModules[localPrefix] = Argument;
-        Namespace = localNS;
+        MyNamespace = localNS;
 
         foreach (var child in this.Unwrap())
         {
@@ -72,7 +72,7 @@ public class Module : Statement, ITopLevelStatement
 
     public Dictionary<string, string> ImportedModules { get; } = [];
     public Dictionary<string, string> Usings { get; }
-    public string Namespace { get; private set; }
+    public string MyNamespace { get; private set; }
 
     public override ChildRule[] PermittedChildren { get; } =
     [

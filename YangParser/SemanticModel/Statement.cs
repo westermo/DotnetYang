@@ -11,11 +11,14 @@ namespace YangParser.SemanticModel;
 
 public abstract class Statement : IStatement
 {
+    protected string xmlPrefix => (string.IsNullOrWhiteSpace(Prefix) || string.IsNullOrWhiteSpace(Namespace))
+        ? "null"
+        : $"\"{Prefix}\"";
+
+    protected string xmlNs => string.IsNullOrWhiteSpace(Namespace) ? "null" : $"\"{Namespace}\"";
+
     protected string XmlFunction()
     {
-        var ns = XmlNamespace?.Namespace;
-        ns = ns is null ? "null" : $"\"{ns}\"";
-        var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
         var writeCalls = Children.OfType<IXMLSource>()
             .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXML(writer);");
         var elementCalls = Children.OfType<IXMLValue>()
@@ -23,7 +26,7 @@ public abstract class Statement : IStatement
         return $$"""
                  public async Task WriteXML(XmlWriter writer)
                  {
-                     await writer.WriteStartElementAsync({{pre}},"{{Source.Argument}}",{{ns}});
+                     await writer.WriteStartElementAsync({{xmlPrefix}},"{{Source.Argument}}",{{xmlNs}});
                      {{Indent(string.Join("\n", elementCalls))}}
                      {{Indent(string.Join("\n", writeCalls))}}
                      await writer.WriteEndElementAsync();
@@ -33,9 +36,6 @@ public abstract class Statement : IStatement
 
     protected string XmlFunctionWithInvisibleSelf()
     {
-        var ns = XmlNamespace?.Namespace;
-        ns = ns is null ? "null" : $"\"{ns}\"";
-        var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
         var writeCalls = Children.OfType<IXMLSource>()
             .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXML(writer);").ToArray();
         var elementCalls = Children.OfType<IXMLValue>()
@@ -74,6 +74,7 @@ public abstract class Statement : IStatement
 
     public (string Namespace, string Prefix)? XmlNamespace { get; set; }
     public string Prefix => XmlNamespace?.Prefix ?? Parent?.Prefix ?? string.Empty;
+    public string Namespace => XmlNamespace?.Namespace ?? Parent?.Namespace ?? string.Empty;
     protected string XmlObjectName => (string.IsNullOrEmpty(Prefix) ? string.Empty : Prefix + ":") + Source.Argument;
 
     public string XPath => ((Parent?.XPath ?? String.Empty) + "/").Replace("//", "/") +
@@ -184,7 +185,7 @@ public abstract class Statement : IStatement
     {
         get
         {
-            Attributes.Add("XPath(@\"" + XPath + '"' + ')');
+            if (this is IXMLValue || this is IXMLSource) Attributes.Add("XPath(@\"" + XPath + '"' + ')');
             return "\n" + string.Join("\n", Attributes.OrderBy(x => x.Length).Select(attr => $"[{attr}]"));
         }
     }

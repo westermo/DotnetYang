@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using YangParser.Generator;
+using YangParser.SemanticModel.Builtins;
 
 namespace YangParser.SemanticModel;
 
@@ -151,7 +152,7 @@ public static class StatementExtensions
             }
             else
             {
-                var source = use.Root().Children.OfType<Module>().FirstOrDefault(m => m.Namespace == prefix) ??
+                var source = use.Root().Children.OfType<Module>().FirstOrDefault(m => m.MyNamespace == prefix) ??
                              throw new SemanticError($"Could not find a module with the key {prefix}", use.Source);
                 var grouping = use.FindGrouping(source) ?? throw new SemanticError(
                     $"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{source.Argument}' from prefix '{prefix}'",
@@ -257,7 +258,7 @@ public static class StatementExtensions
             }
             else
             {
-                var module = source.Root().Children.OfType<Module>().FirstOrDefault(m => m.Namespace == prefix);
+                var module = source.Root().Children.OfType<Module>().FirstOrDefault(m => m.MyNamespace == prefix);
                 if (module is null)
                 {
                     Log.Write(
@@ -317,5 +318,29 @@ public static class StatementExtensions
         var result = SearchDownwards<T>(source.Parent, argument, source);
         if (result is not null) return result;
         return source.Parent.SearchUpwards<T>(argument);
+    }
+
+    public static string GetBaseType(this Type type, out string prefix)
+    {
+        prefix = string.Empty;
+        while (true)
+        {
+            if (BuiltinTypeReference.IsBuiltin(type, out _, out _))
+            {
+                _ = type.Argument.Prefix(out var arg);
+                return arg;
+            }
+
+            var newPrefix = type.Argument.Prefix(out _);
+            if (!string.IsNullOrEmpty(newPrefix)) prefix = newPrefix;
+
+            var source = type.FindReference<TypeDefinition>(type.Argument);
+            if (source is null)
+            {
+                throw new SemanticError($"Could not find source for type definition {type.Argument}", type.Source);
+            }
+
+            type = source.GetChild<Type>();
+        }
     }
 }
