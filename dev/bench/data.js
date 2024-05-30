@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717054704645,
+  "lastUpdate": 1717056056746,
   "repoUrl": "https://github.com/westermo/DotnetYang",
   "entries": {
     "Benchmark.Net Benchmark": [
@@ -420,6 +420,48 @@ window.BENCHMARK_DATA = {
             "value": 19494.677673339844,
             "unit": "ns",
             "range": "± 146.7885436532838"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "committer": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "distinct": true,
+          "id": "fb7680e4298330021be7050ea7b105cc4ca9deb1",
+          "message": "Added the HMORO",
+          "timestamp": "2024-05-30T09:59:24+02:00",
+          "tree_id": "6831f155a58d183229088ab796d68721b3bc7167",
+          "url": "https://github.com/westermo/DotnetYang/commit/fb7680e4298330021be7050ea7b105cc4ca9deb1"
+        },
+        "date": 1717056055851,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmarks.ParsingBenchmarks.Parse",
+            "value": 92727.61508614676,
+            "unit": "ns",
+            "range": "± 449.29110043409264"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.SemanticModel",
+            "value": 35538.04570124699,
+            "unit": "ns",
+            "range": "± 161.58906219430634"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.ToCode",
+            "value": 19233.989813668388,
+            "unit": "ns",
+            "range": "± 55.2505939245484"
           }
         ]
       }
