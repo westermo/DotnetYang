@@ -54,7 +54,7 @@ public class Rpc : Statement, IFunctionSource
         builder.AppendLine(
             $"public static {returnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
         builder.AppendLine("{");
-        var ns = Parent is Module module ? "xmlns=\\\"" + module.XmlNamespace.Argument + "\\\"" : string.Empty;
+        var ns = Parent is Module module ? $"xmlns:{module.XmlNamespace?.Prefix}=\\\"" + module.XmlNamespace?.Namespace + "\\\"" : string.Empty;
         builder.AppendLine(inputType != string.Empty
             ? $$"""
                     var xml = $"<rpc message-id=\"{messageID}\" xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\"><{{Argument}} {{ns}}>{input.ToXML()}</{{Argument}}></rpc>";

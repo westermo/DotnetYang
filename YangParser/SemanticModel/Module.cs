@@ -11,9 +11,9 @@ public class Module : Statement, ITopLevelStatement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        XmlNamespace = Children.First(child => child is Namespace);
         var localPrefix = this.GetChild<Prefix>().Argument;
         var localNS = MakeNamespace(Argument) + ".YangNode.";
+        XmlNamespace = (Children.First(child => child is Namespace).Argument, localPrefix);
         Usings = new()
         {
             [localPrefix] = localNS
@@ -64,9 +64,6 @@ public class Module : Statement, ITopLevelStatement
     }
 
     public Dictionary<string, string> ImportedModules { get; } = [];
-
-
-    public IStatement XmlNamespace { get; set; }
     public Dictionary<string, string> Usings { get; }
     public string Namespace { get; private set; }
 
@@ -91,7 +88,7 @@ public class Module : Statement, ITopLevelStatement
         new ChildRule(SemanticModel.Namespace.Keyword, Cardinality.Required),
         new ChildRule(Notification.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Organization.Keyword),
-        new ChildRule(Prefix.Keyword, Cardinality.Required),
+        new ChildRule(SemanticModel.Prefix.Keyword, Cardinality.Required),
         new ChildRule(Reference.Keyword),
         new ChildRule(Revision.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Rpc.Keyword, Cardinality.ZeroOrMore),

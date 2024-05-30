@@ -363,6 +363,11 @@ public class YangGenerator : IIncrementalGenerator
                        {
                            public string XPath { get; } = xPath;
                        }
+                       [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+                       public class XPathAttribute(string path) : Attribute
+                       {
+                           public string Path { get; } = path;
+                       }
                        [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
                        public class KeyAttribute(params string[] value) : Attribute
                        {

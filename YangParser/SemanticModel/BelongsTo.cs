@@ -14,7 +14,7 @@ public class BelongsTo : Statement
 
     public override ChildRule[] PermittedChildren { get; } =
     [
-        new ChildRule(Prefix.Keyword, Cardinality.Required)
+        new ChildRule(SemanticModel.Prefix.Keyword, Cardinality.Required)
     ];
 
     public override string ToCode()

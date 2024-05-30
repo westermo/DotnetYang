@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using YangParser.Generator;
 using YangParser.Parser;
@@ -41,7 +40,7 @@ public class Grouping : Statement
     public IStatement[] WithUse(Uses use)
     {
         var copy = StatementFactory.Create(Source);
-        Parent.Insert([copy]);
+        Parent!.Insert([copy]);
         copy.Parent = Parent;
         foreach (var child in copy.Unwrap())
         {
@@ -123,12 +122,13 @@ public class Grouping : Statement
             var current = copy;
             foreach (var element in path)
             {
-                var prefix = element.Prefix(out var name);
+                element.Prefix(out var name);
                 var origin = current;
                 current = origin.Children.FirstOrDefault(c => c.Argument == name);
                 if (current is null)
                 {
-                    Log.Write($"Could not find part '{name}' of path {refinement.Argument} in source {origin}");
+                    Log.Write(
+                        $"Could not find part '{name}' of path {refinement.Argument} in source {origin.Source.Keyword} {origin.Argument}");
                     break; //Target not present, nothing to refine.
                 }
             }

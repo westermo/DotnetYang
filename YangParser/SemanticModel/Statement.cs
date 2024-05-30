@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using YangParser.Parser;
 using YangParser.SemanticModel.Builtins;
+using String = System.String;
 
 namespace YangParser.SemanticModel;
 
@@ -22,6 +23,12 @@ public abstract class Statement : IStatement
 
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
     }
+
+    public (string Namespace, string Prefix)? XmlNamespace { get; set; }
+    public string Prefix => XmlNamespace?.Prefix ?? Parent?.Prefix ?? string.Empty;
+
+    public string XPath => ((Parent?.XPath ?? String.Empty) + "/").Replace("//", "/") +
+                           (string.IsNullOrEmpty(Prefix) ? string.Empty : Prefix + ":") + Source.Argument;
 
     public YangStatement Source { get; set; }
 
@@ -76,7 +83,7 @@ public abstract class Statement : IStatement
 
         var prefix = argument.Prefix(out var value);
         var addColon = !prefix.Contains('.') && !string.IsNullOrWhiteSpace(prefix);
-        foreach (var section in value.Split('-', ' ', '/', '.','^'))
+        foreach (var section in value.Split('-', ' ', '/', '.', '^'))
         {
             output.Append(Capitalize(section));
         }
@@ -124,9 +131,14 @@ public abstract class Statement : IStatement
 
     protected string KeywordString => " " + string.Join(" ", Keywords) + (Keywords.Count > 0 ? " " : "");
 
-    public string AttributeString => Attributes.Count > 0
-        ? "\n" + string.Join("\n", Attributes.OrderBy(x => x.Length).Select(attr => $"[{attr}]"))
-        : string.Empty;
+    public string AttributeString
+    {
+        get
+        {
+            Attributes.Add("XPath(\"" + XPath + '"' + ')');
+            return "\n" + string.Join("\n", Attributes.OrderBy(x => x.Length).Select(attr => $"[{attr}]"));
+        }
+    }
 
     public string DescriptionString => $"""
                                         ///<summary>

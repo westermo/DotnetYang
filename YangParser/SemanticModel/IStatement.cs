@@ -5,7 +5,7 @@ namespace YangParser.SemanticModel;
 
 public interface IStatement
 {
-    string Argument { get; set;  }
+    string Argument { get; set; }
     ChildRule[] PermittedChildren { get; }
     HashSet<string> Attributes { get; }
     HashSet<string> Keywords { get; }
@@ -18,6 +18,9 @@ public interface IStatement
     string ToCode();
     void Replace(IStatement child, IEnumerable<IStatement> replacements);
     void Insert(IEnumerable<IStatement> augments);
+    string XPath { get; }
+    (string Namespace, string Prefix)? XmlNamespace { get; set; }
+    string Prefix { get; }
 }
 
 public interface ICommentable : IStatement
