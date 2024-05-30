@@ -5,7 +5,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Container : Statement, IClassSource
+public class Container : Statement, IClassSource, IXMLSource
 {
     public List<string> Comments { get; } = new();
 
@@ -62,6 +62,8 @@ public class Container : Statement, IClassSource
             name = "sub-" + name;
         }
 
+        TargetName = MakeName(name);
+
         string property = $"public{KeywordString}{MakeName(name)}Container? {MakeName(name)} {{ get; set; }}";
         return $$"""
                  {{property}}
@@ -69,7 +71,10 @@ public class Container : Statement, IClassSource
                  public class {{MakeName(name)}}Container
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}
+                     {{Indent(XmlFunction())}}
                  }
                  """;
     }
+
+    public string TargetName { get; private set; }
 }

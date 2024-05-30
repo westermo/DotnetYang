@@ -11,6 +11,26 @@ namespace YangParser.SemanticModel;
 
 public abstract class Statement : IStatement
 {
+    protected string XmlFunction()
+    {
+        var ns = XmlNamespace?.Namespace;
+        ns = ns is null ? "null" : $"\"{ns}\"";
+        var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
+        var writeCalls = Children.OfType<IXMLSource>()
+            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXML(writer);");
+        var elementCalls = Children.OfType<IXMLValue>()
+            .Select(t => t.WriteCall);
+        return $$"""
+                 public async Task WriteXML(XmlWriter writer)
+                 {
+                     await writer.WriteStartElementAsync({{pre}},"{{Source.Argument}}",{{ns}});
+                     {{Indent(string.Join("\n", elementCalls))}}
+                     {{Indent(string.Join("\n", writeCalls))}}
+                     await writer.WriteEndElementAsync();
+                 }
+                 """;
+    }
+
     protected Statement(YangStatement statement, bool validate = true)
     {
         Argument = statement.Argument?.ToString() ?? string.Empty;
@@ -26,9 +46,10 @@ public abstract class Statement : IStatement
 
     public (string Namespace, string Prefix)? XmlNamespace { get; set; }
     public string Prefix => XmlNamespace?.Prefix ?? Parent?.Prefix ?? string.Empty;
+    protected string XmlObjectName => (string.IsNullOrEmpty(Prefix) ? string.Empty : Prefix + ":") + Source.Argument;
 
     public string XPath => ((Parent?.XPath ?? String.Empty) + "/").Replace("//", "/") +
-                           (string.IsNullOrEmpty(Prefix) ? string.Empty : Prefix + ":") + Source.Argument;
+                           XmlObjectName;
 
     public YangStatement Source { get; set; }
 

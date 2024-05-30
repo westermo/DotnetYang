@@ -108,6 +108,7 @@ public class Module : Statement, ITopLevelStatement
         var extraDefinitions = HiddenDefinitions.Select(t => Indent(t.ToCode())).ToArray();
         var raw = $$"""
                     using System;
+                    using System.Xml;
                     using System.Collections.Generic;
                     using System.Runtime.CompilerServices;
                     using System.Xml.Linq;

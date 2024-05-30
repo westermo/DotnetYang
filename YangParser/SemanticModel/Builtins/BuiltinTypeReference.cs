@@ -43,6 +43,7 @@ public static class BuiltinTypeReference
 
         return false;
     }
+
     public static bool IsBuiltinKeyword(string keyword)
     {
         return m_builtIns.Any(b => b.Name == keyword);
@@ -58,17 +59,21 @@ public static class BuiltinTypeReference
                  {
                      {{Statement.Indent(string.Join("\n", staticFields))}}
                      public {{baseTypeName}} WrittenValue { get; }
-                     public static implicit operator {{baseTypeName}}({{typeName}} input) => input.WrittenValue;
+                     public static implicit operator {{baseTypeName}}?({{typeName}}? input) => input?.WrittenValue;
                      public static implicit operator {{typeName}}({{baseTypeName}} input) => new {{typeName}}(input);
                      public {{typeName}}({{baseTypeName}} input)
                      {
                          {{Statement.Indent(Statement.Indent(string.Join("\n", constructorStatements)))}}
                          WrittenValue = input;
                      }
-                     
+                     public override string ToString()
+                     {
+                        return WrittenValue.ToString();
+                     }
                  }
                  """;
     }
+
     public static string TypeName(IStatement type)
     {
         string Postfix = string.Empty;
@@ -78,6 +83,7 @@ public static class BuiltinTypeReference
             Postfix += Array.IndexOf(parent.Children, type);
             parent = parent.Parent!;
         }
+
         return Statement.MakeName(parent.Argument) + Postfix;
     }
 }

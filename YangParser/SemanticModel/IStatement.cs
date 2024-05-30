@@ -23,6 +23,22 @@ public interface IStatement
     string Prefix { get; }
 }
 
+/// <summary>
+/// Implies this class makes an XElement with potential children
+/// </summary>
+public interface IXMLSource : IStatement
+{
+    string TargetName { get; }
+}
+/// <summary>
+/// Implies this class makes a singular XElement with no children, and may not have a method
+/// </summary>
+public interface IXMLValue : IStatement
+{
+    string TargetName { get; }
+    string WriteCall { get; }
+}
+
 public interface ICommentable : IStatement
 {
     List<string> Comments { get; }

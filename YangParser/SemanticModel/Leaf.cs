@@ -6,7 +6,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Leaf : Statement
+public class Leaf : Statement, IXMLValue
 {
     public override ChildRule[] PermittedChildren { get; } =
     [
@@ -66,11 +66,31 @@ public class Leaf : Statement
             name += "Value";
         }
 
+        TargetName = name;
+
         return $$"""
                  {{DescriptionString}}{{AttributeString}}
                  public{{KeywordString}}{{typeName}}{{nullable}} {{name}} { get; set; } {{defaulting}}
                  {{definition}}
                  {{Default?.Addendum}}
                  """;
+    }
+
+    public string TargetName { get; private set; }
+
+    public string WriteCall
+    {
+        get
+        {
+            var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
+            return $$"""
+                     if({{TargetName}} != default)
+                     {
+                       await writer.WriteStartElementAsync({{pre}},"{{Argument}}",null);
+                       await writer.WriteStringAsync({{TargetName}}!.ToString());
+                       await writer.WriteEndElementAsync();
+                     }
+                     """;
+        }
     }
 }

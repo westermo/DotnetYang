@@ -5,7 +5,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class LeafList : Statement
+public class LeafList : Statement, IXMLValue
 {
     public override ChildRule[] PermittedChildren { get; } =
     [
@@ -57,6 +57,8 @@ public class LeafList : Statement
             name += "Value";
         }
 
+        TargetName = name + "List";
+
         return $$"""
                  {{addendum}}
                  {{DescriptionString}}{{AttributeString}}
@@ -64,5 +66,26 @@ public class LeafList : Statement
                  {{definition}}
                  {{Default?.Addendum}}
                  """;
+    }
+
+    public string TargetName { get; private set; }
+
+    public string WriteCall
+    {
+        get
+        {
+            var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
+            return $$"""
+                     if({{TargetName}} != null)
+                     {
+                         foreach(var element in {{TargetName}})
+                         {
+                             await writer.WriteStartElementAsync({{pre}},"{{Argument}}",null);
+                             await writer.WriteStringAsync(element!.ToString());
+                             await writer.WriteEndElementAsync();
+                         }
+                     }
+                     """;
+        }
     }
 }
