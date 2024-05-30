@@ -75,7 +75,11 @@ public class ParsingTests(ITestOutputHelper output)
                                             prefix b;
                                         }
                                         grouping A {
-                                            uses b:A;
+                                            uses b:A { 
+                                                refine target {
+                                                    default 80;
+                                                }
+                                            }
                                             container C {
                                                 uses C;
                                             }
@@ -134,6 +138,7 @@ public class ParsingTests(ITestOutputHelper output)
                                                   }
                                                   leaf test { type operator; }
                                               }
+                                              leaf target { type int32; }
                                           }
                                       }
                                       """;
@@ -175,6 +180,7 @@ public class ParsingTests(ITestOutputHelper output)
             }
             Assert.IsNotType<Uses>(statement);
         }
+        output.WriteLine(compilationUnit.ToCode());
 
         Log.Clear();
     }

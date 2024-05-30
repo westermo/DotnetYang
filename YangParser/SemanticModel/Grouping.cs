@@ -117,6 +117,24 @@ public class Grouping : Statement
         }
 
         Parent.Replace(copy, []);
+        foreach (var refinement in use.Children.OfType<Refine>())
+        {
+            var path = refinement.Argument.Split('/');
+            var current = copy;
+            foreach (var element in path)
+            {
+                var prefix = element.Prefix(out var name);
+                var origin = current;
+                current = origin.Children.FirstOrDefault(c => c.Argument == name);
+                if (current is null)
+                {
+                    Log.Write($"Could not find part '{name}' of path {refinement.Argument} in source {origin}");
+                    break; //Target not present, nothing to refine.
+                }
+            }
+
+            current?.Insert(refinement.Children);
+        }
 
         return copy.Children;
     }
