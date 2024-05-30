@@ -68,7 +68,7 @@ public class LeafList : Statement, IXMLValue
                  """;
     }
 
-    public string TargetName { get; private set; }
+    public string TargetName { get; private set; } = string.Empty;
 
     public string WriteCall
     {

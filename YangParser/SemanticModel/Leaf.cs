@@ -76,19 +76,31 @@ public class Leaf : Statement, IXMLValue
                  """;
     }
 
-    public string TargetName { get; private set; }
+    public string TargetName { get; private set; } = string.Empty;
 
     public string WriteCall
     {
         get
         {
             var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
+            if (Type.Argument is "enumeration" or "bits")
+            {
+                return $$"""
+                         if({{TargetName}} != default)
+                         {
+                             await writer.WriteStartElementAsync({{pre}},"{{Argument}}",null);
+                             await writer.WriteStringAsync(GetEncodedValue({{TargetName}}!));
+                             await writer.WriteEndElementAsync();
+                         }
+                         """;
+            }
+
             return $$"""
                      if({{TargetName}} != default)
                      {
-                       await writer.WriteStartElementAsync({{pre}},"{{Argument}}",null);
-                       await writer.WriteStringAsync({{TargetName}}!.ToString());
-                       await writer.WriteEndElementAsync();
+                         await writer.WriteStartElementAsync({{pre}},"{{Argument}}",null);
+                         await writer.WriteStringAsync({{TargetName}}!.ToString());
+                         await writer.WriteEndElementAsync();
                      }
                      """;
         }

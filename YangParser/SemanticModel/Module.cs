@@ -60,8 +60,15 @@ public class Module : Statement, ITopLevelStatement
             {
                 Extensions.Add(extension);
             }
+
+            if (child is Feature feature)
+            {
+                Features.Add(feature);
+            }
         }
     }
+
+    public List<Feature> Features { get; } = [];
 
     public Dictionary<string, string> ImportedModules { get; } = [];
     public Dictionary<string, string> Usings { get; }
@@ -119,7 +126,6 @@ public class Module : Statement, ITopLevelStatement
                     {{DescriptionString}}{{AttributeString}}
                     public class YangNode
                     {
-                        {{string.Join("\n\t", Usings.Select(p => $"//Importing {p.Value} as {p.Key}"))}}
                         {{string.Join("\n\t", nodes)}}
                         {{string.Join("\n\t", extraDefinitions)}}
                     }

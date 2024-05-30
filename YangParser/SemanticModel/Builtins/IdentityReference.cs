@@ -14,7 +14,7 @@ public class IdentityReference() : BuiltinType("identityref", statement =>
                         public string Identity { get; }
                         public static string[] Bases = [{{string.Join(", ", inherits)}}];
                         public {{name}}(string input) => Identity = input;
-                        public static implicit operator string({{name}} input) => input.Identity;
+                        public static implicit operator string?({{name}}? input) => input?.Identity;
                         public static implicit operator {{name}}(string input) => new(input);
                       }
                       """;

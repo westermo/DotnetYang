@@ -76,5 +76,5 @@ public class Container : Statement, IClassSource, IXMLSource
                  """;
     }
 
-    public string TargetName { get; private set; }
+    public string TargetName { get; private set; } = string.Empty;
 }

@@ -68,7 +68,7 @@ public static class BuiltinTypeReference
                      }
                      public override string ToString()
                      {
-                        return WrittenValue.ToString();
+                        return WrittenValue.ToString()!;
                      }
                  }
                  """;

@@ -6,7 +6,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class List : Statement, IClassSource
+public class List : Statement, IClassSource, IXMLValue
 {
     private YangStatement m_source;
 
@@ -53,6 +53,7 @@ public class List : Statement, IClassSource
     public override string ToCode()
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
+        TargetName = MakeName(Argument);
         string property =
             $"\n{DescriptionString}\npublic{KeywordString}List<{MakeName(Argument)}Entry> {MakeName(Argument)} {{ get; }} = new();";
         return $$"""
@@ -61,7 +62,27 @@ public class List : Statement, IClassSource
                  public class {{MakeName(Argument)}}Entry
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}
+                     {{Indent(XmlFunction())}}
                  }
                  """;
+    }
+
+    public string TargetName { get; private set; }
+
+    public string WriteCall
+    {
+        get
+        {
+            var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
+            return $$"""
+                     if({{TargetName}} != null)
+                     {
+                         foreach(var element in {{TargetName}})
+                         {
+                             await element!.WriteXML(writer);
+                         }
+                     }
+                     """;
+        }
     }
 }
