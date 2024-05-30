@@ -5,7 +5,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Choice : Statement, IClassSource
+public class Choice : Statement, IClassSource, IXMLSource
 {
     private readonly YangStatement m_source;
 
@@ -43,16 +43,17 @@ public class Choice : Statement, IClassSource
     public override string ToCode()
     {
         var nodes = Children.Where(t => t is not DefaultValue).Select(child => child.ToCode()).ToArray();
-        string property = Parent is Module
-            ? string.Empty
-            : $"public{KeywordString}{MakeName(Argument)}Choice? {MakeName(Argument)} {{ get; set; }}";
+        string property = $"public{KeywordString}{MakeName(Argument)}Choice? {MakeName(Argument)} {{ get; set; }}";
         return $$"""
                  {{property}}
                  {{DescriptionString}}{{AttributeString}}
                  public class {{MakeName(Argument)}}Choice
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}
+                     {{Indent(XmlFunctionWithInvisibleSelf())}}
                  }
                  """;
     }
+
+    public string TargetName => MakeName(Argument);
 }

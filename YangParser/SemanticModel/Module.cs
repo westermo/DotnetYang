@@ -116,6 +116,7 @@ public class Module : Statement, ITopLevelStatement
         var raw = $$"""
                     using System;
                     using System.Xml;
+                    using System.Text;
                     using System.Collections.Generic;
                     using System.Runtime.CompilerServices;
                     using System.Xml.Linq;

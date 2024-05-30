@@ -49,26 +49,41 @@ public class Rpc : Statement, IFunctionSource
         StringBuilder builder = new();
         builder.AppendLine(DescriptionString);
         builder.AppendLine(AttributeString);
-        var returnType = Outgoing is null ? "void" : MakeName(Argument) + "Output";
+        var outputType = MakeName(Argument) + "Output";
+        var returnType = Outgoing is null ? "Task" : "Task<" + outputType + ">";
         var inputType = Ingoing is null ? string.Empty : ", " + MakeName(Argument) + "Input input";
         builder.AppendLine(
-            $"public static {returnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
-        builder.AppendLine("{");
-        var ns = Parent is Module module ? $"xmlns:{module.XmlNamespace?.Prefix}=\\\"" + module.XmlNamespace?.Namespace + "\\\"" : string.Empty;
-        builder.AppendLine(inputType != string.Empty
-            ? $$"""
-                    var xml = $"<rpc message-id=\"{messageID}\" xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\"><{{Argument}} {{ns}}>{input.ToXML()}</{{Argument}}></rpc>";
-                """
-            : $$"""
-                    var xml = $"<rpc message-id=\"{messageID}\" xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\"><{{Argument}} {{ns}}/></rpc>";
-                """);
+            $"public static async {returnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
+        builder.AppendLine($$"""
+                             {
+                                 XmlWriterSettings settings = new XmlWriterSettings();
+                                 settings.Indent = true;
+                                 settings.OmitXmlDeclaration = true;
+                                 settings.NewLineOnAttributes = true;
+                                 StringBuilder stringBuilder = new StringBuilder();
+                                 using XmlWriter writer = XmlWriter.Create(stringBuilder, settings);
+                                 await writer.WriteStartElementAsync(null,"rpc","urn:ietf:params:xml:ns:netconf:base:1.0");
+                                 await writer.WriteAttributeStringAsync(null,"message-id",null,messageID.ToString());
+                                 await writer.WriteStartElementAsync("{{XmlNamespace?.Prefix}}","{{Argument}}","{{XmlNamespace?.Namespace}}");
 
-        builder.AppendLine(returnType != "void"
+                             """);
+        var ns = $"xmlns:{XmlNamespace?.Prefix}=\\\"" + XmlNamespace?.Namespace + "\\\"";
+        if (inputType != string.Empty)
+        {
+            builder.AppendLine("\tawait input.WriteXML(writer);");
+        }
+
+        builder.AppendLine($$"""
+                                 await writer.WriteEndElementAsync();
+                                 await writer.WriteEndElementAsync();
+                                 var xml = stringBuilder.ToString();
+                             """);
+        builder.AppendLine(returnType != "Task"
             ? "\tvar response = channel.Send(xml);"
             : "\tchannel.Send(xml);");
-        if (returnType != "void")
+        if (returnType != "Task")
         {
-            builder.AppendLine($"\treturn {returnType}.Parse(response);");
+            builder.AppendLine($"\treturn {outputType}.Parse(response);");
         }
 
         builder.AppendLine("}");

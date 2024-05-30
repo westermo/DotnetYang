@@ -31,6 +31,34 @@ public abstract class Statement : IStatement
                  """;
     }
 
+    protected string XmlFunctionWithInvisibleSelf()
+    {
+        var ns = XmlNamespace?.Namespace;
+        ns = ns is null ? "null" : $"\"{ns}\"";
+        var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
+        var writeCalls = Children.OfType<IXMLSource>()
+            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXML(writer);").ToArray();
+        var elementCalls = Children.OfType<IXMLValue>()
+            .Select(t => t.WriteCall).ToArray();
+        if (elementCalls.Length == 0 && writeCalls.Length == 0)
+        {
+            return """
+                   public async Task WriteXML(XmlWriter writer)
+                   {
+                       await writer.FlushAsync();
+                   }
+                   """;
+        }
+
+        return $$"""
+                 public async Task WriteXML(XmlWriter writer)
+                 {
+                     {{Indent(string.Join("\n", elementCalls))}}
+                     {{Indent(string.Join("\n", writeCalls))}}
+                 }
+                 """;
+    }
+
     protected Statement(YangStatement statement, bool validate = true)
     {
         Argument = statement.Argument?.ToString() ?? string.Empty;

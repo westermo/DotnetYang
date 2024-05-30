@@ -2,7 +2,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class AnyData : Statement
+public class AnyData : Statement, IXMLValue
 {
     public AnyData(YangStatement statement) : base(statement)
     {
@@ -26,6 +26,24 @@ public class AnyData : Statement
 
     public override string ToCode()
     {
-        return "public string? Data { get; }";
+        return $"public string? {TargetName} {{ get; set; }}";
+    }
+
+    public string TargetName => MakeName(Argument);
+
+    public string WriteCall
+    {
+        get
+        {
+            var pre = string.IsNullOrWhiteSpace(Prefix) ? "null" : $"\"{Prefix}\"";
+            return $$"""
+                     if({{TargetName}} != null)
+                     {
+                         await writer.WriteStartElementAsync({{pre}},"{{Argument}}",null);
+                         await writer.WriteStringAsync({{TargetName}});
+                         await writer.WriteEndElementAsync();
+                     }
+                     """;
+        }
     }
 }

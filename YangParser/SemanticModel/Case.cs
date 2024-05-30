@@ -70,7 +70,7 @@ namespace YangParser.SemanticModel;
 ///                 | when         | 7.19.5  | 0..1        |
 ///                 +--------------+---------+-------------+
 /// </summary>
-public class Case : Statement, IClassSource
+public class Case : Statement, IClassSource, IXMLSource
 {
     public List<string> Comments { get; } = new();
 
@@ -102,18 +102,20 @@ public class Case : Statement, IClassSource
     public override string ToCode()
     {
         var nodes = Children.Select(c => c.ToCode()).ToArray();
-
         return $$"""
-                 public {{MakeName(Parent!.Argument)}}Choice({{MakeName(Argument)}}Case input)
+                 public {{MakeName(Parent!.Argument)}}Choice({{TargetName}}Case input)
                  {
-                     {{MakeName(Argument)}} = input;
+                     {{TargetName}} = input;
                  }
-                 public {{MakeName(Argument)}}Case? {{MakeName(Argument)}};
+                 public {{TargetName}}Case? {{TargetName}};
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{MakeName(Argument)}}Case
+                 public class {{TargetName}}Case
                  {
                     {{Indent(string.Join("\n", nodes))}}
+                    {{Indent(XmlFunctionWithInvisibleSelf())}}
                  }
                  """;
     }
+
+    public string TargetName => MakeName(Argument);
 }

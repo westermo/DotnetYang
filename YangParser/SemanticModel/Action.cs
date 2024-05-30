@@ -5,7 +5,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Action : Statement
+public class Action : Statement, IXMLValue
 {
     public Action(YangStatement statement) : base(statement)
     {
@@ -35,29 +35,58 @@ public class Action : Statement
 
     public override string ToCode()
     {
+        //TODO: REWORK
         StringBuilder builder = new();
         builder.AppendLine(DescriptionString);
         builder.AppendLine(AttributeString);
-        var returnType = Outgoing is null ? "void" : MakeName(Argument) + "Output";
+        var outputType = MakeName(Argument) + "Output";
+        var returnType = Outgoing is null ? "Task" : "Task<" + outputType + ">";
         var inputType = Ingoing is null ? string.Empty : ", " + MakeName(Argument) + "Input input";
         builder.AppendLine(
-            $"public static {returnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
-        builder.AppendLine("{");
-        var ns = Parent is Module module ? $"xmlns:{module.XmlNamespace?.Prefix}=\\\"" + module.XmlNamespace?.Namespace + "\\\"" : string.Empty;
-        builder.AppendLine(inputType != string.Empty
-            ? $$"""
-                    var xml = $"<rpc message-id=\"{messageID}\" xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\"><{{Argument}} {{ns}}>{input.ToXML()}</{{Argument}}></rpc>";
-                """
-            : $$"""
-                    var xml = $"<rpc message-id=\"{messageID}\" xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\"><{{Argument}} {{ns}}/></rpc>";
-                """);
+            $"public async {returnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
+        builder.AppendLine("""
+                           {
+                               XmlWriterSettings settings = new XmlWriterSettings();
+                               settings.Indent = true;
+                               settings.OmitXmlDeclaration = true;
+                               settings.NewLineOnAttributes = true;
+                               StringBuilder stringBuilder = new StringBuilder();
+                               using XmlWriter writer = XmlWriter.Create(stringBuilder, settings);
+                               await writer.WriteStartElementAsync(null,"rpc","urn:ietf:params:xml:ns:netconf:base:1.0");
+                               await writer.WriteAttributeStringAsync(null,"message-id",null,messageID.ToString());
+                               await writer.WriteStartElementAsync(null,"action","urn:ietf:params:xml:ns:yang:1");
+                           """);
+        if (Ingoing is not null)
+        {
+            builder.AppendLine($"\tthis.{MakeName(Argument)}InputValue = input;");
+        }
+        else
+        {
+            builder.AppendLine($"\tthis.{MakeName(Argument)}Active = true;");
+        }
 
-        builder.AppendLine(returnType != "void"
+        builder.AppendLine("""
+                               await WriteXML(writer);
+                               await writer.WriteEndElementAsync();
+                               await writer.WriteEndElementAsync();
+                               var xml = stringBuilder.ToString();
+                           """);
+        builder.AppendLine(returnType != "Task"
             ? "\tvar response = channel.Send(xml);"
             : "\tchannel.Send(xml);");
-        if (returnType != "void")
+        if (Ingoing is not null)
         {
-            builder.AppendLine($"\treturn {returnType}.Parse(response);");
+            builder.AppendLine($"\tthis.{MakeName(Argument)}InputValue = null;");
+        }
+        else
+        {
+            
+            builder.AppendLine($"\tthis.{MakeName(Argument)}Active = false;");
+        }
+
+        if (returnType != "Task")
+        {
+            builder.AppendLine($"\treturn {outputType}.Parse(response);");
         }
 
         builder.AppendLine("}");
@@ -69,6 +98,11 @@ public class Action : Statement
         if (Ingoing is not null)
         {
             builder.AppendLine(Ingoing.ToCode());
+            builder.AppendLine($"private {MakeName(Argument)}Input? {MakeName(Argument)}InputValue {{ get; set; }}");
+        }
+        else
+        {
+            builder.AppendLine($"private bool {MakeName(Argument)}Active {{ get; set; }}");
         }
 
         return builder.ToString();
@@ -86,6 +120,34 @@ public class Action : Statement
             }
 
             parent = parent.Parent;
+        }
+    }
+
+    public string TargetName => MakeName(Argument);
+
+    public string WriteCall
+    {
+        get
+        {
+            if (Ingoing is not null)
+            {
+                return $$"""
+                         if({{MakeName(Argument)}}InputValue is not null)
+                         {
+                             await writer.WriteStartElementAsync(null,"{{Source.Argument}}",null);
+                             await {{MakeName(Argument)}}InputValue.WriteXML(writer);
+                             await writer.WriteEndElementAsync();
+                         }
+                         """;
+            }
+
+            return $$"""
+                    if({{MakeName(Argument)}}Active)
+                    {
+                        await writer.WriteStartElementAsync(null,"{Source.Argument}",null);
+                        await writer.WriteEndElementAsync();
+                    }
+                    """;
         }
     }
 }

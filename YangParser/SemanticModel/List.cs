@@ -53,9 +53,8 @@ public class List : Statement, IClassSource, IXMLValue
     public override string ToCode()
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
-        TargetName = MakeName(Argument);
         string property =
-            $"\n{DescriptionString}\npublic{KeywordString}List<{MakeName(Argument)}Entry> {MakeName(Argument)} {{ get; }} = new();";
+            $"\n{DescriptionString}\npublic{KeywordString}List<{MakeName(Argument)}Entry> {TargetName} {{ get; }} = new();";
         return $$"""
                  {{property}}
                  {{AttributeString}}
@@ -67,7 +66,7 @@ public class List : Statement, IClassSource, IXMLValue
                  """;
     }
 
-    public string TargetName { get; private set; }
+    public string TargetName => MakeName(Argument);
 
     public string WriteCall
     {
