@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717068565330,
+  "lastUpdate": 1717069349787,
   "repoUrl": "https://github.com/westermo/DotnetYang",
   "entries": {
     "Benchmark.Net Benchmark": [
@@ -546,6 +546,48 @@ window.BENCHMARK_DATA = {
             "value": 21539.54766845703,
             "unit": "ns",
             "range": "± 54.78074252308613"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "committer": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "distinct": true,
+          "id": "dfdf39930bc13f3fe5b1e00c6d0463d7a4f43e2b",
+          "message": "Auto-cleaning of silly bounds checks",
+          "timestamp": "2024-05-30T13:40:47+02:00",
+          "tree_id": "dac4aafed8d32e6301f2f8e6db215ab2f7a727ba",
+          "url": "https://github.com/westermo/DotnetYang/commit/dfdf39930bc13f3fe5b1e00c6d0463d7a4f43e2b"
+        },
+        "date": 1717069349322,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmarks.ParsingBenchmarks.Parse",
+            "value": 89506.12916782925,
+            "unit": "ns",
+            "range": "± 479.225209134496"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.SemanticModel",
+            "value": 35219.94772949219,
+            "unit": "ns",
+            "range": "± 189.91021506732073"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.ToCode",
+            "value": 21242.06951497396,
+            "unit": "ns",
+            "range": "± 154.57067973198264"
           }
         ]
       }
