@@ -60,103 +60,7 @@ public abstract class Statement : IStatement
         List<string> declarations = new List<string>();
         List<string> assignments = new List<string>();
         List<string> cases = new List<string>();
-        foreach (var child in Children)
-        {
-            var hasCondition = child.TryGetChild<When>(out var when);
-            var booleanStatement = hasCondition
-                ? $" when string.IsNullOrEmpty(\"{SingleLine(when!.Argument.Replace("\"", "\\\""))}\") /*TODO: Properly implement WHEN*/"
-                : string.Empty;
-            switch (child)
-            {
-                case IXMLParseable xml:
-                    if (xml.TargetName != null)
-                    {
-                        declarations.Add($"{xml.ClassName} _{xml.TargetName} = default!;");
-                        assignments.Add($"{xml.TargetName} = _{xml.TargetName},");
-                    }
-
-                    switch (xml)
-                    {
-                        case Choice choice:
-                        {
-                            StringBuilder builder = new();
-                            bool added = false;
-                            foreach (var c in choice.SubTargets)
-                            {
-                                added = true;
-                                builder.AppendLine($"case \"{c}\"{booleanStatement}:");
-                            }
-
-                            if (!added)
-                            {
-                                builder.AppendLine($"case \"{choice.Argument}\"{booleanStatement}:");
-                            }
-
-                            builder.AppendLine($"""
-                                                    _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
-                                                    continue;
-                                                """);
-                            cases.Add(builder.ToString());
-                            break;
-                        }
-                        case Case ChoiceCase:
-                        {
-                            StringBuilder builder = new();
-                            bool added = false;
-                            foreach (var c in ChoiceCase.SubTargets)
-                            {
-                                added = true;
-                                builder.AppendLine($"case \"{c}\"{booleanStatement}:");
-                            }
-
-                            if (!added)
-                            {
-                                builder.AppendLine($"case \"{ChoiceCase.Argument}\"{booleanStatement}:");
-                            }
-
-                            builder.AppendLine($"""
-                                                    _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
-                                                    continue;
-                                                """);
-                            cases.Add(builder.ToString());
-                            break;
-                        }
-                        default:
-                            cases.Add(
-                                $"""
-                                 case "{xml.Argument}"{booleanStatement}:
-                                     _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
-                                     continue;
-                                 """);
-                            break;
-                    }
-
-                    break;
-                case IXMLReadValue xmlValue:
-                    if (xmlValue.TargetName != null)
-                    {
-                        declarations.Add(child is List
-                            ? $"List<{xmlValue.ClassName}> _{xmlValue.TargetName} = default!;"
-                            : $"{xmlValue.ClassName} _{xmlValue.TargetName} = default!;");
-
-                        assignments.Add($"{xmlValue.TargetName} = _{xmlValue.TargetName},");
-                    }
-
-                    cases.Add($"""
-                               case "{xmlValue.Argument}"{booleanStatement}:
-                                   {Indent(xmlValue.ParseCall)}
-                                   continue;
-                               """);
-                    break;
-                case IXMLAction action:
-                    cases.Add($"""
-                               case "{action.Argument}"{booleanStatement}:
-                                   {Indent(action.ParseCall)}
-                                   continue;
-                               """);
-                    break;
-            }
-        }
+        CollectParsingChildren(declarations, assignments, cases, "continue");
 
         return $$"""
                  public static async Task<{{type}}> ParseAsync(XmlReader reader)
@@ -172,17 +76,200 @@ public abstract class Statement : IStatement
                                      {{Indent(Indent(Indent(Indent(Indent(string.Join("\n", cases))))))}}
                                     default: throw new Exception($"Unexpected element '{reader.Name}' under '{{Argument}}'");
                                 }
-                            case XmlNodeType.EndElement:
+                            case XmlNodeType.EndElement when reader.Name == "{{Argument}}":
                                 return new {{type}}{
                                     {{Indent(Indent(Indent(Indent(Indent(string.Join("\n", assignments))))))}}
                                 };
                             case XmlNodeType.Whitespace: break;
-                            default: throw new Exception($"Unexpected node type '{reader.NodeType}' under '{{Argument}}'");
+                            default: throw new Exception($"Unexpected node type '{reader.NodeType}' : '{reader.Name}' under '{{Argument}}'");
                         }
                      }
                      throw new Exception("Reached end-of-readability without ever returning from {{type}}.ParseAsync");
                  }
                  """;
+    }
+
+    protected string ReadFunctionWithInvisibleSelf()
+    {
+        var type = string.Empty;
+        switch (this)
+        {
+            case IXMLReadValue xmlReadValue:
+                type = xmlReadValue.ClassName;
+                break;
+            case IXMLParseable xmlReadValue:
+                type = xmlReadValue.ClassName;
+                break;
+        }
+
+        if (type == string.Empty)
+        {
+            throw new InvalidOperationException($"ReadFunction called from invalid provider {GetType()}");
+        }
+
+        return ReadFunctionWithInvisibleSelf(type);
+    }
+
+    protected string ReadFunctionWithInvisibleSelf(string type)
+    {
+        List<string> declarations = new List<string>();
+        List<string> assignments = new List<string>();
+        List<string> cases = new List<string>();
+        CollectParsingChildren(declarations, assignments, cases, "break");
+
+        if (cases.Count > 0)
+        {
+            return $$"""
+                     public static async global::System.Threading.Tasks.Task<{{type}}> ParseAsync(XmlReader reader)
+                     {
+                         {{Indent(string.Join("\n", declarations))}}
+                         switch(reader.Name)
+                         {
+                             {{((Indent(Indent(Indent(string.Join("\n", cases))))))}}
+                             default: throw new Exception($"Unexpected element '{reader.Name}' under '{{Argument}}'");
+                         }
+                         return new {{type}}{
+                             {{((Indent(Indent(Indent(string.Join("\n", assignments))))))}}
+                         };
+                     }
+                     """;
+        }
+
+        return $$"""
+                 public static global::System.Threading.Tasks.Task<{{type}}> ParseAsync(XmlReader reader)
+                 {
+                     return global::System.Threading.Tasks.Task.FromResult(new {{type}}());
+                 }
+                 """;
+    }
+
+    private void CollectParsingChildren(List<string> declarations, List<string> assignments, List<string> cases,
+        string escapeKeyword)
+    {
+        foreach (var child in Children)
+        {
+            var hasCondition = child.TryGetChild<When>(out var when);
+            var booleanStatement = hasCondition
+                ? $" when string.IsNullOrEmpty(\"{SingleLine(when!.Argument.Replace("\"", "\\\""))}\") /*TODO: Properly implement WHEN*/"
+                : string.Empty;
+            switch (child)
+            {
+                case IXMLParseable xml:
+                    HandleParseables(declarations, assignments, cases, xml, booleanStatement, escapeKeyword);
+
+                    break;
+                case IXMLReadValue xmlValue:
+                    HandleReadValues(declarations, assignments, cases, xmlValue, child, booleanStatement,
+                        escapeKeyword);
+                    break;
+                case IXMLAction action:
+                    cases.Add($"""
+                               case "{action.Argument}"{booleanStatement}:
+                                   {Indent(action.ParseCall)}
+                                   {escapeKeyword};
+                               """);
+                    break;
+            }
+        }
+    }
+
+    private static void HandleReadValues(List<string> declarations, List<string> assignments, List<string> cases,
+        IXMLReadValue xmlValue,
+        IStatement child, string booleanStatement, string escapeKeyword)
+    {
+        if (xmlValue.TargetName != null)
+        {
+            declarations.Add(child is List
+                ? $"List<{xmlValue.ClassName}> _{xmlValue.TargetName} = default!;"
+                : $"{xmlValue.ClassName} _{xmlValue.TargetName} = default!;");
+
+            assignments.Add($"{xmlValue.TargetName} = _{xmlValue.TargetName},");
+        }
+
+        cases.Add($"""
+                   case "{xmlValue.Argument}"{booleanStatement}:
+                       {Indent(xmlValue.ParseCall)}
+                       {escapeKeyword};
+                   """);
+    }
+
+    private static void HandleParseables(List<string> declarations, List<string> assignments, List<string> cases,
+        IXMLParseable xml,
+        string booleanStatement, string escapeKeyword)
+    {
+        if (xml.TargetName != null)
+        {
+            declarations.Add($"{xml.ClassName} _{xml.TargetName} = default!;");
+            assignments.Add($"{xml.TargetName} = _{xml.TargetName},");
+        }
+
+        switch (xml)
+        {
+            case Choice choice:
+            {
+                HandleChoice(cases, xml, booleanStatement, choice, escapeKeyword);
+                break;
+            }
+            case Case ChoiceCase:
+            {
+                HandleCase(cases, xml, booleanStatement, ChoiceCase, escapeKeyword);
+                break;
+            }
+            default:
+                cases.Add(
+                    $"""
+                     case "{xml.Argument}"{booleanStatement}:
+                         _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
+                         {escapeKeyword};
+                     """);
+                break;
+        }
+    }
+
+    private static void HandleCase(List<string> cases, IXMLParseable xml, string booleanStatement, Case ChoiceCase,
+        string escapeKeyword)
+    {
+        StringBuilder builder = new();
+        bool added = false;
+        foreach (var c in ChoiceCase.SubTargets)
+        {
+            added = true;
+            builder.AppendLine($"case \"{c}\"{booleanStatement}:");
+        }
+
+        if (!added)
+        {
+            builder.AppendLine($"case \"{ChoiceCase.Argument}\"{booleanStatement}:");
+        }
+
+        builder.AppendLine($"""
+                                _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
+                                {escapeKeyword};
+                            """);
+        cases.Add(builder.ToString());
+    }
+
+    private static void HandleChoice(List<string> cases, IXMLParseable xml, string booleanStatement, Choice choice,
+        string escapeKeyword)
+    {
+        StringBuilder builder = new();
+        bool added = false;
+        foreach (var c in choice.SubTargets)
+        {
+            added = true;
+            builder.AppendLine($"case \"{c}\"{booleanStatement}:");
+        }
+
+        if (!added)
+        {
+            builder.AppendLine($"case \"{choice.Argument}\"{booleanStatement}:");
+        }
+
+        builder.AppendLine($"""
+                                _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
+                                {escapeKeyword};
+                            """);
+        cases.Add(builder.ToString());
     }
 
     protected string WriteFunctionInvisibleSelf()

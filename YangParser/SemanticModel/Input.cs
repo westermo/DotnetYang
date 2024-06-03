@@ -36,7 +36,7 @@ public class Input : Statement, IXMLParseable
                  public class {{ClassName}}
                  {
                      {{string.Join("\n\t", Children.Select(child => Indent(child.ToCode())))}}
-                     {{Indent(WriteFunction())}}
+                     {{Indent(WriteFunctionInvisibleSelf())}}
                      {{Indent(ReadFunction())}}
                  }
                  """;

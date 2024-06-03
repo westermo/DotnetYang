@@ -47,7 +47,7 @@ public class Choice : Statement, IClassSource, IXMLParseable
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}
                      {{Indent(WriteFunctionInvisibleSelf())}}
-                     {{Indent(ReadFunction())}}
+                     {{Indent(ReadFunctionWithInvisibleSelf())}}
                  }
                  """;
     }

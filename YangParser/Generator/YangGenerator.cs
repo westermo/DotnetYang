@@ -324,6 +324,7 @@ public class YangGenerator : IIncrementalGenerator
         var fileName = "YangModules/Attributes/Yang.Attributes.cs";
         var contents = """
                        using System;
+                       using System.Xml;
                        namespace Yang.Attributes;
                        [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
                        public class RevisionAttribute(string date) : Attribute
@@ -413,14 +414,63 @@ public class YangGenerator : IIncrementalGenerator
                        {
                            public string Path { get; } = path;
                            public static InstanceIdentifier Parse(string id) => new(id);
+                           public override string ToString() => Path;
                        }
                        public interface IChannel
                        {
-                           string Send(string xml);
+                           Task<global::System.IO.Stream> Send(string xml);
                        }
                        public interface IXMLSource
                        {
                            string ToXML();
+                       }
+                       public static class SerializationHelper
+                       {
+                           public static XmlWriterSettings GetStandardWriterSettings()
+                           {
+                               XmlWriterSettings settings = new XmlWriterSettings();
+                               settings.Indent = true;
+                               settings.OmitXmlDeclaration = true;
+                               settings.NewLineOnAttributes = false;
+                               settings.Async = true;
+                               return settings;
+                           }
+                           public static XmlReaderSettings GetStandardReaderSettings()
+                           {
+                                XmlReaderSettings settings = new XmlReaderSettings();
+                                settings.Async = true;
+                                settings.ConformanceLevel = ConformanceLevel.Fragment;
+                                settings.IgnoreWhitespace = true;
+                                settings.IgnoreComments = true;
+                                settings.IgnoreProcessingInstructions = true;
+                                return settings;
+                           }
+                           public static async Task ExpectOkRpcReply(XmlReader reader, int messageID)
+                           {
+                               await reader.ReadAsync();
+                               if(reader.NodeType != XmlNodeType.Element || reader.Name != "rpc-reply" || reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:base:1.0" || reader["message-id"] != messageID.ToString())
+                               {
+                                   throw new Exception($"Expected stream to start with a <rpc-reply> element with message id {messageID} & \"urn:ietf:params:xml:ns:netconf:base:1.0\" but got {reader.NodeType}: {reader.Name} in {reader.NamespaceURI}");
+                               }
+                               await reader.ReadAsync();
+                               while(reader.NodeType == XmlNodeType.Whitespace)
+                               {
+                                   await reader.ReadAsync();
+                               }
+                               if(reader.NodeType != XmlNodeType.Element || reader.Name != "ok")
+                               {
+                                   throw new Exception($"Expected <ok/> element {reader.NodeType}: {reader.Name}");
+                               }
+                               await reader.ReadAsync();
+                               while(reader.NodeType == XmlNodeType.Whitespace)
+                               {
+                                   await reader.ReadAsync();
+                               }
+                               if(reader.NodeType != XmlNodeType.EndElement)
+                               {
+                                   throw new Exception($"Expected </rpc-reply> closing element {reader.NodeType}: {reader.Name}");
+                               }
+                           }
                        }
                        """;
         context.AddSource(fileName, contents);

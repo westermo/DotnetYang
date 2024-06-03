@@ -43,7 +43,7 @@ public class Case : Statement, IClassSource, IXMLParseable
                  {
                     {{Indent(string.Join("\n", nodes))}}
                      {{Indent(WriteFunctionInvisibleSelf())}}
-                     {{Indent(ReadFunction())}}
+                     {{Indent(ReadFunctionWithInvisibleSelf())}}
                  }
                  """;
     }

@@ -34,12 +34,13 @@ public class Output : Statement, IXMLParseable
 
     public override string ToCode()
     {
+        Argument = "rpc-reply";
         return $$"""
                  public class {{ClassName}}
                  {
                      {{string.Join("\n\t", Children.Select(child => Indent(child.ToCode())))}}
-                     public static {{ClassName}} Parse(string xml) => default!; //TODO
                      {{ReadFunction()}}
+                     {{WriteFunctionInvisibleSelf()}}
                  }
                  """;
     }

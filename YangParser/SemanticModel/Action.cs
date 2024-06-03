@@ -45,13 +45,8 @@ public class Action : Statement, IXMLWriteValue, IXMLAction
             $"public async {returnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
         builder.AppendLine("""
                            {
-                               XmlWriterSettings settings = new XmlWriterSettings();
-                               settings.Indent = true;
-                               settings.OmitXmlDeclaration = true;
-                               settings.NewLineOnAttributes = true;
-                               settings.Async = true;
                                StringBuilder stringBuilder = new StringBuilder();
-                               using XmlWriter writer = XmlWriter.Create(stringBuilder, settings);
+                               using XmlWriter writer = XmlWriter.Create(stringBuilder, SerializationHelper.GetStandardWriterSettings());
                                await writer.WriteStartElementAsync(null,"rpc","urn:ietf:params:xml:ns:netconf:base:1.0");
                                await writer.WriteAttributeStringAsync(null,"message-id",null,messageID.ToString());
                                await writer.WriteStartElementAsync(null,"action","urn:ietf:params:xml:ns:yang:1");
@@ -63,21 +58,31 @@ public class Action : Statement, IXMLWriteValue, IXMLAction
         builder.AppendLine("""
                                await WriteXMLAsync(writer);
                                await writer.WriteEndElementAsync();
-                               await writer.WriteEndElementAsync();
                                await writer.FlushAsync();
-                               var xml = stringBuilder.ToString();
+                               var response = await channel.Send(stringBuilder.ToString());
                            """);
-        builder.AppendLine(returnType != "Task"
-            ? "\tvar response = channel.Send(xml);"
-            : "\tchannel.Send(xml);");
         builder.AppendLine(Ingoing is not null
             ? $"\tthis.{MakeName(Argument)}InputValue = null;"
             : $"\tthis.{MakeName(Argument)}Active = false;");
 
-        if (returnType != "Task")
-        {
-            builder.AppendLine($"\treturn {outputType}.Parse(response);");
-        }
+        builder.AppendLine(returnType != "Task"
+            ? $$"""
+                    using XmlReader reader = XmlReader.Create(response,SerializationHelper.GetStandardReaderSettings());
+                    await reader.ReadAsync();
+                    if(reader.NodeType != XmlNodeType.Element || reader.Name != "rpc-reply" || reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:base:1.0" || reader["message-id"] != messageID.ToString())
+                    {
+                        throw new Exception($"Expected stream to start with a <rpc-reply> element with message id {messageID} & \"urn:ietf:params:xml:ns:netconf:base:1.0\" but got {reader.NodeType}: {reader.Name} in {reader.NamespaceURI}");
+                    }
+                    var value = await {{outputType}}.ParseAsync(reader);
+                    response.Dispose();
+                    return value;
+                """
+            : """
+                  using XmlReader reader = XmlReader.Create(response,SerializationHelper.GetStandardReaderSettings());
+                  await reader.ReadAsync();
+                  await SerializationHelper.ExpectOkRpcReply(reader, messageID);
+                  response.Dispose();
+              """);
 
         builder.AppendLine("}");
         if (Outgoing is not null)

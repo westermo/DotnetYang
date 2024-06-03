@@ -119,6 +119,17 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
                          """;
             }
 
+            if (Type.GetBaseType(out _, out _) is "empty")
+            {
+                return $$"""
+                         if({{TargetName}} != default)
+                         {
+                             await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                             await writer.WriteEndElementAsync();
+                         }
+                         """;
+            }
+
             return $$"""
                      if({{TargetName}} != default)
                      {

@@ -29,7 +29,8 @@ public class BfdIpMhTests(ITestOutputHelper output)
         var result = await notification.ToXML();
         using var ms = new MemoryStream(Encoding.UTF8.GetBytes(result));
         var newNotification = await Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification.ParseAsync(ms);
-        Assert.Equal(notification.DestAddr!.Ipv4AddressValue!.WrittenValue, newNotification.DestAddr!.Ipv4AddressValue!.WrittenValue);
+        Assert.Equal(notification.DestAddr!.Ipv4AddressValue!.WrittenValue,
+            newNotification.DestAddr!.Ipv4AddressValue!.WrittenValue);
         Assert.Equal(notification.NewState, newNotification.NewState);
         Assert.Equal(notification.LocalDiscr, newNotification.LocalDiscr);
     }

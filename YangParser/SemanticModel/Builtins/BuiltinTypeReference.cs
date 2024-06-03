@@ -145,6 +145,7 @@ public static class BuiltinTypeReference
 
     private static string GetText(string argument) => $$"""
                                                         await reader.ReadAsync();
+                                                        while(reader.NodeType == XmlNodeType.Whitespace) await reader.ReadAsync();
                                                         if(reader.NodeType != XmlNodeType.Text)
                                                         {
                                                             throw new Exception($"Expected token in ParseCall for '{{argument}}' to be text, but was '{reader.NodeType}'");
@@ -152,10 +153,15 @@ public static class BuiltinTypeReference
                                                         """;
 
     private static string EndElement(string argument) => $$"""
-                                                           await reader.ReadAsync();
-                                                           if(reader.NodeType != XmlNodeType.EndElement)
+                                                           if(!reader.IsEmptyElement)
                                                            {
-                                                               throw new Exception($"Expected token in ParseCall for '{{argument}}' to be an element closure, but was '{reader.NodeType}'");
+                                                               
+                                                               await reader.ReadAsync();
+                                                               while(reader.NodeType == XmlNodeType.Whitespace) await reader.ReadAsync();
+                                                               if(reader.NodeType != XmlNodeType.EndElement)
+                                                               {
+                                                                   throw new Exception($"Expected token in ParseCall for '{{argument}}' to be an element closure, but was '{reader.NodeType}'");
+                                                               }
                                                            }
                                                            """;
 
@@ -273,7 +279,9 @@ public static class BuiltinTypeReference
                     var p = prefix.Contains('.') ? prefix : prefix + ":";
                     return $"return {p}Get{local}Value(value);";
                 }
-                Log.Write($"Specified typeName {typeName} did not match source type name {chosen.Name}, defaulting to .Parse");
+
+                Log.Write(
+                    $"Specified typeName {typeName} did not match source type name {chosen.Name}, defaulting to .Parse");
                 return $"return {typeName}.Parse(value);";
             default:
                 return $"return {typeName}.Parse(value);";

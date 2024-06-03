@@ -44,13 +44,8 @@ public class Notification : Statement
                      {{string.Join("\n\t", nodes.Select(Indent))}}
                      public async Task<string> ToXML()
                      {
-                         XmlWriterSettings settings = new XmlWriterSettings();
-                         settings.Indent = true;
-                         settings.OmitXmlDeclaration = true;
-                         settings.NewLineOnAttributes = true;
-                         settings.Async = true;
                          StringBuilder stringBuilder = new StringBuilder();
-                         using XmlWriter writer = XmlWriter.Create(stringBuilder, settings);
+                         using XmlWriter writer = XmlWriter.Create(stringBuilder, SerializationHelper.GetStandardWriterSettings());
                          await writer.WriteStartElementAsync(null,"notification","urn:ietf:params:xml:ns:netconf:notification:1.0");
                          await writer.WriteStartElementAsync(null,"eventTime",null);
                          await writer.WriteStringAsync(DateTime.UtcNow.ToString("yyyy-MM-ddThh:mm:ssZ"));
@@ -62,9 +57,7 @@ public class Notification : Statement
                      }
                      public static async Task<{{MakeName(Argument)}}> ParseAsync(global::System.IO.Stream xmlStream)
                      {
-                         XmlReaderSettings settings = new XmlReaderSettings();
-                         settings.Async = true;
-                         using XmlReader reader = XmlReader.Create(xmlStream,settings);
+                         using XmlReader reader = XmlReader.Create(xmlStream,SerializationHelper.GetStandardReaderSettings());
                          await reader.ReadAsync();
                          if(reader.NodeType != XmlNodeType.Element || reader.Name != "notification" || reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:notification:1.0")
                          {
@@ -113,8 +106,6 @@ public class Notification : Statement
                              throw new Exception($"Expected </notification> closing element {reader.NodeType}: {reader.Name}");
                          }
                          return value;
-                         
-                         
                      }
                      {{Indent(WriteFunction())}}
                      {{Indent(ReadFunction(MakeName(Argument)))}}
