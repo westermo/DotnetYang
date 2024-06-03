@@ -71,7 +71,7 @@ public class Rpc : Statement, IFunctionSource
         var ns = $"xmlns:{XmlNamespace?.Prefix}=\\\"" + XmlNamespace?.Namespace + "\\\"";
         if (inputType != string.Empty)
         {
-            builder.AppendLine("\tawait input.WriteXML(writer);");
+            builder.AppendLine("\tawait input.WriteXMLAsync(writer);");
         }
 
         builder.AppendLine($$"""

@@ -17,14 +17,14 @@ public abstract class Statement : IStatement
 
     protected string xmlNs => string.IsNullOrWhiteSpace(Namespace) ? "null" : $"\"{Namespace}\"";
 
-    protected string XmlFunction()
+    protected string WriteFunction()
     {
         var writeCalls = Children.OfType<IXMLSource>()
-            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXML(writer);");
-        var elementCalls = Children.OfType<IXMLValue>()
+            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer);");
+        var elementCalls = Children.OfType<IXMLWriteValue>()
             .Select(t => t.WriteCall);
         return $$"""
-                 public async Task WriteXML(XmlWriter writer)
+                 public async Task WriteXMLAsync(XmlWriter writer)
                  {
                      await writer.WriteStartElementAsync({{xmlPrefix}},"{{Source.Argument}}",{{xmlNs}});
                      {{Indent(string.Join("\n", elementCalls))}}
@@ -34,16 +34,167 @@ public abstract class Statement : IStatement
                  """;
     }
 
-    protected string XmlFunctionWithInvisibleSelf()
+    protected string ReadFunction()
+    {
+        var type = string.Empty;
+        switch (this)
+        {
+            case IXMLReadValue xmlReadValue:
+                type = xmlReadValue.ClassName;
+                break;
+            case IXMLParseable xmlReadValue:
+                type = xmlReadValue.ClassName;
+                break;
+        }
+
+        if (type == string.Empty)
+        {
+            throw new InvalidOperationException($"ReadFunction called from invalid provider {GetType()}");
+        }
+
+        return ReadFunction(type);
+    }
+
+    protected string ReadFunction(string type)
+    {
+        List<string> declarations = new List<string>();
+        List<string> assignments = new List<string>();
+        List<string> cases = new List<string>();
+        foreach (var child in Children)
+        {
+            var hasCondition = child.TryGetChild<When>(out var when);
+            var booleanStatement = hasCondition
+                ? $" when string.IsNullOrEmpty(\"{SingleLine(when!.Argument.Replace("\"", "\\\""))}\") /*TODO: Properly implement WHEN*/"
+                : string.Empty;
+            switch (child)
+            {
+                case IXMLParseable xml:
+                    if (xml.TargetName != null)
+                    {
+                        declarations.Add($"{xml.ClassName} _{xml.TargetName} = default!;");
+                        assignments.Add($"{xml.TargetName} = _{xml.TargetName},");
+                    }
+
+                    switch (xml)
+                    {
+                        case Choice choice:
+                        {
+                            StringBuilder builder = new();
+                            bool added = false;
+                            foreach (var c in choice.SubTargets)
+                            {
+                                added = true;
+                                builder.AppendLine($"case \"{c}\"{booleanStatement}:");
+                            }
+
+                            if (!added)
+                            {
+                                builder.AppendLine($"case \"{choice.Argument}\"{booleanStatement}:");
+                            }
+
+                            builder.AppendLine($"""
+                                                    _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
+                                                    continue;
+                                                """);
+                            cases.Add(builder.ToString());
+                            break;
+                        }
+                        case Case ChoiceCase:
+                        {
+                            StringBuilder builder = new();
+                            bool added = false;
+                            foreach (var c in ChoiceCase.SubTargets)
+                            {
+                                added = true;
+                                builder.AppendLine($"case \"{c}\"{booleanStatement}:");
+                            }
+
+                            if (!added)
+                            {
+                                builder.AppendLine($"case \"{ChoiceCase.Argument}\"{booleanStatement}:");
+                            }
+
+                            builder.AppendLine($"""
+                                                    _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
+                                                    continue;
+                                                """);
+                            cases.Add(builder.ToString());
+                            break;
+                        }
+                        default:
+                            cases.Add(
+                                $"""
+                                 case "{xml.Argument}"{booleanStatement}:
+                                     _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
+                                     continue;
+                                 """);
+                            break;
+                    }
+
+                    break;
+                case IXMLReadValue xmlValue:
+                    if (xmlValue.TargetName != null)
+                    {
+                        declarations.Add(child is List
+                            ? $"List<{xmlValue.ClassName}> _{xmlValue.TargetName} = default!;"
+                            : $"{xmlValue.ClassName} _{xmlValue.TargetName} = default!;");
+
+                        assignments.Add($"{xmlValue.TargetName} = _{xmlValue.TargetName},");
+                    }
+
+                    cases.Add($"""
+                               case "{xmlValue.Argument}"{booleanStatement}:
+                                   {Indent(xmlValue.ParseCall)}
+                                   continue;
+                               """);
+                    break;
+                case IXMLAction action:
+                    cases.Add($"""
+                               case "{action.Argument}"{booleanStatement}:
+                                   {Indent(action.ParseCall)}
+                                   continue;
+                               """);
+                    break;
+            }
+        }
+
+        return $$"""
+                 public static async Task<{{type}}> ParseAsync(XmlReader reader)
+                 {
+                     {{Indent(string.Join("\n", declarations))}}
+                     while(await reader.ReadAsync())
+                     {
+                        switch(reader.NodeType)
+                        {
+                            case XmlNodeType.Element:
+                                switch(reader.Name)
+                                {
+                                     {{Indent(Indent(Indent(Indent(Indent(string.Join("\n", cases))))))}}
+                                    default: throw new Exception($"Unexpected element '{reader.Name}' under '{{Argument}}'");
+                                }
+                            case XmlNodeType.EndElement:
+                                return new {{type}}{
+                                    {{Indent(Indent(Indent(Indent(Indent(string.Join("\n", assignments))))))}}
+                                };
+                            case XmlNodeType.Whitespace: break;
+                            default: throw new Exception($"Unexpected node type '{reader.NodeType}' under '{{Argument}}'");
+                        }
+                     }
+                     throw new Exception("Reached end-of-readability without ever returning from {{type}}.ParseAsync");
+                 }
+                 """;
+    }
+
+    protected string WriteFunctionInvisibleSelf()
     {
         var writeCalls = Children.OfType<IXMLSource>()
-            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXML(writer);").ToArray();
-        var elementCalls = Children.OfType<IXMLValue>()
+            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer);").ToArray();
+        var elementCalls = Children.OfType<IXMLWriteValue>()
             .Select(t => t.WriteCall).ToArray();
         if (elementCalls.Length == 0 && writeCalls.Length == 0)
         {
             return """
-                   public async Task WriteXML(XmlWriter writer)
+                   public async Task WriteXMLAsync(XmlWriter writer)
                    {
                        await writer.FlushAsync();
                    }
@@ -51,7 +202,7 @@ public abstract class Statement : IStatement
         }
 
         return $$"""
-                 public async Task WriteXML(XmlWriter writer)
+                 public async Task WriteXMLAsync(XmlWriter writer)
                  {
                      {{Indent(string.Join("\n", elementCalls))}}
                      {{Indent(string.Join("\n", writeCalls))}}
@@ -185,7 +336,7 @@ public abstract class Statement : IStatement
     {
         get
         {
-            if (this is IXMLValue || this is IXMLSource) Attributes.Add("XPath(@\"" + XPath + '"' + ')');
+            if (this is IXMLWriteValue || this is IXMLSource) Attributes.Add("XPath(@\"" + XPath + '"' + ')');
             return "\n" + string.Join("\n", Attributes.OrderBy(x => x.Length).Select(attr => $"[{attr}]"));
         }
     }

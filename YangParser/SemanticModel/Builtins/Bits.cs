@@ -13,18 +13,45 @@ public class Bits() : BuiltinType("bits", statement =>
         child.ToCode();
     }
 
-    var cases = new List<string>();
+    var writeCases = new List<string>();
+    var readCases = new List<string>();
     foreach (var e in bits)
     {
-        cases.Add($"if ((value & {name}.{Statement.MakeName(e.Argument)}) == {name}.{Statement.MakeName(e.Argument)}) bits.Add(\"{e.Argument}\");");
+        writeCases.Add(
+            $"if ((value & {name}.{Statement.MakeName(e.Argument)}) == {name}.{Statement.MakeName(e.Argument)}) bits.Add(\"{e.Argument}\");");
+        readCases.Add(
+            $"""
+             case "{e.Argument}":
+                 output ??= {name}.{Statement.MakeName(e.Argument)};
+                 output |= {name}.{Statement.MakeName(e.Argument)};
+                 break;
+             """);
     }
 
     var definition = $$"""
                        public static string GetEncodedValue({{name}} value)
                        {
                            List<string> bits = new List<string>();
-                           {{Statement.Indent(string.Join("\n", cases))}}
+                           {{Statement.Indent(string.Join("\n", writeCases))}}
                            return string.Join(" ", bits);
+                       }
+                       public static {{name}} Get{{name}}Value(string value)
+                       {
+                           {{name}}? output = null;
+                           foreach(var component in value.Split(' '))
+                           {
+                               switch(component)
+                               {
+                                   {{Statement.Indent(Statement.Indent(Statement.Indent(string.Join("\n", readCases))))}}
+                                   default: throw new Exception($"{component} is not a valid value for {{name}}");
+                               }
+                           }
+                           if(output is null)
+                           {
+                               throw new Exception($"No value was assigned on decoding of {{name}} from {value}");
+                           }
+                           return output.Value!;
+                           
                        }
                        public static string GetEncodedValue({{name}}? value) => GetEncodedValue(value!.Value!);
                        {{statement.DescriptionString}}{{statement.AttributeString}}

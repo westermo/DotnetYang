@@ -181,7 +181,10 @@ public class ParsingTests(ITestOutputHelper output)
             Assert.IsNotType<Uses>(statement);
         }
         output.WriteLine(compilationUnit.ToCode());
-
+        foreach (var child in compilationUnit.Children)
+        {
+            output.WriteLine(child.ToCode());
+        }
         Log.Clear();
     }
 

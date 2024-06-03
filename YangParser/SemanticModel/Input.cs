@@ -1,10 +1,9 @@
-using System;
 using System.Linq;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Input : Statement
+public class Input : Statement, IXMLParseable
 {
     public Input(YangStatement statement) : base(statement)
     {
@@ -34,12 +33,15 @@ public class Input : Statement
     public override string ToCode()
     {
         return $$"""
-                 public class {{MakeName(Parent!.Argument)}}Input
+                 public class {{ClassName}}
                  {
                      {{string.Join("\n\t", Children.Select(child => Indent(child.ToCode())))}}
-                     {{Indent(XmlFunction())}}
-                     
+                     {{Indent(WriteFunction())}}
+                     {{Indent(ReadFunction())}}
                  }
                  """;
     }
+
+    public string ClassName => $"{MakeName(Parent!.Argument)}Input";
+    public string? TargetName => null;
 }

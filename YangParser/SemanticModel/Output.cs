@@ -4,7 +4,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Output : Statement
+public class Output : Statement, IXMLParseable
 {
     public Output(YangStatement statement) : base(statement)
     {
@@ -35,11 +35,15 @@ public class Output : Statement
     public override string ToCode()
     {
         return $$"""
-                 public class {{MakeName(Parent!.Argument)}}Output
+                 public class {{ClassName}}
                  {
                      {{string.Join("\n\t", Children.Select(child => Indent(child.ToCode())))}}
-                     public static {{MakeName(Parent!.Argument)}}Output Parse(string xml) => default!; //TODO
+                     public static {{ClassName}} Parse(string xml) => default!; //TODO
+                     {{ReadFunction()}}
                  }
                  """;
     }
+
+    public string? TargetName { get; } = null;
+    public string ClassName => $"{MakeName(Parent!.Argument)}Output";
 }

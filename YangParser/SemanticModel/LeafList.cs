@@ -1,11 +1,10 @@
-using System;
 using System.Linq;
-using System.Text;
 using YangParser.Parser;
+using YangParser.SemanticModel.Builtins;
 
 namespace YangParser.SemanticModel;
 
-public class LeafList : Statement, IXMLValue
+public class LeafList : Statement, IXMLWriteValue, IXMLReadValue
 {
     public override ChildRule[] PermittedChildren { get; } =
     [
@@ -57,7 +56,14 @@ public class LeafList : Statement, IXMLValue
             name += "Value";
         }
 
+        switch ("a")
+        {
+            case "a" when string.IsNullOrWhiteSpace("b"):
+                break;
+        }
+
         TargetName = name + "List";
+        ClassName = typeName + "[]";
 
         return $$"""
                  {{addendum}}
@@ -70,21 +76,28 @@ public class LeafList : Statement, IXMLValue
 
     public string TargetName { get; private set; } = string.Empty;
 
-    public string WriteCall
-    {
-        get
-        {
-            return $$"""
-                     if({{TargetName}} != null)
-                     {
-                         foreach(var element in {{TargetName}})
-                         {
-                             await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
-                             await writer.WriteStringAsync(element!.ToString());
-                             await writer.WriteEndElementAsync();
-                         }
-                     }
-                     """;
-        }
-    }
+    public string WriteCall =>
+        $$"""
+          if({{TargetName}} != null)
+          {
+              foreach(var element in {{TargetName}})
+              {
+                  await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                  await writer.WriteStringAsync(element!.ToString());
+                  await writer.WriteEndElementAsync();
+              }
+          }
+          """;
+
+    public string ClassName { get; private set; } = string.Empty;
+
+    public string ParseCall =>
+        $$"""
+          _{{TargetName}} ??= new {{Type.Name}}[0];
+          {
+             {{Type.Name}} element = default!;
+             {{Indent(BuiltinTypeReference.ValueTransformation(Type, ClassName.Replace("[]", ""), "element", Argument))}}
+             _{{TargetName}} = [.._{{TargetName}}, element];
+          }
+          """;
 }

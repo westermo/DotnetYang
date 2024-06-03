@@ -36,6 +36,7 @@ public class Notification : Statement
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
         var xmlWrite = GetXmlWriting();
+        var xmlRead = GetXmlReading();
         return $$"""
                  {{DescriptionString}}{{AttributeString}}
                  public class {{MakeName(Argument)}}
@@ -59,7 +60,64 @@ public class Notification : Statement
                          await writer.FlushAsync();
                          return stringBuilder.ToString();
                      }
-                     {{Indent(XmlFunction())}}
+                     public static async Task<{{MakeName(Argument)}}> ParseAsync(global::System.IO.Stream xmlStream)
+                     {
+                         XmlReaderSettings settings = new XmlReaderSettings();
+                         settings.Async = true;
+                         using XmlReader reader = XmlReader.Create(xmlStream,settings);
+                         await reader.ReadAsync();
+                         if(reader.NodeType != XmlNodeType.Element || reader.Name != "notification" || reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:notification:1.0")
+                         {
+                             throw new Exception($"Expected stream to start with a <notification> element with namespace \"urn:ietf:params:xml:ns:netconf:notification:1.0\" but got {reader.NodeType}: {reader.Name} in {reader.NamespaceURI}");
+                         }
+                         await reader.ReadAsync();
+                         while(reader.NodeType == XmlNodeType.Whitespace)
+                         {
+                             await reader.ReadAsync();
+                         }
+                         if(reader.NodeType != XmlNodeType.Element || reader.Name != "eventTime")
+                         {
+                             throw new Exception($"Expected stream to have a second element called <eventTime> element but got {reader.NodeType}: {reader.Name}");
+                         }
+                         await reader.ReadAsync();
+                         while(reader.NodeType == XmlNodeType.Whitespace)
+                         {
+                             await reader.ReadAsync();
+                         }
+                         if(reader.NodeType != XmlNodeType.Text)
+                         {
+                             if(!global::System.DateTime.TryParse(await reader.GetValueAsync(), out _)) throw new Exception($"Expected <eventTime> element to contain a valid dateTime but got {reader.NodeType}: {reader.Name}");
+                         }
+                         await reader.ReadAsync();
+                         while(reader.NodeType == XmlNodeType.Whitespace)
+                         {
+                             await reader.ReadAsync();
+                         }
+                         if(reader.NodeType != XmlNodeType.EndElement)
+                         {
+                             throw new Exception($"Expected <eventTime> element to only have one child but got {reader.NodeType}: {reader.Name}");
+                         }
+                         await reader.ReadAsync();
+                         while(reader.NodeType == XmlNodeType.Whitespace)
+                         {
+                             await reader.ReadAsync();
+                         }
+                         var value = {{xmlRead}}
+                         await reader.ReadAsync();
+                         while(reader.NodeType == XmlNodeType.Whitespace)
+                         {
+                             await reader.ReadAsync();
+                         }
+                         if(reader.NodeType != XmlNodeType.EndElement)
+                         {
+                             throw new Exception($"Expected </notification> closing element {reader.NodeType}: {reader.Name}");
+                         }
+                         return value;
+                         
+                         
+                     }
+                     {{Indent(WriteFunction())}}
+                     {{Indent(ReadFunction(MakeName(Argument)))}}
                  }
                  """;
     }
@@ -68,7 +126,7 @@ public class Notification : Statement
     {
         if (Parent is Module)
         {
-            return "await WriteXML(writer);";
+            return "await WriteXMLAsync(writer);";
         }
 
         var parent = Parent;
@@ -82,9 +140,37 @@ public class Notification : Statement
             parent = parent.Parent;
         }
 
-        if (parent is IXMLSource source)
+        if (parent is IXMLSource)
         {
-            return $"await WriteXML(writer);";
+            return "await WriteXMLAsync(writer);";
+        }
+
+        throw new SemanticError(
+            $"Top level statement of 'notification {Argument}' ({parent?.Source.Keyword} {parent?.Argument}) was not a valid XML source",
+            Source);
+    }
+
+    private string GetXmlReading()
+    {
+        if (Parent is Module)
+        {
+            return "await ParseAsync(reader);";
+        }
+
+        var parent = Parent;
+        while (parent != null)
+        {
+            if (parent.Parent is Module or Submodule)
+            {
+                break;
+            }
+
+            parent = parent.Parent;
+        }
+
+        if (parent is IXMLSource)
+        {
+            return "await ParseAsync(reader);";
         }
 
         throw new SemanticError(

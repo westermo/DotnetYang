@@ -1,4 +1,5 @@
-﻿using BenchmarkDotNet.Attributes;
+﻿using System.Text;
+using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using Ietf.Inet.Types;
 using YangParser;
@@ -15,6 +16,7 @@ public class ParsingBenchmarks
     private YangStatement statement;
     private IStatement model;
     private Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification notification;
+    private string serialized;
 
     [GlobalSetup]
     public void Setup()
@@ -28,6 +30,7 @@ public class ParsingBenchmarks
             NewState = Ietf.Bfd.Types.YangNode.State.Init,
             SourceAddr = new YangNode.IpAddress(new YangNode.Ipv4Address("2.3.4.5"))
         };
+        serialized = notification.ToXML().Result;
     }
 
     [Benchmark]
@@ -41,7 +44,7 @@ public class ParsingBenchmarks
 
     [Benchmark]
     public Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification MultihopNotificationCreation() =>
-        new Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification
+        new()
         {
             DestAddr = new YangNode.IpAddress(new YangNode.Ipv4Address("1.2.3.4")),
             NewState = Ietf.Bfd.Types.YangNode.State.Init,
@@ -50,6 +53,21 @@ public class ParsingBenchmarks
 
     [Benchmark]
     public async Task<string> SerializerMultihopNotification() => await notification.ToXML();
+
+    [Benchmark]
+    public MemoryStream ToMemoryStream()
+    {
+        var ms = new MemoryStream(Encoding.UTF8.GetBytes(serialized));
+        ms.Dispose();
+        return ms;
+    }
+
+    [Benchmark]
+    public async Task<Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification> MultihopNotificationParsing()
+    {
+        using var ms = new MemoryStream(Encoding.UTF8.GetBytes(serialized));
+        return await Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification.ParseAsync(ms);
+    }
 }
 
 internal static class Program

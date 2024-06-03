@@ -73,8 +73,8 @@ public class Augment : Statement, IUnexpandable
         }
 
         var top = Argument.StartsWith("/") ? GetModule(components) : Parent!;
-        
-        Parent?.Replace(this,[]);
+
+        Parent?.Replace(this, []);
 
         var target = GetTarget(top, components, sourceNS);
 
@@ -111,7 +111,6 @@ public class Augment : Statement, IUnexpandable
         {
             if (string.IsNullOrWhiteSpace(xpath)) continue;
             xpath.Prefix(out var childName);
-            if (childName == current.Argument) break;
             var origin = current;
             foreach (var currentChild in current.Children)
             {

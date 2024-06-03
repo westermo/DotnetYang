@@ -1,13 +1,10 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using YangParser.Parser;
 using YangParser.SemanticModel.Builtins;
 
 namespace YangParser.SemanticModel;
 
-public class Leaf : Statement, IXMLValue
+public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
 {
     public override ChildRule[] PermittedChildren { get; } =
     [
@@ -83,7 +80,7 @@ public class Leaf : Statement, IXMLValue
     {
         get
         {
-            if (Type.GetBaseType(out var prefix) is "enumeration" or "bits")
+            if (Type.GetBaseType(out var prefix, out _) is "enumeration" or "bits")
             {
                 if (string.IsNullOrEmpty(prefix))
                 {
@@ -109,6 +106,7 @@ public class Leaf : Statement, IXMLValue
                              }
                              """;
                 }
+
                 //Is imported reference
                 var p = prefix.Contains('.') ? prefix : prefix + ":";
                 return $$"""
@@ -131,4 +129,8 @@ public class Leaf : Statement, IXMLValue
                      """;
         }
     }
+
+    public string ClassName => Type.Name!;
+
+    public string ParseCall => BuiltinTypeReference.ValueTransformation(Type, ClassName, "_" + TargetName, Argument);
 }

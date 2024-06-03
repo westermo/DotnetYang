@@ -30,7 +30,7 @@ public class Binary() : BuiltinType("binary", statement =>
                             {
                                return Convert.ToBase64String(WrittenValue);
                             }
-                            public {{typeName}} Parse(string base64)
+                            public static {{typeName}} Parse(string base64)
                             {
                                 return new {{typeName}}(Convert.FromBase64String(base64));
                             }

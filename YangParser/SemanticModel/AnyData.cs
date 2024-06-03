@@ -2,7 +2,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class AnyData : Statement, IXMLValue
+public class AnyData : Statement, IXMLWriteValue
 {
     public AnyData(YangStatement statement) : base(statement)
     {

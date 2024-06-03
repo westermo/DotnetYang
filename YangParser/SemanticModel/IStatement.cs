@@ -24,21 +24,43 @@ public interface IStatement
     string Namespace { get; }
 }
 
+public interface IXMLElement : IStatement
+{
+    string? TargetName { get; }
+}
 /// <summary>
 /// Implies this class makes an XElement with potential children
 /// </summary>
-public interface IXMLSource : IStatement
+public interface IXMLSource : IXMLElement
 {
-    string TargetName { get; }
+}
+
+public interface IXMLParseable : IXMLSource
+{
+    string ClassName { get; }
+}
+
+/// <summary>
+/// Implies this class makes a singular XElement with no children, and may not have a method
+/// </summary>
+public interface IXMLWriteValue : IXMLElement
+{
+    string WriteCall { get; }
 }
 /// <summary>
 /// Implies this class makes a singular XElement with no children, and may not have a method
 /// </summary>
-public interface IXMLValue : IStatement
+public interface IXMLReadValue : IXMLElement
 {
-    string TargetName { get; }
-    string WriteCall { get; }
+    string ClassName { get; }
+    string ParseCall { get; }
 }
+
+public interface IXMLAction : IXMLElement
+{
+    string ParseCall { get; }
+}
+
 
 public interface ICommentable : IStatement
 {

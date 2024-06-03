@@ -1,15 +1,11 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class List : Statement, IClassSource, IXMLValue
+public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
 {
-    private YangStatement m_source;
-
     public override ChildRule[] PermittedChildren { get; } =
     [
         new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore),
@@ -42,8 +38,6 @@ public class List : Statement, IClassSource, IXMLValue
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-
-        m_source = statement;
     }
 
     public const string Keyword = "list";
@@ -54,33 +48,38 @@ public class List : Statement, IClassSource, IXMLValue
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
         string property =
-            $"\n{DescriptionString}\npublic{KeywordString}List<{MakeName(Argument)}Entry> {TargetName} {{ get; }} = new();";
+            $"\n{DescriptionString}\npublic{KeywordString}List<{ClassName}>? {TargetName} {{ get; set; }}";
         return $$"""
                  {{property}}
                  {{AttributeString}}
-                 public class {{MakeName(Argument)}}Entry
+                 public class {{ClassName}}
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}
-                     {{Indent(XmlFunction())}}
+                     {{Indent(WriteFunction())}}
+                     {{Indent(ReadFunction())}}
                  }
                  """;
     }
 
     public string TargetName => MakeName(Argument);
 
-    public string WriteCall
-    {
-        get
-        {
-            return $$"""
-                     if({{TargetName}} != null)
-                     {
-                         foreach(var element in {{TargetName}})
-                         {
-                             await element!.WriteXML(writer);
-                         }
-                     }
-                     """;
-        }
-    }
+    public string ClassName => TargetName + "Entry";
+
+    public string WriteCall =>
+        $$"""
+          if({{TargetName}} != null)
+          {
+              foreach(var element in {{TargetName}})
+              {
+                  await element!.WriteXMLAsync(writer);
+              }
+          }
+          """;
+
+    public string ParseCall =>
+        $"""
+         _{TargetName} ??= new List<{ClassName}>();
+         var _{TargetName}Element = await {ClassName}.ParseAsync(reader);
+         _{TargetName}.Add(_{TargetName}Element);
+         """;
 }

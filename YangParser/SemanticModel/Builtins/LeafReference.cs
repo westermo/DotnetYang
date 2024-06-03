@@ -8,7 +8,11 @@ public class LeafReference() : BuiltinType("leafref", (statement) =>
     var name =  BuiltinTypeReference.TypeName(statement);
     var definition = $$"""
                        {{statement.DescriptionString}}{{statement.AttributeString}}
-                       public class {{name}}() : InstanceIdentifier("{{path.Argument}}");
+                       public class {{name}}() : InstanceIdentifier("{{path.Argument}}")
+                       {
+                            public new static {{name}} Parse(string value) => new();
+                       }
+                       
                        """;
     return (name, definition);
 });

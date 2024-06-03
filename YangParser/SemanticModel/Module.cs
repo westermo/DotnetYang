@@ -141,6 +141,7 @@ public class Module : Statement, ITopLevelStatement
         foreach (var prefix in Usings.Keys)
         {
             raw = raw.Replace(" " + prefix + ":", " " + Usings[prefix]);
+            raw = raw.Replace("\t" + prefix + ":", "\t" + Usings[prefix]);
             raw = raw.Replace("(" + prefix + ":", "(" + Usings[prefix]);
         }
 

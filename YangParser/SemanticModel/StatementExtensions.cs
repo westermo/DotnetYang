@@ -320,13 +320,14 @@ public static class StatementExtensions
         return source.Parent.SearchUpwards<T>(argument);
     }
 
-    public static string GetBaseType(this Type type, out string prefix)
+    public static string GetBaseType(this Type type, out string prefix, out Type chosenType)
     {
         prefix = string.Empty;
         while (true)
         {
-            if (BuiltinTypeReference.IsBuiltin(type, out _, out _))
+            if (BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
             {
+                chosenType = type;
                 _ = type.Argument.Prefix(out var arg);
                 return arg;
             }

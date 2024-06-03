@@ -1,11 +1,10 @@
-using System;
 using System.Linq;
 using System.Text;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Action : Statement, IXMLValue
+public class Action : Statement, IXMLWriteValue, IXMLAction
 {
     public Action(YangStatement statement) : base(statement)
     {
@@ -57,17 +56,12 @@ public class Action : Statement, IXMLValue
                                await writer.WriteAttributeStringAsync(null,"message-id",null,messageID.ToString());
                                await writer.WriteStartElementAsync(null,"action","urn:ietf:params:xml:ns:yang:1");
                            """);
-        if (Ingoing is not null)
-        {
-            builder.AppendLine($"\tthis.{MakeName(Argument)}InputValue = input;");
-        }
-        else
-        {
-            builder.AppendLine($"\tthis.{MakeName(Argument)}Active = true;");
-        }
+        builder.AppendLine(Ingoing is not null
+            ? $"""	this.{MakeName(Argument)}InputValue = input;"""
+            : $"""	this.{MakeName(Argument)}Active = true;""");
 
         builder.AppendLine("""
-                               await WriteXML(writer);
+                               await WriteXMLAsync(writer);
                                await writer.WriteEndElementAsync();
                                await writer.WriteEndElementAsync();
                                await writer.FlushAsync();
@@ -76,15 +70,9 @@ public class Action : Statement, IXMLValue
         builder.AppendLine(returnType != "Task"
             ? "\tvar response = channel.Send(xml);"
             : "\tchannel.Send(xml);");
-        if (Ingoing is not null)
-        {
-            builder.AppendLine($"\tthis.{MakeName(Argument)}InputValue = null;");
-        }
-        else
-        {
-            
-            builder.AppendLine($"\tthis.{MakeName(Argument)}Active = false;");
-        }
+        builder.AppendLine(Ingoing is not null
+            ? $"\tthis.{MakeName(Argument)}InputValue = null;"
+            : $"\tthis.{MakeName(Argument)}Active = false;");
 
         if (returnType != "Task")
         {
@@ -127,29 +115,29 @@ public class Action : Statement, IXMLValue
 
     public string TargetName => MakeName(Argument);
 
-    public string WriteCall
-    {
-        get
-        {
-            if (Ingoing is not null)
-            {
-                return $$"""
-                         if({{MakeName(Argument)}}InputValue is not null)
-                         {
-                             await writer.WriteStartElementAsync({{xmlPrefix}},"{{Source.Argument}}",{{xmlNs}});
-                             await {{MakeName(Argument)}}InputValue.WriteXML(writer);
-                             await writer.WriteEndElementAsync();
-                         }
-                         """;
-            }
+    public string WriteCall =>
+        Ingoing is not null
+            ? $$"""
+                if({{MakeName(Argument)}}InputValue is not null)
+                {
+                    await writer.WriteStartElementAsync({{xmlPrefix}},"{{Source.Argument}}",{{xmlNs}});
+                    await {{MakeName(Argument)}}InputValue.WriteXMLAsync(writer);
+                    await writer.WriteEndElementAsync();
+                }
+                """
+            : $$"""
+                if({{MakeName(Argument)}}Active)
+                {
+                    await writer.WriteStartElementAsync(null,"{Source.Argument}",null);
+                    await writer.WriteEndElementAsync();
+                }
+                """;
 
-            return $$"""
-                    if({{MakeName(Argument)}}Active)
-                    {
-                        await writer.WriteStartElementAsync(null,"{Source.Argument}",null);
-                        await writer.WriteEndElementAsync();
-                    }
-                    """;
-        }
-    }
+    public string ParseCall =>
+        Ingoing is not null
+            ? $"""
+               await {MakeName(Argument)}Input.ParseAsync(reader);
+               await reader.ReadAsync();//Parse it out, but ignore
+               """
+            : "await reader.ReadAsync();";
 }
