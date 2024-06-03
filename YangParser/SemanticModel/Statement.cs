@@ -5,13 +5,12 @@ using System.Text;
 using System.Text.RegularExpressions;
 using YangParser.Parser;
 using YangParser.SemanticModel.Builtins;
-using String = System.String;
 
 namespace YangParser.SemanticModel;
 
 public abstract class Statement : IStatement
 {
-    protected string xmlPrefix => (string.IsNullOrWhiteSpace(Prefix) || string.IsNullOrWhiteSpace(Namespace))
+    protected string xmlPrefix => string.IsNullOrWhiteSpace(Prefix) || string.IsNullOrWhiteSpace(Namespace)
         ? "null"
         : $"\"{Prefix}\"";
 
@@ -110,11 +109,11 @@ public abstract class Statement : IStatement
         return ReadFunctionWithInvisibleSelf(type);
     }
 
-    protected string ReadFunctionWithInvisibleSelf(string type)
+    private string ReadFunctionWithInvisibleSelf(string type)
     {
-        List<string> declarations = new List<string>();
-        List<string> assignments = new List<string>();
-        List<string> cases = new List<string>();
+        var declarations = new List<string>();
+        var assignments = new List<string>();
+        var cases = new List<string>();
         CollectParsingChildren(declarations, assignments, cases, "break");
 
         if (cases.Count > 0)
@@ -125,11 +124,11 @@ public abstract class Statement : IStatement
                          {{Indent(string.Join("\n", declarations))}}
                          switch(reader.Name)
                          {
-                             {{((Indent(Indent(Indent(string.Join("\n", cases))))))}}
+                             {{Indent(Indent(string.Join("\n", cases)))}}
                              default: throw new Exception($"Unexpected element '{reader.Name}' under '{{Argument}}'");
                          }
                          return new {{type}}{
-                             {{((Indent(Indent(Indent(string.Join("\n", assignments))))))}}
+                             {{Indent(Indent(string.Join("\n", assignments)))}}
                          };
                      }
                      """;
@@ -313,9 +312,9 @@ public abstract class Statement : IStatement
     public (string Namespace, string Prefix)? XmlNamespace { get; set; }
     public string Prefix => XmlNamespace?.Prefix ?? Parent?.Prefix ?? string.Empty;
     public string Namespace => XmlNamespace?.Namespace ?? Parent?.Namespace ?? string.Empty;
-    protected string XmlObjectName => (string.IsNullOrEmpty(Prefix) ? string.Empty : Prefix + ":") + Source.Argument;
+    private string XmlObjectName => (string.IsNullOrEmpty(Prefix) ? string.Empty : Prefix + ":") + Source.Argument;
 
-    public string XPath => ((Parent?.XPath ?? String.Empty) + "/").Replace("//", "/") +
+    public string XPath => ((Parent?.XPath ?? string.Empty) + "/").Replace("//", "/") +
                            XmlObjectName;
 
     public YangStatement Source { get; set; }

@@ -110,7 +110,7 @@ public class Augment : Statement, IUnexpandable
         foreach (var xpath in components)
         {
             if (string.IsNullOrWhiteSpace(xpath)) continue;
-            xpath.Prefix(out var childName);
+            var prefix = xpath.Prefix(out var childName);
             var origin = current;
             foreach (var currentChild in current.Children)
             {
@@ -123,7 +123,10 @@ public class Augment : Statement, IUnexpandable
 
             if (current == origin)
             {
-                var newChild = new Container(childName, Source.Metadata);
+                var newChild = new Container(childName, Source.Metadata)
+                {
+                    XmlNamespace = (this.FindSourceFor(prefix)?.XmlNamespace?.Namespace, prefix)!
+                };
                 newChild.Attributes.Add($"Augmented(\"{sourceNS}\")");
                 current.Insert([newChild]);
                 current = newChild;
@@ -202,6 +205,14 @@ public class Augment : Statement, IUnexpandable
                         if (!target.ImportedModules.ContainsKey(pair.Key))
                         {
                             target.ImportedModules[pair.Key] = pair.Value;
+                        }
+                    }
+
+                    foreach (var pair in source.PrefixToNamespaceTable)
+                    {
+                        if (!target.PrefixToNamespaceTable.ContainsKey(pair.Key))
+                        {
+                            target.PrefixToNamespaceTable[pair.Key] = pair.Value;
                         }
                     }
                 }

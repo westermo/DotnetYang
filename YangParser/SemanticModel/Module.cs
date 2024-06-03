@@ -20,6 +20,7 @@ public class Module : Statement, ITopLevelStatement
         };
         ImportedModules[localPrefix] = Argument;
         MyNamespace = localNS;
+        PrefixToNamespaceTable[localPrefix] = XmlNamespace.Value.Namespace;
 
         foreach (var child in this.Unwrap())
         {
@@ -69,7 +70,7 @@ public class Module : Statement, ITopLevelStatement
     }
 
     public List<Feature> Features { get; } = [];
-
+    public Dictionary<string, string> PrefixToNamespaceTable { get; } = [];
     public Dictionary<string, string> ImportedModules { get; } = [];
     public Dictionary<string, string> Usings { get; }
     public string MyNamespace { get; private set; }
