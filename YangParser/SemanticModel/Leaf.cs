@@ -55,7 +55,7 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
         var defaultValue = Default?.ToCode();
 
         var defaulting = defaultValue is null ? string.Empty : $"= {defaultValue};";
-        var nullable = Required ? string.Empty : "?";
+        var nullable = Required && !Children.Any(c => c is When) ? string.Empty : "?";
         var name = MakeName(Argument);
         var typeName = Type.Name;
         var definition = Type.Definition;

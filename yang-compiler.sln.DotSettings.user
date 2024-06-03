@@ -7,6 +7,8 @@
       &lt;TestId&gt;xUnit::D7772430-87F7-4707-8BC1-4F5C601C4AD3::net8.0::YangSourceTests.BfdIpMhTests.NotificationDeserializationTest&lt;/TestId&gt;&#xD;
       &lt;TestId&gt;xUnit::D7772430-87F7-4707-8BC1-4F5C601C4AD3::net8.0::YangSourceTests.BfdIpMhTests&lt;/TestId&gt;&#xD;
       &lt;TestId&gt;xUnit::D7772430-87F7-4707-8BC1-4F5C601C4AD3::net8.0::YangSourceTests.RpcTests.RpcSend&lt;/TestId&gt;&#xD;
+      &lt;TestId&gt;xUnit::D7772430-87F7-4707-8BC1-4F5C601C4AD3::net8.0::YangSourceTests.IetfInterfacesTests.AugmentedSerializationTest&lt;/TestId&gt;&#xD;
+      &lt;TestId&gt;xUnit::D7772430-87F7-4707-8BC1-4F5C601C4AD3::net8.0::YangSourceTests.IetfInterfacesTests.AugmentedDeserializationTest&lt;/TestId&gt;&#xD;
     &lt;/TestAncestor&gt;&#xD;
   &lt;/Or&gt;&#xD;
 &lt;/SessionState&gt;</s:String></wpf:ResourceDictionary>

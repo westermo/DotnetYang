@@ -8,10 +8,9 @@ namespace YangSourceTests;
 
 public class IetfInterfacesTests(ITestOutputHelper output)
 {
-    [Fact]
-    public async Task AugmentedSerializationTest()
+    private static readonly YangNode node = new()
     {
-        var node = new YangNode.InterfacesContainer
+        Interfaces = new()
         {
             Interface = new List<YangNode.InterfacesContainer.InterfaceEntry>
             {
@@ -19,7 +18,6 @@ public class IetfInterfacesTests(ITestOutputHelper output)
                 {
                     TypeValue = "vlan",
                     ChannelSeparation = 0,
-                    ModeValue = "yes",
                     PowerMode = new YangNode.InterfacesContainer.InterfaceEntry.PowerModeChoice
                     {
                         Atpc =
@@ -47,15 +45,33 @@ public class IetfInterfacesTests(ITestOutputHelper output)
                         {
                             RxFrequency = 402,
                         },
-                    BridgePort = new YangNode.InterfacesContainer.InterfaceEntry.BridgePortContainer()
-                    
+                    BridgePort = new YangNode.InterfacesContainer.InterfaceEntry.BridgePortContainer(),
+                    ModeValue = "",
                 }
             }
-        };
+        }
+    };
+
+    [Fact]
+    public async Task AugmentedSerializationTest()
+    {
         var builder = new StringBuilder();
         await using var writer = XmlWriter.Create(builder, SerializationHelper.GetStandardWriterSettings());
         await node.WriteXMLAsync(writer);
         await writer.FlushAsync();
         output.WriteLine(builder.ToString());
     }
+    // [Fact]
+    // public async Task AugmentedDeserializationTest()
+    // {
+    //     var builder = new StringBuilder();
+    //     await using var writer = XmlWriter.Create(builder, SerializationHelper.GetStandardWriterSettings());
+    //     await node.WriteXMLAsync(writer);
+    //     await writer.FlushAsync();
+    //     output.WriteLine(builder.ToString());
+    //     using var ms = new MemoryStream(Encoding.UTF8.GetBytes(builder.ToString()));
+    //     using var reader = XmlReader.Create(ms, SerializationHelper.GetStandardReaderSettings());
+    //     await reader.ReadAsync();
+    //     var nNode = await YangNode.ParseAsync(reader);
+    // }
 }

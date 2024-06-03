@@ -56,10 +56,11 @@ public abstract class Statement : IStatement
 
     protected string ReadFunction(string type)
     {
-        List<string> declarations = new List<string>();
-        List<string> assignments = new List<string>();
-        List<string> cases = new List<string>();
-        CollectParsingChildren(declarations, assignments, cases, "continue");
+        var declarations = new List<string>();
+        var assignments = new List<string>();
+        var cases = new List<string>();
+        HashSet<string> caseKeywords = [];
+        CollectParsingChildren(declarations, assignments, cases, caseKeywords, "continue");
 
         return $$"""
                  public static async Task<{{type}}> ParseAsync(XmlReader reader)
@@ -114,7 +115,8 @@ public abstract class Statement : IStatement
         var declarations = new List<string>();
         var assignments = new List<string>();
         var cases = new List<string>();
-        CollectParsingChildren(declarations, assignments, cases, "break");
+        HashSet<string> caseKeywords = [];
+        CollectParsingChildren(declarations, assignments, cases, caseKeywords, "break");
 
         if (cases.Count > 0)
         {
@@ -143,6 +145,7 @@ public abstract class Statement : IStatement
     }
 
     private void CollectParsingChildren(List<string> declarations, List<string> assignments, List<string> cases,
+        HashSet<string> caseKeywords,
         string escapeKeyword)
     {
         foreach (var child in Children)
@@ -169,6 +172,8 @@ public abstract class Statement : IStatement
                                """);
                     break;
             }
+
+            caseKeywords.Add(child.Argument);
         }
     }
 
@@ -420,18 +425,15 @@ public abstract class Statement : IStatement
 
     public string AttributeString
     {
-        get
-        {
-            if (this is IXMLWriteValue || this is IXMLSource) Attributes.Add("XPath(@\"" + XPath + '"' + ')');
-            return "\n" + string.Join("\n", Attributes.OrderBy(x => x.Length).Select(attr => $"[{attr}]"));
-        }
+        get { return "\n" + string.Join("\n", Attributes.OrderBy(x => x.Length).Select(attr => $"[{attr}]")); }
     }
 
-    public string DescriptionString => $"""
+    public string DescriptionString => Children.FirstOrDefault(c => c is Description) is Description description ? $"""
                                         ///<summary>
-                                        ///{Children.FirstOrDefault(child => child is Description)?.Argument.Replace("\n", "\n///")}
+                                        ///{description.Argument.Replace("\n", "\n///")}
                                         ///</summary>
-                                        """;
+                                        """
+        : string.Empty;
 
     /// <summary>
     /// 

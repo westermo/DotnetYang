@@ -5,7 +5,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Module : Statement, ITopLevelStatement
+public class Module : Statement, ITopLevelStatement, IXMLParseable
 {
     public Module(YangStatement statement) : base(statement)
     {
@@ -130,6 +130,8 @@ public class Module : Statement, ITopLevelStatement
                     {
                         {{string.Join("\n\t", nodes)}}
                         {{string.Join("\n\t", extraDefinitions)}}
+                        {{Indent(ReadFunction())}}
+                        {{Indent(WriteFunction())}}
                     }
                     """;
         raw = ReplacePrefixes(raw);
@@ -216,6 +218,8 @@ public class Module : Statement, ITopLevelStatement
     //         return builder.ToString();
     //     }
     // }
+    public string? TargetName => MakeName(Argument);
+    public string ClassName => "YangNode";
 }
 
 public interface ITopLevelStatement : IStatement
