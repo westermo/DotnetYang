@@ -5,7 +5,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class CompilationUnit : Statement
+public class CompilationUnit : Statement, IXMLParseable
 {
     public CompilationUnit(Module[] modules, string Namespace = "Somewhere") : base(new YangStatement(String.Empty,
         string.Empty, [],
@@ -32,6 +32,8 @@ public class CompilationUnit : Statement
             members.Add($"public {typeName}? {memberName} {{ get; set; }}");
         }
 
+        Argument = "root";
+
         return $$"""
                  using System;
                  using System.Xml;
@@ -43,7 +45,12 @@ public class CompilationUnit : Statement
                  public class Configuration
                  {
                      {{Indent(string.Join("\n", members))}}
+                     {{Indent(WriteFunction())}}
+                     {{Indent(ReadFunction())}}
                  }
                  """;
     }
+
+    public string? TargetName => null;
+    public string ClassName => "Configuration";
 }

@@ -24,7 +24,6 @@ public class Feature : Statement
 
     public override string ToCode()
     {
-        Parent?.Attributes.Add($"ProvidesFeature(\"{Argument.Replace("\n", "")}\")");
-        return $"//Feature Declaration: {Argument.Replace("\n", "")}, Parent is {Parent?.GetType().Name}";
+        return string.Empty;
     }
 }

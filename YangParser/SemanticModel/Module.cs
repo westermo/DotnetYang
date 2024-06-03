@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using YangParser.Generator;
 using YangParser.Parser;
 
@@ -66,10 +67,16 @@ public class Module : Statement, ITopLevelStatement, IXMLParseable
             {
                 Features.Add(feature);
             }
+
+            if (child is Revision revision)
+            {
+                Revisions.Add(revision);
+            }
         }
     }
 
-    public List<Feature> Features { get; } = [];
+    private List<Feature> Features { get; } = [];
+    private List<Revision> Revisions { get; } = [];
     public Dictionary<string, string> PrefixToNamespaceTable { get; } = [];
     public Dictionary<string, string> ImportedModules { get; } = [];
     public Dictionary<string, string> Usings { get; }
@@ -128,6 +135,9 @@ public class Module : Statement, ITopLevelStatement, IXMLParseable
                     {{DescriptionString}}{{AttributeString}}
                     public class YangNode
                     {
+                        public const string ModuleName = "{{Argument}}";
+                        public const string Revision = "{{Revisions.FirstOrDefault()?.Argument}}";
+                        public static string[] Features = [{{string.Join(",", Features.Select(f => $"\"{f.Argument}\""))}}];
                         {{string.Join("\n\t", nodes)}}
                         {{string.Join("\n\t", extraDefinitions)}}
                         {{Indent(ReadFunction())}}
@@ -219,7 +229,7 @@ public class Module : Statement, ITopLevelStatement, IXMLParseable
     //     }
     // }
     public string? TargetName => MakeName(Argument);
-    public string ClassName => "YangNode";
+    public string ClassName => MakeNamespace(Argument) + ".YangNode";
 }
 
 public interface ITopLevelStatement : IStatement
