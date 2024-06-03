@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717080850759,
+  "lastUpdate": 1717406791054,
   "repoUrl": "https://github.com/westermo/DotnetYang",
   "entries": {
     "Benchmark.Net Benchmark": [
@@ -726,6 +726,72 @@ window.BENCHMARK_DATA = {
             "value": 22191.55683186849,
             "unit": "ns",
             "range": "± 288.93672301899267"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "committer": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "distinct": true,
+          "id": "9aa9dd141c651481d83f661a9a9396f9960561a4",
+          "message": "Deserialization is functional",
+          "timestamp": "2024-06-03T11:21:36+02:00",
+          "tree_id": "6c9173116703c9d283bd8e70535a6f1602500782",
+          "url": "https://github.com/westermo/DotnetYang/commit/9aa9dd141c651481d83f661a9a9396f9960561a4"
+        },
+        "date": 1717406789966,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmarks.ParsingBenchmarks.Parse",
+            "value": 92785.63874162946,
+            "unit": "ns",
+            "range": "± 1027.9774314675542"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.SemanticModel",
+            "value": 35165.73839314779,
+            "unit": "ns",
+            "range": "± 159.21022575944042"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.ToCode",
+            "value": 44649.52850777762,
+            "unit": "ns",
+            "range": "± 255.63435157560846"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.MultihopNotificationCreation",
+            "value": 832.2763333687416,
+            "unit": "ns",
+            "range": "± 6.036713433441541"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.SerializerMultihopNotification",
+            "value": 22189.65301132202,
+            "unit": "ns",
+            "range": "± 435.92119139291384"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.ToMemoryStream",
+            "value": 76.74819945494333,
+            "unit": "ns",
+            "range": "± 1.3535335962642967"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.MultihopNotificationParsing",
+            "value": 10649.569629923502,
+            "unit": "ns",
+            "range": "± 170.76973463178703"
           }
         ]
       }
