@@ -130,7 +130,6 @@ public class Module : Statement, ITopLevelStatement, IXMLParseable
                     using System.Xml.Linq;
                     using System.Text.RegularExpressions;
                     using Yang.Attributes;
-                    {{string.Join("\n", Usings.Values.Where(p => p != MakeNamespace(Argument) + ".YangNode.").Select(value => $"using {value.Replace(".YangNode.", "")};").Distinct())}}
                     namespace {{ns}};
                     {{DescriptionString}}{{AttributeString}}
                     public class YangNode
