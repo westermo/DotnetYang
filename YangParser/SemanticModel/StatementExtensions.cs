@@ -117,9 +117,59 @@ public static class StatementExtensions
 
     private static Grouping GetGrouping(this Uses use)
     {
-        return use.FindReference<Grouping>(use.Argument) ?? throw new SemanticError(
-            $"Could not find a grouping statement to use for 'uses {use.Argument}' [{use.Parent}]",
-            use.Source);
+        var module = use.GetModule();
+        if (module is null)
+        {
+            throw new SemanticError(
+                $"Could not find a module for 'uses {use.Argument}'",
+                use.Source);
+        }
+
+        var prefix = use.Argument.Prefix(out _);
+        if (!string.IsNullOrEmpty(prefix)) //Is 'outside-of-tree'
+        {
+            if (prefix == use.GetInheritedPrefix())
+            {
+                var grouping = use.FindGrouping(module);
+                if (grouping is null)
+                {
+                    throw new SemanticError(
+                        $"Could not find a grouping statement to use for 'uses {use.Argument}' in self module '{module.Argument}'",
+                        use.Source);
+                }
+
+                return grouping;
+            }
+
+            if (!prefix.Contains("."))
+            {
+                var source = use.FindSourceFor(prefix) ??
+                             throw new SemanticError($"Could not find a module with the key {prefix}", use.Source);
+                var grouping = use.FindGrouping(source) ?? throw new SemanticError(
+                    $"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{source.Argument}' from prefix '{prefix}'",
+                    use.Source);
+                return grouping;
+            }
+            else
+            {
+                var source = use.Root().Children.OfType<Module>().FirstOrDefault(m => m.MyNamespace == prefix) ??
+                             throw new SemanticError($"Could not find a module with the key {prefix}", use.Source);
+                var grouping = use.FindGrouping(source) ?? throw new SemanticError(
+                    $"Could not find a grouping statement to use for 'uses {use.Argument}' in module '{source.Argument}' from prefix '{prefix}'",
+                    use.Source);
+                return grouping;
+            }
+        }
+
+        var findGrouping = use.FindGrouping(module);
+        if (findGrouping is null)
+        {
+            throw new SemanticError(
+                $"Could not find a grouping statement to use for 'uses {use.Argument}' [{use.Parent}] in module '{module.Argument}'",
+                use.Source);
+        }
+
+        return findGrouping;
     }
 
 
@@ -166,7 +216,7 @@ public static class StatementExtensions
         return string.Empty;
     }
 
-    private static readonly Dictionary<(System.Type, string), IStatement?> _cache = [];
+    static readonly Dictionary<(System.Type, string), IStatement?> _cache = [];
 
     public static T? FindReference<T>(this IStatement source, string reference) where T : IStatement
     {
@@ -183,41 +233,43 @@ public static class StatementExtensions
             _cache[key] = value;
             return value;
         }
-
-        if (source.GetInheritedPrefix() == prefix)
-        {
-            var value = source.SearchDownwards<T>(name) ?? source.SearchUpwards<T>(name);
-            _cache[key] = value;
-            return value;
-        }
-
-        if (!prefix.Contains('.'))
-        {
-            var module = source.FindSourceFor(prefix);
-            if (module is null)
-            {
-                Log.Write(
-                    $"Failed to find module for '{prefix}'");
-                return default;
-            }
-
-            var value = module.SearchDownwards<T>(name) ?? module.SearchUpwards<T>(name);
-            _cache[key] = value;
-            return value;
-        }
         else
         {
-            var module = source.Root().Children.OfType<Module>().FirstOrDefault(m => m.MyNamespace == prefix);
-            if (module is null)
+            if (source.GetInheritedPrefix() == prefix)
             {
-                Log.Write(
-                    $"Failed to find module for '{prefix}'");
-                return default;
+                var value = source.SearchDownwards<T>(name) ?? source.SearchUpwards<T>(name);
+                _cache[key] = value;
+                return value;
             }
 
-            var value = module.SearchDownwards<T>(name) ?? module.SearchUpwards<T>(name);
-            _cache[key] = value;
-            return value;
+            if (!prefix.Contains('.'))
+            {
+                var module = source.FindSourceFor(prefix);
+                if (module is null)
+                {
+                    Log.Write(
+                        $"Failed to find module for '{prefix}'");
+                    return default;
+                }
+
+                var value = module.SearchDownwards<T>(name) ?? module.SearchUpwards<T>(name);
+                _cache[key] = value;
+                return value;
+            }
+            else
+            {
+                var module = source.Root().Children.OfType<Module>().FirstOrDefault(m => m.MyNamespace == prefix);
+                if (module is null)
+                {
+                    Log.Write(
+                        $"Failed to find module for '{prefix}'");
+                    return default;
+                }
+
+                var value = module.SearchDownwards<T>(name) ?? module.SearchUpwards<T>(name);
+                _cache[key] = value;
+                return value;
+            }
         }
     }
 
