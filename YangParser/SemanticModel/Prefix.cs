@@ -17,6 +17,6 @@ public class Prefix : Statement
 
     public override string ToCode()
     {
-        return $"//Locally defined prefix: {Argument.Replace("\n","")}";
+        return string.Empty;
     }
 }

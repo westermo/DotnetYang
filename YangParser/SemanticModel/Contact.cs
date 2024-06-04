@@ -23,6 +23,6 @@ public class Contact : Statement
 
     public override string ToCode()
     {
-        return $"//Contact: {SingleLine(Argument)}";
+        return string.Empty;
     }
 }
