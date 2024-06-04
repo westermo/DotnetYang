@@ -13,9 +13,8 @@ public class Base : Statement, IUnexpandable
 
     }
     public const string Keyword = "base";
-    override public string ToCode()
+    public override string ToCode()
     {
-        Parent?.Attributes.Add("Inherits(\"" + Argument + "\")");
         return string.Empty;
     }
 }

@@ -57,6 +57,7 @@ public static class BuiltinTypeReference
         Type type = statement is Type type1 ? type1 : statement.GetChild<Type>();
         var baseType = type.GetBaseType(out var prefix, out var chosen);
         string? parseFunction;
+        string toString = "WrittenValue.ToString()!";
         switch (baseType)
         {
             case "union":
@@ -77,8 +78,14 @@ public static class BuiltinTypeReference
                 break;
             case "bits":
             case "enumeration":
+            case "identityref":
                 _ = baseTypeName.Prefix(out var local);
                 var call = $"Get{local}Value";
+                if (chosen.Name == null || !chosen.Name.EndsWith(local))
+                {
+                    toString = "GetEncodedValue(WrittenValue)";
+                }
+
                 if (string.IsNullOrEmpty(prefix))
                 {
                     //Is local reference.
@@ -136,7 +143,7 @@ public static class BuiltinTypeReference
                      }
                      public override string ToString()
                      {
-                        return WrittenValue.ToString()!;
+                        return {{toString}};
                      }
                      {{Statement.Indent(parseFunction)}}
                  }
@@ -200,27 +207,29 @@ public static class BuiltinTypeReference
                         """;
             case "bits":
             case "enumeration":
-                _ = typeName.Prefix(out var local);
-                if (string.IsNullOrEmpty(prefix))
+            case "identityref":
+                var altPrefix = typeName.Prefix(out var local);
+                if (string.IsNullOrWhiteSpace(prefix)) prefix = altPrefix;
+                if (chosenType.Name != null && chosenType.Name.EndsWith(local))
                 {
-                    //Is local reference.
-                    return IsBuiltin(type, out _, out _)
-                        ? //Is direct subtype
-                        $"""
-                         {GetText(argument)}
-                         {target} = Get{local}Value(await reader.GetValueAsync());
-                         {EndElement(argument)}
-                         """
-                        : $"""
-                           {GetText(argument)}
-                           {target} = YangNode.Get{local}Value(await reader.GetValueAsync());
-                           {EndElement(argument)}
-                           """;
-                }
+                    if (string.IsNullOrEmpty(prefix))
+                    {
+                        //Is local reference.
+                        return IsBuiltin(type, out _, out _)
+                            ? //Is direct subtype
+                            $"""
+                             {GetText(argument)}
+                             {target} = Get{local}Value(await reader.GetValueAsync());
+                             {EndElement(argument)}
+                             """
+                            : $"""
+                               {GetText(argument)}
+                               {target} = YangNode.Get{local}Value(await reader.GetValueAsync());
+                               {EndElement(argument)}
+                               """;
+                    }
 
-                //Is imported reference
-                if (chosenType.Name != null && chosenType.Name.Contains(local))
-                {
+                    //Is imported reference
                     //Is a direct enum/bits reference
                     var p = prefix.Contains('.') ? prefix : prefix + ":";
                     return $"""
@@ -263,25 +272,23 @@ public static class BuiltinTypeReference
                 return $"if(string.IsNullOrWhiteSpace(value)) return new {typeName}();";
             case "bits":
             case "enumeration":
+            case "identityref":
                 _ = typeName.Prefix(out var local);
-                if (string.IsNullOrEmpty(prefix))
+                if (chosen.Name!.EndsWith(local))
                 {
-                    //Is local reference.
-                    return IsBuiltin(type, out _, out _)
-                        ? //Is direct subtype
-                        $"return Get{local}Value(value);"
-                        : $"return YangNode.Get{local}Value(value);";
-                }
+                    if (string.IsNullOrEmpty(prefix))
+                    {
+                        //Is local reference.
+                        return IsBuiltin(type, out _, out _)
+                            ? //Is direct subtype
+                            $"return Get{local}Value(value);"
+                            : $"return YangNode.Get{local}Value(value);";
+                    }
 
-                //Is imported reference
-                if (chosen.Name!.Contains(local))
-                {
+                    //Is imported reference
                     var p = prefix.Contains('.') ? prefix : prefix + ":";
                     return $"return {p}Get{local}Value(value);";
                 }
-
-                Log.Write(
-                    $"Specified typeName {typeName} did not match source type name {chosen.Name}, defaulting to .Parse");
                 return $"return {typeName}.Parse(value);";
             default:
                 return $"return {typeName}.Parse(value);";

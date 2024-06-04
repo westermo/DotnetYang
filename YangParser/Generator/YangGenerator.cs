@@ -77,12 +77,9 @@ public class YangGenerator : IIncrementalGenerator
             //Replace Includes with their respective submodules
             IncludeSubmodules(context, modules, topLevels);
             var compilation = new CompilationUnit(modules.Values.ToArray(), data.compilation.AssemblyName!);
-            Log.Write("IncludeSubmodules Complete");
             //Replace Uses by their respective groupings
             UnwrapUses(context, compilation);
-            Log.Write("UnwrapUses Complete");
             InjectAugments(context, compilation);
-            Log.Write("Augments Injected");
             foreach (var module in compilation.Children.OfType<Module>())
             {
                 try
@@ -96,6 +93,7 @@ public class YangGenerator : IIncrementalGenerator
                         e.StackTrace + "\n*/");
                 }
             }
+
             WriteFile(context, "Configuration.cs", compilation.ToCode());
         }
         catch (Exception e)
@@ -104,8 +102,17 @@ public class YangGenerator : IIncrementalGenerator
                 "#error General Exception" + "/*" + Statement.SingleLine(e.Message + "@" + e.StackTrace) + "*/");
         }
 
+        foreach (var message in Log.Content)
+        {
+            context.ReportDiagnostic(
+                Diagnostic.Create(
+                    LogDescriptor,
+                    Location.None,
+                    message)
+            );
+        }
+
         Log.Clear();
-        WriteFile(context, "log.cs", Log.Content);
     }
 
     private void InjectAugments(SourceProductionContext context, CompilationUnit compilation)
@@ -152,13 +159,8 @@ public class YangGenerator : IIncrementalGenerator
     {
         foreach (var module in compilation.Children.OfType<Module>())
         {
-            foreach (var use in module.Uses)
+            foreach (var use in module.Uses.Where(use => !use.IsUnderGrouping()))
             {
-                if (use.IsUnderGrouping())
-                {
-                    continue;
-                }
-
                 try
                 {
                     use.Expand();
@@ -167,6 +169,11 @@ public class YangGenerator : IIncrementalGenerator
                 {
                     ReportDiagnostics(context, new ResultOrException<IStatement>(error));
                 }
+            }
+
+            foreach (var identity in module.Identities)
+            {
+                identity.Expand();
             }
         }
     }
@@ -200,11 +207,9 @@ public class YangGenerator : IIncrementalGenerator
                 }
 
                 include.Parent?.Replace(include, submodule.Children);
-                Log.Write($"Including submodule '{submodule.Argument}' into module '{module.Argument}'");
                 foreach (var pair in submodule.Usings)
                 {
                     module.Usings[pair.Key] = pair.Value;
-                    Log.Write($"Added prefix '{pair.Key}' as '{pair.Value}' to '{module.Argument}'");
                 }
             }
         }
@@ -288,6 +293,9 @@ public class YangGenerator : IIncrementalGenerator
 
     private static readonly DiagnosticDescriptor SemanticError = new DiagnosticDescriptor("YANG0002", "Semantic Error",
         "Semantic Error: {0}", "SemanticModel", DiagnosticSeverity.Error, true);
+
+    private static readonly DiagnosticDescriptor LogDescriptor = new DiagnosticDescriptor("YANG9999", "DEBUG",
+        "LOG: {0}", "DEBUG", DiagnosticSeverity.Warning, true);
 
 
     private static ResultOrException<IStatement> MakeSemanticModel(ResultOrException<YangStatement> statement)
@@ -474,19 +482,5 @@ public class YangGenerator : IIncrementalGenerator
                        }
                        """;
         context.AddSource(fileName, contents);
-
-        Log.Write($"Writing file {fileName}");
-//         var file = "C:/tmp/YangGenerator/" + fileName;
-//         var dir = System.IO.Path.GetDirectoryName(file);
-// #pragma warning disable RS1035 // Do not use APIs banned for analyzers
-//         if (Directory.Exists(dir) == false)
-//         {
-//             Directory.CreateDirectory(dir);
-//         }
-// #pragma warning restore RS1035 // Do not use APIs banned for analyzers
-//         using var fs = new FileStream(file, FileMode.Create);
-//         using var writer = new StreamWriter(fs);
-//         writer.Write(contents);
-//         Log.Clear();
     }
 }

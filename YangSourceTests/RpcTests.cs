@@ -96,8 +96,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
                     }
                 },
                 SourceMepValue = new(),
-                CommandSubTypeValue =
-                    new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.CommandSubType("some-command")
+                CommandSubType = Ietf.Connection.Oriented.Oam.YangNode.CommandSubTypeIdentity.Proactive
             });
         outputHelper.WriteLine(channel.LastXML);
         outputHelper.WriteLine("_____________________________________");

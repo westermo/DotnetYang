@@ -46,7 +46,7 @@ public class LeafList : Statement, IXMLWriteValue, IXMLReadValue
 
         var defaultValue = Default?.ToCode();
 
-        var defaulting = defaultValue is null ? string.Empty : $"= [{defaultValue}];";
+        var defaulting = defaultValue is null ? string.Empty : $"= [ {defaultValue} ];";
         var name = MakeName(Argument);
         string addendum = string.Empty;
         var typeName = Type.Name;

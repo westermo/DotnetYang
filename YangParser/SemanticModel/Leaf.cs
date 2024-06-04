@@ -80,11 +80,17 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
     {
         get
         {
-            if (Type.GetBaseType(out var prefix, out _) is "enumeration" or "bits")
+            if (Type.GetBaseType(out var prefix, out _) is "enumeration" or "bits" or "identityref")
             {
                 if (string.IsNullOrEmpty(prefix))
                 {
-                    if (BuiltinTypeReference.IsBuiltin(Type, out _, out _)) //Is direct subtype
+                    prefix = Type.Name!.Prefix(out _);
+                }
+
+                if (string.IsNullOrEmpty(prefix))
+                {
+                    if (BuiltinTypeReference.IsBuiltinKeyword(Type.Argument) &&
+                        Type.Argument != "identityref") //Is direct subtype, identitys are always on top-level
                     {
                         return $$"""
                                  if({{TargetName}} != default)

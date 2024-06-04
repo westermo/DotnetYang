@@ -72,6 +72,11 @@ public class Module : Statement, ITopLevelStatement, IXMLParseable
             {
                 Revisions.Add(revision);
             }
+
+            if (child is Identity identity)
+            {
+                Identities.Add(identity);
+            }
         }
     }
 
@@ -80,6 +85,7 @@ public class Module : Statement, ITopLevelStatement, IXMLParseable
     public Dictionary<string, string> PrefixToNamespaceTable { get; } = [];
     public Dictionary<string, string> ImportedModules { get; } = [];
     public Dictionary<string, string> Usings { get; }
+    public List<Identity> Identities { get; } = [];
     public string MyNamespace { get; private set; }
 
     public override ChildRule[] PermittedChildren { get; } =

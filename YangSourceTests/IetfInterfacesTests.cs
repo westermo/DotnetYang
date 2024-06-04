@@ -16,7 +16,8 @@ public class IetfInterfacesTests(ITestOutputHelper output)
             {
                 new()
                 {
-                    TypeValue = "vlan",
+                    Type = YangNode.InterfaceTypeIdentity.Aal2,
+                    Mode = Ietf.Microwave.Types.YangNode.RltModeIdentity.RltMode,
                     ChannelSeparation = 0,
                     PowerMode = new YangNode.InterfacesContainer.InterfaceEntry.PowerModeChoice
                     {
@@ -33,20 +34,17 @@ public class IetfInterfacesTests(ITestOutputHelper output)
                     CodingModulationMode =
                         new YangNode.InterfacesContainer.InterfaceEntry.CodingModulationModeChoice
                         {
-                            Single =
-                                new YangNode.InterfacesContainer.InterfaceEntry.
-                                    CodingModulationModeChoice.SingleContainer()
-                                    {
-                                        SelectedCmValue = "cm"
-                                    }
+                            Single =new YangNode.InterfacesContainer.InterfaceEntry.CodingModulationModeChoice.SingleContainer
+                            {
+                                SelectedCm = Ietf.Microwave.Types.YangNode.CodingModulationIdentity.Bpsk
+                            }
                         },
                     FreqOrDistance =
                         new YangNode.InterfacesContainer.InterfaceEntry.FreqOrDistanceChoice
                         {
                             RxFrequency = 402,
                         },
-                    BridgePort = new YangNode.InterfacesContainer.InterfaceEntry.BridgePortContainer(),
-                    ModeValue = "",
+                    BridgePort = new YangNode.InterfacesContainer.InterfaceEntry.BridgePortContainer()
                 }
             }
         }

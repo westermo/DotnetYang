@@ -38,7 +38,9 @@ public class DefaultValue : Statement
             case "enumeration":
                 return aPrefix + type.Name + "." + MakeName(value);
             case "identityref":
-                return $"\"{Argument}\"";
+                return type.Name != null && (type.Name.Contains(':') || type.Name.Contains('.'))
+                    ? type.Name + "." + MakeName(value)
+                    : aPrefix + type.Name + "." + MakeName(value);
             case "string":
                 return $"\"{Argument}\"";
             case "boolean":

@@ -27,7 +27,7 @@ public class Type : Statement
         new ChildRule(Range.Keyword),
         new ChildRule(RequireInstance.Keyword),
         new ChildRule(FractionDigits.Keyword),
-        new ChildRule(Base.Keyword),
+        new ChildRule(Base.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Keyword, Cardinality.ZeroOrMore),
     ];
 

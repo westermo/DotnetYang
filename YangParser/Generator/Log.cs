@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace YangParser.Generator;
@@ -28,15 +30,17 @@ public static class Log
         // m_writer = null;
     }
 
+    private static List<string> LogMessages = [];
+
     private static StringBuilder? m_writer;
     private static StringBuilder writer => m_writer ??= new StringBuilder();
 
     public static void Write(string message)
     {
-        writer.AppendLine($"/*\n{(DateTime.Now - Start).TotalSeconds:F2}: " + message + "\n*/");
+        LogMessages.Add($"{(DateTime.Now - Start).TotalSeconds:F2}: " + message);
     }
 
-    public static string Content => writer.ToString();
+    public static string[] Content => LogMessages.ToArray();
 
 // }
 }

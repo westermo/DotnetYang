@@ -10,6 +10,108 @@ namespace Compiler.Tests;
 public class ParsingTests(ITestOutputHelper output)
 {
     [Fact]
+    public void IdentityTest()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module test {
+                prefix this;
+                yang-version 1.1;
+                namespace "identity:container";
+                identity a;
+                identity b {
+                    base a;
+                }
+                identity c {
+                    base b;
+                }
+                identity d {
+                    base c;
+                    base a;
+                }
+                leaf testy {
+                    type identityref {
+                        base a;
+                    }
+                }
+                typedef test-2 {
+                    type identityref {
+                        base c;
+                        base b;
+                    }
+                }
+                leaf test-3 {
+                    type identityref {
+                        base c;
+                        base b;
+                    }
+                }
+                leaf testa {
+                    type test-2;
+                }
+                
+                identity site-role {
+                 description
+                 "Base identity for site type.";
+                }
+                identity any-to-any-role {
+                 base site-role;
+                 description
+                 "Site in an any-to-any IP VPN.";
+                }
+                identity spoke-role {
+                 base site-role;
+                 description
+                 "Spoke site in a Hub-and-Spoke IP VPN.";
+                }
+                identity hub-role {
+                 base site-role;
+                 description
+                 "Hub site in a Hub-and-Spoke IP VPN.";
+                }
+                identity vpn-topology {
+                 description
+                 "Base identity for VPN topology.";
+                }
+                identity any-to-any {
+                 base vpn-topology;
+                 description
+                 "Identity for any-to-any VPN topology.";
+                }
+                identity hub-spoke {
+                 base vpn-topology;
+                 description
+                 "Identity for Hub-and-Spoke VPN topology.";
+                }
+                identity hub-spoke-disjoint {
+                 base vpn-topology;
+                 description
+                 "Identity for Hub-and-Spoke VPN topology
+                 where Hubs cannot communicate with each other.";
+                }
+            }
+            """));
+        if (top is Module module)
+        {
+            foreach (var identity in module.Identities)
+            {
+                identity.Expand();
+            }
+
+            var code = top.ToCode();
+            output.WriteLine(code);
+            Assert.Contains("public enum AIdentity", code, StringComparison.InvariantCultureIgnoreCase);
+            Assert.Contains("public enum BIdentity", code, StringComparison.InvariantCultureIgnoreCase);
+            Assert.Contains("public enum CIdentity", code, StringComparison.InvariantCultureIgnoreCase);
+            Assert.Contains("public enum DIdentity", code, StringComparison.InvariantCultureIgnoreCase);
+        }
+        else
+        {
+            Assert.Fail($"Top was of type {top.GetType()}");
+        }
+    }
+
+    [Fact]
     public void AugmentationIsFoundTest()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
@@ -26,8 +128,8 @@ public class ParsingTests(ITestOutputHelper output)
         if (top is Module module)
         {
             Assert.Equal(2, module.Augments.Count);
-            Assert.Equal("a",module.Augments[0].Argument);
-            Assert.Equal("b",module.Augments[1].Argument);
+            Assert.Equal("a", module.Augments[0].Argument);
+            Assert.Equal("b", module.Augments[1].Argument);
         }
     }
 
@@ -75,7 +177,7 @@ public class ParsingTests(ITestOutputHelper output)
                                             prefix b;
                                         }
                                         grouping A {
-                                            uses b:A { 
+                                            uses b:A {
                                                 refine target {
                                                     default 80;
                                                 }
@@ -173,18 +275,21 @@ public class ParsingTests(ITestOutputHelper output)
 
         foreach (var statement in compilationUnit.Unwrap())
         {
-            if(statement.IsUnderGrouping()) continue;
+            if (statement.IsUnderGrouping()) continue;
             if (statement is Uses uses)
             {
                 output.WriteLine(uses.Parent!.ToString());
             }
+
             Assert.IsNotType<Uses>(statement);
         }
+
         output.WriteLine(compilationUnit.ToCode());
         foreach (var child in compilationUnit.Children)
         {
             output.WriteLine(child.ToCode());
         }
+
         Log.Clear();
     }
 
