@@ -74,14 +74,14 @@ public abstract class Statement : IStatement
                                 switch(reader.Name)
                                 {
                                      {{Indent(Indent(Indent(Indent(Indent(string.Join("\n", cases))))))}}
-                                    default: throw new Exception($"Unexpected element '{reader.Name}' under '{{Argument}}'");
+                                    default: throw new Exception($"Unexpected element '{reader.Name}' under '{{XmlObjectName}}'");
                                 }
-                            case XmlNodeType.EndElement when reader.Name == "{{Argument}}":
+                            case XmlNodeType.EndElement when reader.Name == "{{XmlObjectName}}":
                                 return new {{type}}{
                                     {{Indent(Indent(Indent(Indent(Indent(string.Join("\n", assignments))))))}}
                                 };
                             case XmlNodeType.Whitespace: break;
-                            default: throw new Exception($"Unexpected node type '{reader.NodeType}' : '{reader.Name}' under '{{Argument}}'");
+                            default: throw new Exception($"Unexpected node type '{reader.NodeType}' : '{reader.Name}' under '{{XmlObjectName}}'");
                         }
                      }
                      throw new Exception("Reached end-of-readability without ever returning from {{type}}.ParseAsync");
@@ -151,25 +151,32 @@ public abstract class Statement : IStatement
         foreach (var child in Children)
         {
             var hasCondition = child.TryGetChild<When>(out var when);
-            var booleanStatement = hasCondition
-                ? $" when string.IsNullOrEmpty(\"{SingleLine(when!.Argument.Replace("\"", "\\\""))}\") /*TODO: Properly implement WHEN*/"
+            var booleanStatement = string.Empty;
+            /*hasCondition
+                ? $" when string.IsNullOrEmpty(\"{SingleLine(when!.Argument.Replace("\"", "\\\""))}\")
                 : string.Empty;
+            */
             switch (child)
             {
                 case IXMLParseable xml:
-                    HandleParseables(declarations, assignments, cases, xml, booleanStatement, escapeKeyword);
+                    HandleParseables(declarations, assignments, cases, xml, booleanStatement, escapeKeyword,
+                        caseKeywords);
 
                     break;
                 case IXMLReadValue xmlValue:
                     HandleReadValues(declarations, assignments, cases, xmlValue, child, booleanStatement,
-                        escapeKeyword);
+                        escapeKeyword, caseKeywords);
                     break;
                 case IXMLAction action:
-                    cases.Add($"""
-                               case "{action.Argument}"{booleanStatement}:
-                                   {Indent(action.ParseCall)}
-                                   {escapeKeyword};
-                               """);
+                    if (!caseKeywords.Contains(child.Argument))
+                    {
+                        cases.Add($"""
+                                   case "{action.XmlObjectName}"{booleanStatement}:
+                                       {Indent(action.ParseCall)}
+                                       {escapeKeyword};
+                                   """);
+                    }
+
                     break;
             }
 
@@ -179,54 +186,65 @@ public abstract class Statement : IStatement
 
     private static void HandleReadValues(List<string> declarations, List<string> assignments, List<string> cases,
         IXMLReadValue xmlValue,
-        IStatement child, string booleanStatement, string escapeKeyword)
+        IStatement child, string booleanStatement, string escapeKeyword, HashSet<string> caseKeywords)
     {
         if (xmlValue.TargetName != null)
         {
+            var isMandatory = xmlValue.TryGetChild<Mandatory>(out _);
+            var nullability = isMandatory ? string.Empty : "?";
             declarations.Add(child is List
-                ? $"List<{xmlValue.ClassName}> _{xmlValue.TargetName} = default!;"
-                : $"{xmlValue.ClassName} _{xmlValue.TargetName} = default!;");
+                ? $"List<{xmlValue.ClassName}>{nullability} _{xmlValue.TargetName} = default!;"
+                : $"{xmlValue.ClassName}{nullability} _{xmlValue.TargetName} = default!;");
 
             assignments.Add($"{xmlValue.TargetName} = _{xmlValue.TargetName},");
         }
 
-        cases.Add($"""
-                   case "{xmlValue.Argument}"{booleanStatement}:
-                       {Indent(xmlValue.ParseCall)}
-                       {escapeKeyword};
-                   """);
+        if (!caseKeywords.Contains(xmlValue.Argument))
+        {
+            cases.Add($"""
+                       case "{xmlValue.XmlObjectName}"{booleanStatement}:
+                           {Indent(xmlValue.ParseCall)}
+                           {escapeKeyword};
+                       """);
+        }
     }
 
     private static void HandleParseables(List<string> declarations, List<string> assignments, List<string> cases,
         IXMLParseable xml,
-        string booleanStatement, string escapeKeyword)
+        string booleanStatement, string escapeKeyword, HashSet<string> caseKeywords)
     {
         if (xml.TargetName != null)
         {
-            declarations.Add($"{xml.ClassName} _{xml.TargetName} = default!;");
+            var isMandatory = xml.TryGetChild<Mandatory>(out _);
+            var nullability = isMandatory ? string.Empty : "?";
+            declarations.Add($"{xml.ClassName}{nullability} _{xml.TargetName} = default!;");
             assignments.Add($"{xml.TargetName} = _{xml.TargetName},");
         }
 
-        switch (xml)
+        if (!caseKeywords.Contains(xml.Argument))
         {
-            case Choice choice:
+            switch (xml)
             {
-                HandleChoice(cases, xml, booleanStatement, choice, escapeKeyword);
-                break;
+                case Choice choice:
+                {
+                    HandleChoice(cases, xml, booleanStatement, choice, escapeKeyword);
+                    break;
+                }
+                case Case ChoiceCase:
+                {
+                    HandleCase(cases, xml, booleanStatement, ChoiceCase, escapeKeyword);
+                    break;
+                }
+                default:
+                    cases.Add(
+                        $"""
+                         case "{xml.XmlObjectName}"{booleanStatement}:
+                             _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
+                             {escapeKeyword};
+                         """);
+
+                    break;
             }
-            case Case ChoiceCase:
-            {
-                HandleCase(cases, xml, booleanStatement, ChoiceCase, escapeKeyword);
-                break;
-            }
-            default:
-                cases.Add(
-                    $"""
-                     case "{xml.Argument}"{booleanStatement}:
-                         _{xml.TargetName} = await {xml.ClassName}.ParseAsync(reader);
-                         {escapeKeyword};
-                     """);
-                break;
         }
     }
 
@@ -243,7 +261,7 @@ public abstract class Statement : IStatement
 
         if (!added)
         {
-            builder.AppendLine($"case \"{ChoiceCase.Argument}\"{booleanStatement}:");
+            builder.AppendLine($"case \"{ChoiceCase.XmlObjectName}\"{booleanStatement}:");
         }
 
         builder.AppendLine($"""
@@ -266,7 +284,7 @@ public abstract class Statement : IStatement
 
         if (!added)
         {
-            builder.AppendLine($"case \"{choice.Argument}\"{booleanStatement}:");
+            builder.AppendLine($"case \"{choice.XmlObjectName}\"{booleanStatement}:");
         }
 
         builder.AppendLine($"""
@@ -317,7 +335,7 @@ public abstract class Statement : IStatement
     public (string Namespace, string Prefix)? XmlNamespace { get; set; }
     public string Prefix => XmlNamespace?.Prefix ?? Parent?.Prefix ?? string.Empty;
     public string Namespace => XmlNamespace?.Namespace ?? Parent?.Namespace ?? string.Empty;
-    private string XmlObjectName => (string.IsNullOrEmpty(Prefix) ? string.Empty : Prefix + ":") + Source.Argument;
+    public string XmlObjectName => (string.IsNullOrEmpty(Prefix) ? string.Empty : Prefix + ":") + Source.Argument;
 
     public string XPath => ((Parent?.XPath ?? string.Empty) + "/").Replace("//", "/") +
                            XmlObjectName;
@@ -428,11 +446,12 @@ public abstract class Statement : IStatement
         get { return "\n" + string.Join("\n", Attributes.OrderBy(x => x.Length).Select(attr => $"[{attr}]")); }
     }
 
-    public string DescriptionString => Children.FirstOrDefault(c => c is Description) is Description description ? $"""
-                                        ///<summary>
-                                        ///{description.Argument.Replace("\n", "\n///")}
-                                        ///</summary>
-                                        """
+    public string DescriptionString => Children.FirstOrDefault(c => c is Description) is Description description
+        ? $"""
+           ///<summary>
+           ///{description.Argument.Replace("\n", "\n///")}
+           ///</summary>
+           """
         : string.Empty;
 
     /// <summary>

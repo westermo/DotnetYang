@@ -56,12 +56,6 @@ public class LeafList : Statement, IXMLWriteValue, IXMLReadValue
             name += "Value";
         }
 
-        switch ("a")
-        {
-            case "a" when string.IsNullOrWhiteSpace("b"):
-                break;
-        }
-
         TargetName = name + "List";
         ClassName = typeName + "[]";
 

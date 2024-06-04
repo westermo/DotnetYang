@@ -22,12 +22,14 @@ public interface IStatement
     (string Namespace, string Prefix)? XmlNamespace { get; set; }
     string Prefix { get; }
     string Namespace { get; }
+    string XmlObjectName { get; }
 }
 
 public interface IXMLElement : IStatement
 {
     string? TargetName { get; }
 }
+
 /// <summary>
 /// Implies this class makes an XElement with potential children
 /// </summary>
@@ -47,6 +49,7 @@ public interface IXMLWriteValue : IXMLElement
 {
     string WriteCall { get; }
 }
+
 /// <summary>
 /// Implies this class makes a singular XElement with no children, and may not have a method
 /// </summary>
@@ -60,7 +63,6 @@ public interface IXMLAction : IXMLElement
 {
     string ParseCall { get; }
 }
-
 
 public interface ICommentable : IStatement
 {

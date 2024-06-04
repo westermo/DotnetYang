@@ -62,5 +62,5 @@ public class Choice : Statement, IClassSource, IXMLParseable
         Children.OfType<Case>().SelectMany(c => c.Children).Where(c => c is IXMLParseable or IXMLReadValue);
 
     public IEnumerable<string> SubTargets => directChildren.Concat(caseChildren)
-        .Select(c => c.Argument).Distinct();
+        .Select(c => c.XmlObjectName).Distinct();
 }

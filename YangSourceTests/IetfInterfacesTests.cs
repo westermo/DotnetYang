@@ -34,17 +34,22 @@ public class IetfInterfacesTests(ITestOutputHelper output)
                     CodingModulationMode =
                         new YangNode.InterfacesContainer.InterfaceEntry.CodingModulationModeChoice
                         {
-                            Single =new YangNode.InterfacesContainer.InterfaceEntry.CodingModulationModeChoice.SingleContainer
-                            {
-                                SelectedCm = Ietf.Microwave.Types.YangNode.CodingModulationIdentity.Bpsk
-                            }
+                            Single =
+                                new YangNode.InterfacesContainer.InterfaceEntry.CodingModulationModeChoice.
+                                    SingleContainer
+                                    {
+                                        SelectedCm = Ietf.Microwave.Types.YangNode.CodingModulationIdentity.Bpsk
+                                    }
                         },
                     FreqOrDistance =
                         new YangNode.InterfacesContainer.InterfaceEntry.FreqOrDistanceChoice
                         {
                             RxFrequency = 402,
                         },
-                    BridgePort = new YangNode.InterfacesContainer.InterfaceEntry.BridgePortContainer()
+                    BridgePort = new YangNode.InterfacesContainer.InterfaceEntry.BridgePortContainer
+                    {
+                        External = true
+                    }
                 }
             }
         }
@@ -59,17 +64,26 @@ public class IetfInterfacesTests(ITestOutputHelper output)
         await writer.FlushAsync();
         output.WriteLine(builder.ToString());
     }
-    // [Fact]
-    // public async Task AugmentedDeserializationTest()
-    // {
-    //     var builder = new StringBuilder();
-    //     await using var writer = XmlWriter.Create(builder, SerializationHelper.GetStandardWriterSettings());
-    //     await node.WriteXMLAsync(writer);
-    //     await writer.FlushAsync();
-    //     output.WriteLine(builder.ToString());
-    //     using var ms = new MemoryStream(Encoding.UTF8.GetBytes(builder.ToString()));
-    //     using var reader = XmlReader.Create(ms, SerializationHelper.GetStandardReaderSettings());
-    //     await reader.ReadAsync();
-    //     var nNode = await YangNode.ParseAsync(reader);
-    // }
+
+    [Fact]
+    public async Task AugmentedDeserializationTest()
+    {
+        var builder = new StringBuilder();
+        await using var writer = XmlWriter.Create(builder, SerializationHelper.GetStandardWriterSettings());
+        await node.WriteXMLAsync(writer);
+        await writer.FlushAsync();
+        var firstXml = builder.ToString();
+        using var ms = new MemoryStream(Encoding.UTF8.GetBytes(firstXml));
+        using var reader = XmlReader.Create(ms, SerializationHelper.GetStandardReaderSettings());
+        await reader.ReadAsync();
+        var nNode = await YangNode.ParseAsync(reader);
+        Assert.Equal(nNode.Interfaces!.Interface![0].BridgePort!.External,
+            node.Interfaces!.Interface![0]!.BridgePort!.External);
+        builder = new StringBuilder();
+        await using var writer2 = XmlWriter.Create(builder, SerializationHelper.GetStandardWriterSettings());
+        await nNode.WriteXMLAsync(writer2);
+        await writer2.FlushAsync();
+        var secondXml = builder.ToString();
+        Assert.Equal(firstXml, secondXml);
+    }
 }
