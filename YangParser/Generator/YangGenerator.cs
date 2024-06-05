@@ -211,6 +211,20 @@ public class YangGenerator : IIncrementalGenerator
                 {
                     module.Usings[pair.Key] = pair.Value;
                 }
+
+                module.Rpcs.AddRange(submodule.Rpcs);
+                module.Notifications.AddRange(submodule.Notifications);
+                module.Identities.AddRange(submodule.Identities);
+                module.Actions.AddRange(submodule.Actions);
+                module.Imports.AddRange(submodule.Imports);
+                module.Groupings.AddRange(submodule.Groupings);
+                module.Revisions.AddRange(submodule.Revisions);
+                module.Uses.AddRange(submodule.Uses);
+                module.HiddenDefinitions.AddRange(submodule.HiddenDefinitions);
+                foreach (var pair in submodule.ImportedModules)
+                {
+                    module.ImportedModules[pair.Key] = pair.Value;
+                }
             }
         }
     }

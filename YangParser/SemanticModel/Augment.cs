@@ -155,6 +155,21 @@ public class Augment : Statement, IUnexpandable
     {
         foreach (var child in this.Unwrap())
         {
+            if (child is Rpc rpc)
+            {
+                top.GetModule()?.Rpcs.Add(rpc);
+            }
+
+            if (child is Notification notification)
+            {
+                top.GetModule()?.Notifications.Add(notification);
+            }
+
+            if (child is Action action)
+            {
+                top.GetModule()?.Actions.Add(action);
+            }
+
             if (child is not Type type) continue;
             if (type.Argument.Contains("identityref"))
             {

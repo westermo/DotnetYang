@@ -89,6 +89,17 @@ public abstract class Statement : IStatement
                  """;
     }
 
+    public bool Obsolete()
+    {
+        if (this.TryGetChild<Status>(out var status))
+        {
+            return status!.Active;
+        }
+
+        return false;
+
+    }
+
     protected string ReadFunctionWithInvisibleSelf()
     {
         var type = string.Empty;

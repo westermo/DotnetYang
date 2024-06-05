@@ -12,8 +12,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <AdditionalFiles Include="*.yang" />
         <AdditionalFiles Include="iana/*.yang" />
+        <AdditionalFiles Include="ietf/*.yang" />
         <AdditionalFiles Include="IEEE/published/802/*.yang" />
         <AdditionalFiles Include="IEEE/published/802.1/*.yang" />
         <AdditionalFiles Include="IEEE/published/802.3/*.yang" />

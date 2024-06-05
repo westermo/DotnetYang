@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using YangParser.Parser;
 
@@ -31,6 +32,47 @@ public class Notification : Statement
         new ChildRule(TypeDefinition.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore)
     ];
+
+    private string FullyQualifiedNamespace()
+    {
+        var parent = Parent;
+        List<string> classChain = new();
+        while (parent is not Module && parent is not null)
+        {
+            switch (parent)
+            {
+                case IXMLParseable xml:
+                    classChain.Insert(0, xml.ClassName);
+                    break;
+                case IXMLReadValue readValue:
+                    classChain.Insert(0, readValue.ClassName);
+                    break;
+            }
+
+            parent = parent.Parent;
+        }
+
+        if (parent is Module module)
+        {
+            classChain.Insert(0, "YangNode");
+            classChain.Insert(0, MakeNamespace(module.Argument));
+        }
+
+        return string.Join(".", classChain);
+    }
+
+    public string ServerDeclaration => "Task On" + MakeName(Argument) + "(" +
+                                       FullyQualifiedNamespace() + "." + MakeName(Argument) +
+                                       " notification, global::System.DateTime eventTime);";
+
+
+    public string ReceiveCase => $"case \"{Argument}\" when reader.NamespaceURI is \"{Namespace}\":\n" + $$"""
+          {
+              var input = await {{FullyQualifiedNamespace() + "." + MakeName(Argument)}}.ParseAsync(reader);
+              await server.On{{MakeName(Argument)}}(input, eventTime);
+              break;
+          }
+          """;
 
     public override string ToCode()
     {

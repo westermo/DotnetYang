@@ -49,6 +49,19 @@ public class Grouping : Statement
                 inner.Expand();
             }
 
+            if (child is Rpc rpc)
+            {
+                use.GetModule()?.Rpcs.Add(rpc);
+            }
+            if (child is Notification notification)
+            {
+                use.GetModule()?.Notifications.Add(notification);
+            }
+            if (child is Action action)
+            {
+                use.GetModule()?.Actions.Add(action);
+            }
+
             if (child is not Type type) continue;
             if (type.Argument.Contains("identityref"))
             {

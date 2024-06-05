@@ -32,6 +32,7 @@ public class Input : Statement, IXMLParseable
 
     public override string ToCode()
     {
+        Argument = Parent!.Argument;
         return $$"""
                  public class {{ClassName}}
                  {

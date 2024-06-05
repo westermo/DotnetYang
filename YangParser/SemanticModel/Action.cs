@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using YangParser.Parser;
@@ -32,17 +33,55 @@ public class Action : Statement, IXMLWriteValue, IXMLAction
         new ChildRule(TypeDefinition.Keyword, Cardinality.ZeroOrMore),
     ];
 
+    private string FullyQualifiedNamespace()
+    {
+        var parent = Parent;
+        List<string> classChain = new();
+        while (parent is not Module && parent is not null)
+        {
+            switch (parent)
+            {
+                case IXMLParseable xml:
+                    classChain.Insert(0, xml.ClassName);
+                    break;
+                case IXMLReadValue readValue:
+                    classChain.Insert(0, readValue.ClassName);
+                    break;
+            }
+
+            parent = parent.Parent;
+        }
+
+        if (parent is Module module)
+        {
+            classChain.Insert(0, "YangNode");
+            classChain.Insert(0, MakeNamespace(module.Argument));
+        }
+
+        return string.Join(".", classChain);
+    }
+
+    public string ServerDeclaration => ReturnType + " On" + MakeName(Argument) + "(" +
+                                       (Ingoing is null
+                                           ? FullyQualifiedNamespace() + " target"
+                                           : FullyQualifiedNamespace() + "." + InputType + " input") + ");";
+
+    private string OutputType => MakeName(Argument) + "Output";
+
+    private string ReturnType =>
+        Outgoing is null ? "Task" : "Task<" + FullyQualifiedNamespace() + "." + OutputType + ">";
+
+    private string InputType => MakeName(Argument) + "Input";
+
     public override string ToCode()
     {
         //TODO: REWORK
         StringBuilder builder = new();
         builder.AppendLine(DescriptionString);
         builder.AppendLine(AttributeString);
-        var outputType = MakeName(Argument) + "Output";
-        var returnType = Outgoing is null ? "Task" : "Task<" + outputType + ">";
-        var inputType = Ingoing is null ? string.Empty : ", " + MakeName(Argument) + "Input input";
+        var inputType = Ingoing is null ? string.Empty : ", " + InputType + " input";
         builder.AppendLine(
-            $"public async {returnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
+            $"public async {ReturnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
         builder.AppendLine("""
                            {
                                StringBuilder stringBuilder = new StringBuilder();
@@ -65,7 +104,7 @@ public class Action : Statement, IXMLWriteValue, IXMLAction
             ? $"\tthis.{MakeName(Argument)}InputValue = null;"
             : $"\tthis.{MakeName(Argument)}Active = false;");
 
-        builder.AppendLine(returnType != "Task"
+        builder.AppendLine(ReturnType != "Task"
             ? $$"""
                     using XmlReader reader = XmlReader.Create(response,SerializationHelper.GetStandardReaderSettings());
                     await reader.ReadAsync();
@@ -73,7 +112,7 @@ public class Action : Statement, IXMLWriteValue, IXMLAction
                     {
                         throw new Exception($"Expected stream to start with a <rpc-reply> element with message id {messageID} & \"urn:ietf:params:xml:ns:netconf:base:1.0\" but got {reader.NodeType}: {reader.Name} in {reader.NamespaceURI}");
                     }
-                    var value = await {{outputType}}.ParseAsync(reader);
+                    var value = await {{OutputType}}.ParseAsync(reader);
                     response.Dispose();
                     return value;
                 """

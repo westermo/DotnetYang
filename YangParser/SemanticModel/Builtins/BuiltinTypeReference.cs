@@ -186,6 +186,7 @@ public static class BuiltinTypeReference
         if (type.Argument == "leafref")
         {
             return $"""
+                    {GetText(argument)}
                     {target} = new {typeName}();
                     {EndElement(argument)}
                     """;

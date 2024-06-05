@@ -44,16 +44,50 @@ public class Rpc : Statement, IFunctionSource
         new ChildRule(TypeDefinition.Keyword, Cardinality.ZeroOrMore),
     ];
 
+    public string ServerDeclaration => ReturnType + " On" + MakeName(Argument) + "(" +
+                                       (Ingoing is null ? string.Empty : InputType + " input") + ");";
+
+    private string OutputType => MakeName(Argument) + "Output";
+
+    private string ReturnType => Outgoing is null
+        ? "Task"
+        : "Task<" + MakeNamespace(this.GetModule()!.Argument) + ".YangNode." + OutputType + ">";
+
+    private string InputType =>
+        MakeNamespace(this.GetModule()!.Argument) + ".YangNode." + MakeName(Argument) + "Input";
+
+    public string ReceiveCase => $"case \"{Argument}\" when reader.NamespaceURI is \"{Namespace}\":\n" +
+                                 (Ingoing is null
+                                     ? $$"""
+                                         {
+                                             var task = server.On{{MakeName(Argument)}}();
+                                         """
+                                     : $$"""
+                                         {
+                                             var input = await {{InputType}}.ParseAsync(reader);
+                                             var task = server.On{{MakeName(Argument)}}(input);
+                                         """)
+                                 + "\n" + (Outgoing is null
+                                     ? """
+                                           await task;
+                                           await writer.WriteStartElementAsync(null,"ok","urn:ietf:params:xml:ns:netconf:base:1.0");
+                                           await writer.WriteEndElementAsync();
+                                       }
+                                       """
+                                     : """
+                                           var response = await task;
+                                           await response.WriteXMLAsync(writer);
+                                       }
+                                       """) + "\nbreak;";
+
     public override string ToCode()
     {
         StringBuilder builder = new();
         builder.AppendLine(DescriptionString);
         builder.AppendLine(AttributeString);
-        var outputType = MakeName(Argument) + "Output";
-        var returnType = Outgoing is null ? "Task" : "Task<" + outputType + ">";
-        var inputType = Ingoing is null ? string.Empty : ", " + MakeName(Argument) + "Input input";
+        var inputType = Ingoing is null ? string.Empty : ", " + InputType + " input";
         builder.AppendLine(
-            $"public static async {returnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
+            $"public static async {ReturnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
         builder.AppendLine($$"""
                              {
                                  StringBuilder stringBuilder = new StringBuilder();
@@ -74,7 +108,7 @@ public class Rpc : Statement, IFunctionSource
                                await writer.FlushAsync();
                                var response = await channel.Send(stringBuilder.ToString());
                            """);
-        builder.AppendLine(returnType != "Task"
+        builder.AppendLine(ReturnType != "Task"
             ? $$"""
                     using XmlReader reader = XmlReader.Create(response,SerializationHelper.GetStandardReaderSettings());
                     await reader.ReadAsync();
@@ -82,7 +116,7 @@ public class Rpc : Statement, IFunctionSource
                     {
                         throw new Exception($"Expected stream to start with a <rpc-reply> element with message id {messageID} & \"urn:ietf:params:xml:ns:netconf:base:1.0\" but got {reader.NodeType}: {reader.Name} in {reader.NamespaceURI}");
                     }
-                	var value = await {{outputType}}.ParseAsync(reader);
+                	var value = await {{OutputType}}.ParseAsync(reader);
                     response.Dispose();
                     return value;
                 """

@@ -5,69 +5,12 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Submodule : Statement, ITopLevelStatement
+public class Submodule : TopLevelStatement
 {
-    public Dictionary<string, string> ImportedModules { get; } = [];
-
     public Submodule(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        Usings = new();
-        foreach (var child in this.Unwrap())
-        {
-            if (child is Uses use)
-            {
-                Uses.Add(use);
-            }
-
-            if (child is Grouping grouping)
-            {
-                Groupings.Add(grouping);
-            }
-
-            if (child is Augment augment)
-            {
-                Augments.Add(augment);
-            }
-
-            if (child is Import import)
-            {
-                Imports.Add(import);
-                var reference = MakeNamespace(import.Argument) + ".YangNode.";
-                var prefix = import.GetChild<Prefix>().Argument;
-                Usings[prefix] = reference;
-                ImportedModules[prefix] = import.Argument;
-            }
-
-            if (child is TypeDefinition typeDefinition)
-            {
-                if (typeDefinition.IsUnderGrouping())
-                {
-                    HiddenDefinitions.Add(typeDefinition);
-                    typeDefinition.Parent?.Replace(typeDefinition, []);
-                }
-            }
-
-            if (child is Extension extension)
-            {
-                Extensions.Add(extension);
-            }
-        }
-    }
-
-    public List<TypeDefinition> HiddenDefinitions { get; } = [];
-    private bool IsExpanded = false;
-
-    public void Expand()
-    {
-        if (IsExpanded) return;
-        foreach (var child in Children)
-        {
-            ExpandPrefixes(child);
-        }
-
-        IsExpanded = true;
     }
 
     public override ChildRule[] PermittedChildren { get; } =
@@ -106,38 +49,4 @@ public class Submodule : Statement, ITopLevelStatement
     {
         return string.Join("\n", Children.Select(child => child.ToCode()).ToArray());
     }
-
-    public Dictionary<string, string> Usings { get; }
-
-    private void ExpandPrefixes(IStatement statement)
-    {
-        if (!statement.Argument.Contains(" "))
-        {
-            var argPrefix = statement.Argument.Split(':');
-            if (argPrefix.Length > 1 &&
-                argPrefix.Length <
-                3) //ignore cases where there are multiple colons, since that's an XML-namespace reference
-            {
-                if (Usings.ContainsKey(argPrefix[0]))
-                {
-                    statement.Argument = statement.Argument.Replace(argPrefix[0] + ":", Usings[argPrefix[0]]);
-                }
-                else
-                {
-                    Log.Write($"No prefix found for {argPrefix[0]} in {Argument}");
-                }
-            }
-        }
-
-        foreach (var child in statement.Children)
-        {
-            ExpandPrefixes(child);
-        }
-    }
-
-    public List<Uses> Uses { get; } = [];
-    public List<Grouping> Groupings { get; } = [];
-    public List<Augment> Augments { get; } = [];
-    public List<Extension> Extensions { get; } = [];
-    public List<Import> Imports { get; } = [];
 }
