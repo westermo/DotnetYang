@@ -33,8 +33,10 @@ public class RpcTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task RpcSend()
     {
-        var channel = new TestChannel();
-        channel.MessageID = Random.Shared.Next();
+        var channel = new TestChannel
+        {
+            MessageID = Random.Shared.Next()
+        };
         var reply = await Ietf.Connection.Oriented.Oam.YangNode.Traceroute(channel, channel.MessageID,
             new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput
             {

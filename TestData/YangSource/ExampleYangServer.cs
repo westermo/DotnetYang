@@ -4,7 +4,7 @@ namespace YangSource;
 
 public class ExampleYangServer : IYangServer
 {
-    YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput m_operatorState;
+    YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput? m_operatorState;
     public Task OnSetOperatorState(YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput input)
     {
         m_operatorState = input;
@@ -46,21 +46,6 @@ public class ExampleYangServer : IYangServer
     }
 
     public Task OnAlarmInventoryChanged(YangNode.AlarmInventoryChanged notification, DateTime eventTime)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task OnOperatorAction(YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.OperatorAction notification)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task OnAlarmNotification(YangNode.AlarmNotification notification)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task OnAlarmInventoryChanged(YangNode.AlarmInventoryChanged notification)
     {
         throw new NotImplementedException();
     }
@@ -250,18 +235,6 @@ public class ExampleYangServer : IYangServer
     }
 
     public Task OnSoftwireAlgorithmInstanceEvent(Ietf.Softwire.Br.YangNode.SoftwireAlgorithmInstanceEvent notification, DateTime eventTime)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task OnDefectConditionNotification(
-        Ietf.Connection.Oriented.Oam.YangNode.DefectConditionNotification notification)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task OnDefectClearedNotification(
-        Ietf.Connection.Oriented.Oam.YangNode.DefectClearedNotification notification)
     {
         throw new NotImplementedException();
     }
