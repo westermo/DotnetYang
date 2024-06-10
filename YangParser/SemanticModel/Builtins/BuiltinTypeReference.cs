@@ -50,6 +50,23 @@ public static class BuiltinTypeReference
         return m_builtIns.Any(b => b.Name == keyword);
     }
 
+    public static string Stringification(Type type, string targetName)
+    {
+        var toString = targetName + ".ToString()!";
+        switch (type.Argument)
+        {
+            case "bits":
+            case "enumeration":
+            case "identityref":
+                toString = $"GetEncodedValue({targetName})";
+
+                break;
+            default: break;
+        }
+
+        return toString;
+    }
+
     public static string DefaultPattern(IStatement statement, IEnumerable<string> staticFields,
         IEnumerable<string> constructorStatements,
         string baseTypeName, string typeName)
@@ -152,7 +169,6 @@ public static class BuiltinTypeReference
 
     private static string GetText(string argument) => $$"""
                                                         await reader.ReadAsync();
-                                                        while(reader.NodeType == XmlNodeType.Whitespace) await reader.ReadAsync();
                                                         if(reader.NodeType != XmlNodeType.Text)
                                                         {
                                                             throw new Exception($"Expected token in ParseCall for '{{argument}}' to be text, but was '{reader.NodeType}'");
@@ -164,7 +180,6 @@ public static class BuiltinTypeReference
                                                            {
                                                                
                                                                await reader.ReadAsync();
-                                                               while(reader.NodeType == XmlNodeType.Whitespace) await reader.ReadAsync();
                                                                if(reader.NodeType != XmlNodeType.EndElement)
                                                                {
                                                                    throw new Exception($"Expected token in ParseCall for '{{argument}}' to be an element closure, but was '{reader.NodeType}'");
@@ -290,6 +305,7 @@ public static class BuiltinTypeReference
                     var p = prefix.Contains('.') ? prefix : prefix + ":";
                     return $"return {p}Get{local}Value(value);";
                 }
+
                 return $"return {typeName}.Parse(value);";
             default:
                 return $"return {typeName}.Parse(value);";

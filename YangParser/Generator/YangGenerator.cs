@@ -475,19 +475,11 @@ public class YangGenerator : IIncrementalGenerator
                                    throw new Exception($"Expected stream to start with a <rpc-reply> element with message id {messageID} & \"urn:ietf:params:xml:ns:netconf:base:1.0\" but got {reader.NodeType}: {reader.Name} in {reader.NamespaceURI}");
                                }
                                await reader.ReadAsync();
-                               while(reader.NodeType == XmlNodeType.Whitespace)
-                               {
-                                   await reader.ReadAsync();
-                               }
                                if(reader.NodeType != XmlNodeType.Element || reader.Name != "ok")
                                {
                                    throw new Exception($"Expected <ok/> element {reader.NodeType}: {reader.Name}");
                                }
                                await reader.ReadAsync();
-                               while(reader.NodeType == XmlNodeType.Whitespace)
-                               {
-                                   await reader.ReadAsync();
-                               }
                                if(reader.NodeType != XmlNodeType.EndElement)
                                {
                                    throw new Exception($"Expected </rpc-reply> closing element {reader.NodeType}: {reader.Name}");

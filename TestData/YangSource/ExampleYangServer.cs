@@ -5,52 +5,74 @@ namespace YangSource;
 
 public class ExampleYangServer : YangSource.IYangServer
 {
-    public Task<YangNode.RoutingContainer.RibsContainer.RibEntry.ActiveRouteOutput> OnActiveRoute(YangNode.RoutingContainer root, YangNode.RoutingContainer.RibsContainer.RibEntry target)
+    public Task<YangNode.RoutingContainer.RibsContainer.RibEntry.ActiveRouteOutput> OnActiveRoute(
+        YangNode.RoutingContainer root, YangNode.RoutingContainer.RibsContainer.RibEntry target)
     {
         throw new NotImplementedException();
     }
 
-    public Task<YangNode.RoutingStateContainer.RibsContainer.RibEntry.ActiveRouteOutput> OnActiveRoute(YangNode.RoutingStateContainer root, YangNode.RoutingStateContainer.RibsContainer.RibEntry target)
+    public Task<YangNode.RoutingStateContainer.RibsContainer.RibEntry.ActiveRouteOutput> OnActiveRoute(
+        YangNode.RoutingStateContainer root, YangNode.RoutingStateContainer.RibsContainer.RibEntry target)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnClearGroups(YangNode.RoutingContainer root, YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.IgmpContainer.ClearGroupsInput input)
+    public Task OnClearGroups(YangNode.RoutingContainer root,
+        YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.IgmpContainer.
+            ClearGroupsInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnClearGroups(YangNode.RoutingContainer root, YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.MldContainer.ClearGroupsInput input)
+    public Task OnClearGroups(YangNode.RoutingContainer root,
+        YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.MldContainer.ClearGroupsInput
+            input)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSetOperatorState(Ietf.Alarms.YangNode.AlarmsContainer root, Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput input)
+    public Task OnSetOperatorState(Ietf.Alarms.YangNode.AlarmsContainer root,
+        Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput input)
     {
         return Task.CompletedTask;
     }
 
-    public Task<Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.PurgeAlarmsOutput> OnPurgeAlarms(Ietf.Alarms.YangNode.AlarmsContainer root, Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.PurgeAlarmsInput input)
+    public Task<Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.PurgeAlarmsOutput> OnPurgeAlarms(
+        Ietf.Alarms.YangNode.AlarmsContainer root,
+        Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.PurgeAlarmsInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.CompressAlarmsOutput> OnCompressAlarms(Ietf.Alarms.YangNode.AlarmsContainer root, Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.CompressAlarmsInput input)
+    public Task<Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.CompressAlarmsOutput> OnCompressAlarms(
+        Ietf.Alarms.YangNode.AlarmsContainer root,
+        Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.CompressAlarmsInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Alarms.YangNode.AlarmsContainer.ShelvedAlarmsContainer.PurgeShelvedAlarmsOutput> OnPurgeShelvedAlarms(Ietf.Alarms.YangNode.AlarmsContainer root, Ietf.Alarms.YangNode.AlarmsContainer.ShelvedAlarmsContainer.PurgeShelvedAlarmsInput input)
+    public Task<Ietf.Alarms.YangNode.AlarmsContainer.ShelvedAlarmsContainer.PurgeShelvedAlarmsOutput>
+        OnPurgeShelvedAlarms(Ietf.Alarms.YangNode.AlarmsContainer root,
+            Ietf.Alarms.YangNode.AlarmsContainer.ShelvedAlarmsContainer.PurgeShelvedAlarmsInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Alarms.YangNode.AlarmsContainer.ShelvedAlarmsContainer.CompressShelvedAlarmsOutput> OnCompressShelvedAlarms(Ietf.Alarms.YangNode.AlarmsContainer root, Ietf.Alarms.YangNode.AlarmsContainer.ShelvedAlarmsContainer.CompressShelvedAlarmsInput input)
+    public Task<Ietf.Alarms.YangNode.AlarmsContainer.ShelvedAlarmsContainer.CompressShelvedAlarmsOutput>
+        OnCompressShelvedAlarms(Ietf.Alarms.YangNode.AlarmsContainer root,
+            Ietf.Alarms.YangNode.AlarmsContainer.ShelvedAlarmsContainer.CompressShelvedAlarmsInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnOperatorAction(Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.OperatorAction notification, DateTime eventTime)
+    public Task OnOperatorAction(Ietf.Alarms.YangNode.AlarmsContainer notification, DateTime eventTime)
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task OnOperatorAction(
+        Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.OperatorAction notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -65,17 +87,22 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task<Ieee802.Dot1q.Cfm.YangNode.CfmContainer.MaintenanceGroupEntry.MepEntry.TransmitLoopbackOutput> OnTransmitLoopback(Ieee802.Dot1q.Cfm.YangNode.CfmContainer root, Ieee802.Dot1q.Cfm.YangNode.CfmContainer.MaintenanceGroupEntry.MepEntry.TransmitLoopbackInput input)
+    public Task<Ieee802.Dot1q.Cfm.YangNode.CfmContainer.MaintenanceGroupEntry.MepEntry.TransmitLoopbackOutput>
+        OnTransmitLoopback(Ieee802.Dot1q.Cfm.YangNode.CfmContainer root,
+            Ieee802.Dot1q.Cfm.YangNode.CfmContainer.MaintenanceGroupEntry.MepEntry.TransmitLoopbackInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ieee802.Dot1q.Cfm.YangNode.CfmContainer.MaintenanceGroupEntry.MepEntry.TransmitLinktraceOutput> OnTransmitLinktrace(Ieee802.Dot1q.Cfm.YangNode.CfmContainer root, Ieee802.Dot1q.Cfm.YangNode.CfmContainer.MaintenanceGroupEntry.MepEntry.TransmitLinktraceInput input)
+    public Task<Ieee802.Dot1q.Cfm.YangNode.CfmContainer.MaintenanceGroupEntry.MepEntry.TransmitLinktraceOutput>
+        OnTransmitLinktrace(Ieee802.Dot1q.Cfm.YangNode.CfmContainer root,
+            Ieee802.Dot1q.Cfm.YangNode.CfmContainer.MaintenanceGroupEntry.MepEntry.TransmitLinktraceInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionOutput> OnEstablishSubscription(Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput input)
+    public Task<Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionOutput> OnEstablishSubscription(
+        Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput input)
     {
         throw new NotImplementedException();
     }
@@ -95,137 +122,188 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Subscribed.Notifications.YangNode.SubscriptionsContainer.SubscriptionEntry.ReceiversContainer.ReceiverEntry.ResetOutput> OnReset(Ietf.Subscribed.Notifications.YangNode.SubscriptionsContainer root, Ietf.Subscribed.Notifications.YangNode.SubscriptionsContainer.SubscriptionEntry.ReceiversContainer.ReceiverEntry target)
+    public
+        Task<Ietf.Subscribed.Notifications.YangNode.SubscriptionsContainer.SubscriptionEntry.ReceiversContainer.
+            ReceiverEntry.ResetOutput> OnReset(Ietf.Subscribed.Notifications.YangNode.SubscriptionsContainer root,
+            Ietf.Subscribed.Notifications.YangNode.SubscriptionsContainer.SubscriptionEntry.ReceiversContainer.
+                ReceiverEntry target)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnReplayCompleted(Ietf.Subscribed.Notifications.YangNode.ReplayCompleted notification, DateTime eventTime)
+    public Task OnReplayCompleted(Ietf.Subscribed.Notifications.YangNode.ReplayCompleted notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSubscriptionCompleted(Ietf.Subscribed.Notifications.YangNode.SubscriptionCompleted notification, DateTime eventTime)
+    public Task OnSubscriptionCompleted(Ietf.Subscribed.Notifications.YangNode.SubscriptionCompleted notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSubscriptionModified(Ietf.Subscribed.Notifications.YangNode.SubscriptionModified notification, DateTime eventTime)
+    public Task OnSubscriptionModified(Ietf.Subscribed.Notifications.YangNode.SubscriptionModified notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSubscriptionResumed(Ietf.Subscribed.Notifications.YangNode.SubscriptionResumed notification, DateTime eventTime)
+    public Task OnSubscriptionResumed(Ietf.Subscribed.Notifications.YangNode.SubscriptionResumed notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSubscriptionStarted(Ietf.Subscribed.Notifications.YangNode.SubscriptionStarted notification, DateTime eventTime)
+    public Task OnSubscriptionStarted(Ietf.Subscribed.Notifications.YangNode.SubscriptionStarted notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSubscriptionSuspended(Ietf.Subscribed.Notifications.YangNode.SubscriptionSuspended notification, DateTime eventTime)
+    public Task OnSubscriptionSuspended(Ietf.Subscribed.Notifications.YangNode.SubscriptionSuspended notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSubscriptionTerminated(Ietf.Subscribed.Notifications.YangNode.SubscriptionTerminated notification, DateTime eventTime)
+    public Task OnSubscriptionTerminated(Ietf.Subscribed.Notifications.YangNode.SubscriptionTerminated notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnClearPeer(YangNode.RoutingContainer root, YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.MsdpContainer.PeersContainer.PeerEntry target)
+    public Task OnClearPeer(YangNode.RoutingContainer root,
+        YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.MsdpContainer.PeersContainer.
+            PeerEntry target)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnClearAllPeers(YangNode.RoutingContainer root, YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.MsdpContainer target)
+    public Task OnClearAllPeers(YangNode.RoutingContainer root,
+        YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.MsdpContainer target)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnClear(YangNode.RoutingContainer root, YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.MsdpContainer.SaCacheContainer.ClearInput input)
+    public Task OnClear(YangNode.RoutingContainer root,
+        YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.MsdpContainer.
+            SaCacheContainer.ClearInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnClearIgmpSnoopingGroups(YangNode.RoutingContainer root, YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.IgmpSnoopingInstanceContainer.ClearIgmpSnoopingGroupsInput input)
+    public Task OnClearIgmpSnoopingGroups(YangNode.RoutingContainer root,
+        YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.IgmpSnoopingInstanceContainer
+            .ClearIgmpSnoopingGroupsInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnClearMldSnoopingGroups(YangNode.RoutingContainer root, YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.MldSnoopingInstanceContainer.ClearMldSnoopingGroupsInput input)
+    public Task OnClearMldSnoopingGroups(YangNode.RoutingContainer root,
+        YangNode.RoutingContainer.ControlPlaneProtocolsContainer.ControlPlaneProtocolEntry.MldSnoopingInstanceContainer.
+            ClearMldSnoopingGroupsInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer.RemoteLoopbackOutput> OnRemoteLoopback(Ietf.Interfaces.YangNode.InterfacesContainer root, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer.RemoteLoopbackInput input)
+    public Task<Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer.RemoteLoopbackOutput>
+        OnRemoteLoopback(Ietf.Interfaces.YangNode.InterfacesContainer root,
+            Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer.RemoteLoopbackInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer.ResetStatsOutput> OnResetStats(Ietf.Interfaces.YangNode.InterfacesContainer root, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer target)
+    public Task<Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer.ResetStatsOutput>
+        OnResetStats(Ietf.Interfaces.YangNode.InterfacesContainer root,
+            Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer target)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnNonThresholdEvent(Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer.NonThresholdEvent notification, DateTime eventTime)
+    public Task OnNonThresholdEvent(Ietf.Interfaces.YangNode.InterfacesContainer notification, DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnThresholdEvent(Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer.ThresholdEvent notification, DateTime eventTime)
+    public Task OnThresholdEvent(Ietf.Interfaces.YangNode.InterfacesContainer notification, DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnStateChangeActionType(Ietf.Interfaces.YangNode.InterfacesContainer root, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.EthernetContainer.MpcpLogicalLinkAdminActionsContainer.StateChangeActionTypeInput input)
+    public Task OnNonThresholdEvent(
+        Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer.NonThresholdEvent notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnResetActionType(Ietf.Interfaces.YangNode.InterfacesContainer root, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.EthernetContainer.MpcpLogicalLinkAdminActionsContainer.ResetActionTypeInput input)
+    public Task OnThresholdEvent(
+        Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.LinkOamContainer.ThresholdEvent notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnRegisterType(Ietf.Interfaces.YangNode.InterfacesContainer root, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.EthernetContainer.MpcpLogicalLinkAdminActionsContainer.RegisterTypeInput input)
+    public Task OnStateChangeActionType(Ietf.Interfaces.YangNode.InterfacesContainer root,
+        Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.EthernetContainer.
+            MpcpLogicalLinkAdminActionsContainer.StateChangeActionTypeInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnManualSwitchWorking(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root, Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
+    public Task OnResetActionType(Ietf.Interfaces.YangNode.InterfacesContainer root,
+        Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.EthernetContainer.
+            MpcpLogicalLinkAdminActionsContainer.ResetActionTypeInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnManualSwitchProtection(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root, Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
+    public Task OnRegisterType(Ietf.Interfaces.YangNode.InterfacesContainer root,
+        Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.EthernetContainer.
+            MpcpLogicalLinkAdminActionsContainer.RegisterTypeInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnForcedSwitch(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root, Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
+    public Task OnManualSwitchWorking(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root,
+        Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnLockoutOfProtection(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root, Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
+    public Task OnManualSwitchProtection(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root,
+        Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnFreeze(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root, Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
+    public Task OnForcedSwitch(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root,
+        Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnExercise(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root, Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
+    public Task OnLockoutOfProtection(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root,
+        Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnClear(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root, Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
+    public Task OnFreeze(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root,
+        Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task OnExercise(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root,
+        Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task OnClear(Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer root,
+        Ietf.Microwave.Radio.Link.YangNode.RadioLinkProtectionGroupsContainer.ProtectionGroupEntry target)
     {
         throw new NotImplementedException();
     }
@@ -255,12 +333,14 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Connection.Oriented.Oam.YangNode.ContinuityCheckOutput> OnContinuityCheck(Ietf.Connection.Oriented.Oam.YangNode.ContinuityCheckInput input)
+    public Task<Ietf.Connection.Oriented.Oam.YangNode.ContinuityCheckOutput> OnContinuityCheck(
+        Ietf.Connection.Oriented.Oam.YangNode.ContinuityCheckInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Connection.Oriented.Oam.YangNode.ContinuityVerificationOutput> OnContinuityVerification(Ietf.Connection.Oriented.Oam.YangNode.ContinuityVerificationInput input)
+    public Task<Ietf.Connection.Oriented.Oam.YangNode.ContinuityVerificationOutput> OnContinuityVerification(
+        Ietf.Connection.Oriented.Oam.YangNode.ContinuityVerificationInput input)
     {
         throw new NotImplementedException();
     }
@@ -309,12 +389,19 @@ public class ExampleYangServer : YangSource.IYangServer
         });
     }
 
-    public Task OnDefectConditionNotification(Ietf.Connection.Oriented.Oam.YangNode.DefectConditionNotification notification, DateTime eventTime)
+    public Task OnDefectConditionNotification(
+        Ietf.Connection.Oriented.Oam.YangNode.DefectConditionNotification notification, DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnDefectClearedNotification(Ietf.Connection.Oriented.Oam.YangNode.DefectClearedNotification notification, DateTime eventTime)
+    public Task OnDefectClearedNotification(
+        Ietf.Connection.Oriented.Oam.YangNode.DefectClearedNotification notification, DateTime eventTime)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task OnMepFaultAlarm(Ieee802.Dot1q.Cfm.YangNode.CfmContainer notification, DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -354,7 +441,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnNexthopResolutionStatusChange(Ietf.I2rs.Rib.YangNode.NexthopResolutionStatusChange notification, DateTime eventTime)
+    public Task OnNexthopResolutionStatusChange(Ietf.I2rs.Rib.YangNode.NexthopResolutionStatusChange notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -364,17 +452,20 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Dhcpv6.Relay.YangNode.ClearPrefixEntryOutput> OnClearPrefixEntry(Ietf.Dhcpv6.Relay.YangNode.ClearPrefixEntryInput input)
+    public Task<Ietf.Dhcpv6.Relay.YangNode.ClearPrefixEntryOutput> OnClearPrefixEntry(
+        Ietf.Dhcpv6.Relay.YangNode.ClearPrefixEntryInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Dhcpv6.Relay.YangNode.ClearClientPrefixesOutput> OnClearClientPrefixes(Ietf.Dhcpv6.Relay.YangNode.ClearClientPrefixesInput input)
+    public Task<Ietf.Dhcpv6.Relay.YangNode.ClearClientPrefixesOutput> OnClearClientPrefixes(
+        Ietf.Dhcpv6.Relay.YangNode.ClearClientPrefixesInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Dhcpv6.Relay.YangNode.ClearInterfacePrefixesOutput> OnClearInterfacePrefixes(Ietf.Dhcpv6.Relay.YangNode.ClearInterfacePrefixesInput input)
+    public Task<Ietf.Dhcpv6.Relay.YangNode.ClearInterfacePrefixesOutput> OnClearInterfacePrefixes(
+        Ietf.Dhcpv6.Relay.YangNode.ClearInterfacePrefixesInput input)
     {
         throw new NotImplementedException();
     }
@@ -414,7 +505,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnNbrRestartHelperStatusChange(Ietf.Ospf.YangNode.NbrRestartHelperStatusChange notification, DateTime eventTime)
+    public Task OnNbrRestartHelperStatusChange(Ietf.Ospf.YangNode.NbrRestartHelperStatusChange notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -434,7 +526,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnNssaTranslatorStatusChange(Ietf.Ospf.YangNode.NssaTranslatorStatusChange notification, DateTime eventTime)
+    public Task OnNssaTranslatorStatusChange(Ietf.Ospf.YangNode.NssaTranslatorStatusChange notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -449,28 +542,33 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Dhcpv6.Server.YangNode.DeleteAddressLeaseOutput> OnDeleteAddressLease(Ietf.Dhcpv6.Server.YangNode.DeleteAddressLeaseInput input)
+    public Task<Ietf.Dhcpv6.Server.YangNode.DeleteAddressLeaseOutput> OnDeleteAddressLease(
+        Ietf.Dhcpv6.Server.YangNode.DeleteAddressLeaseInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Dhcpv6.Server.YangNode.DeletePrefixLeaseOutput> OnDeletePrefixLease(Ietf.Dhcpv6.Server.YangNode.DeletePrefixLeaseInput input)
+    public Task<Ietf.Dhcpv6.Server.YangNode.DeletePrefixLeaseOutput> OnDeletePrefixLease(
+        Ietf.Dhcpv6.Server.YangNode.DeletePrefixLeaseInput input)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnAddressPoolUtilizationThresholdExceeded(Ietf.Dhcpv6.Server.YangNode.AddressPoolUtilizationThresholdExceeded notification,
+    public Task OnAddressPoolUtilizationThresholdExceeded(
+        Ietf.Dhcpv6.Server.YangNode.AddressPoolUtilizationThresholdExceeded notification,
         DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnPrefixPoolUtilizationThresholdExceeded(Ietf.Dhcpv6.Server.YangNode.PrefixPoolUtilizationThresholdExceeded notification, DateTime eventTime)
+    public Task OnPrefixPoolUtilizationThresholdExceeded(
+        Ietf.Dhcpv6.Server.YangNode.PrefixPoolUtilizationThresholdExceeded notification, DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnInvalidClientDetected(Ietf.Dhcpv6.Server.YangNode.InvalidClientDetected notification, DateTime eventTime)
+    public Task OnInvalidClientDetected(Ietf.Dhcpv6.Server.YangNode.InvalidClientDetected notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -515,7 +613,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnAttemptToExceedMaxSequence(Ietf.Isis.YangNode.AttemptToExceedMaxSequence notification, DateTime eventTime)
+    public Task OnAttemptToExceedMaxSequence(Ietf.Isis.YangNode.AttemptToExceedMaxSequence notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -540,7 +639,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnAuthenticationTypeFailure(Ietf.Isis.YangNode.AuthenticationTypeFailure notification, DateTime eventTime)
+    public Task OnAuthenticationTypeFailure(Ietf.Isis.YangNode.AuthenticationTypeFailure notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -565,7 +665,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnProtocolsSupportedMismatch(Ietf.Isis.YangNode.ProtocolsSupportedMismatch notification, DateTime eventTime)
+    public Task OnProtocolsSupportedMismatch(Ietf.Isis.YangNode.ProtocolsSupportedMismatch notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -615,7 +716,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnMplsLdpHelloAdjacencyEvent(Ietf.Mpls.Ldp.YangNode.MplsLdpHelloAdjacencyEvent notification, DateTime eventTime)
+    public Task OnMplsLdpHelloAdjacencyEvent(Ietf.Mpls.Ldp.YangNode.MplsLdpHelloAdjacencyEvent notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -710,7 +812,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task<Ietf.Sztp.Bootstrap.Server.YangNode.GetBootstrappingDataOutput> OnGetBootstrappingData(Ietf.Sztp.Bootstrap.Server.YangNode.GetBootstrappingDataInput input)
+    public Task<Ietf.Sztp.Bootstrap.Server.YangNode.GetBootstrappingDataOutput> OnGetBootstrappingData(
+        Ietf.Sztp.Bootstrap.Server.YangNode.GetBootstrappingDataInput input)
     {
         throw new NotImplementedException();
     }
@@ -735,12 +838,14 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnHardwareStateOperEnabled(Ietf.Hardware.State.YangNode.HardwareStateOperEnabled notification, DateTime eventTime)
+    public Task OnHardwareStateOperEnabled(Ietf.Hardware.State.YangNode.HardwareStateOperEnabled notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnHardwareStateOperDisabled(Ietf.Hardware.State.YangNode.HardwareStateOperDisabled notification, DateTime eventTime)
+    public Task OnHardwareStateOperDisabled(Ietf.Hardware.State.YangNode.HardwareStateOperDisabled notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -765,7 +870,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnVrrpVirtualRouterErrorEvent(Ietf.Vrrp.YangNode.VrrpVirtualRouterErrorEvent notification, DateTime eventTime)
+    public Task OnVrrpVirtualRouterErrorEvent(Ietf.Vrrp.YangNode.VrrpVirtualRouterErrorEvent notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -785,7 +891,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnTerminationPointEvent(Ietf.L3.Unicast.Topology.State.YangNode.TerminationPointEvent notification, DateTime eventTime)
+    public Task OnTerminationPointEvent(Ietf.L3.Unicast.Topology.State.YangNode.TerminationPointEvent notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -800,17 +907,20 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnSegmentRoutingSrgbCollision(Ietf.Segment.Routing.Mpls.YangNode.SegmentRoutingSrgbCollision notification, DateTime eventTime)
+    public Task OnSegmentRoutingSrgbCollision(
+        Ietf.Segment.Routing.Mpls.YangNode.SegmentRoutingSrgbCollision notification, DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSegmentRoutingGlobalSidCollision(Ietf.Segment.Routing.Mpls.YangNode.SegmentRoutingGlobalSidCollision notification, DateTime eventTime)
+    public Task OnSegmentRoutingGlobalSidCollision(
+        Ietf.Segment.Routing.Mpls.YangNode.SegmentRoutingGlobalSidCollision notification, DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSegmentRoutingIndexOutOfRange(Ietf.Segment.Routing.Mpls.YangNode.SegmentRoutingIndexOutOfRange notification, DateTime eventTime)
+    public Task OnSegmentRoutingIndexOutOfRange(
+        Ietf.Segment.Routing.Mpls.YangNode.SegmentRoutingIndexOutOfRange notification, DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -825,17 +935,20 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnB4AddressChangeLimitPolicyViolation(Ietf.Dslite.YangNode.B4AddressChangeLimitPolicyViolation notification, DateTime eventTime)
+    public Task OnB4AddressChangeLimitPolicyViolation(
+        Ietf.Dslite.YangNode.B4AddressChangeLimitPolicyViolation notification, DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSoftwireBindingInstanceEvent(Ietf.Softwire.Br.YangNode.SoftwireBindingInstanceEvent notification, DateTime eventTime)
+    public Task OnSoftwireBindingInstanceEvent(Ietf.Softwire.Br.YangNode.SoftwireBindingInstanceEvent notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnSoftwireAlgorithmInstanceEvent(Ietf.Softwire.Br.YangNode.SoftwireAlgorithmInstanceEvent notification, DateTime eventTime)
+    public Task OnSoftwireAlgorithmInstanceEvent(Ietf.Softwire.Br.YangNode.SoftwireAlgorithmInstanceEvent notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -850,7 +963,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnL2TerminationPointEvent(Ietf.L2.Topology.State.YangNode.L2TerminationPointEvent notification, DateTime eventTime)
+    public Task OnL2TerminationPointEvent(Ietf.L2.Topology.State.YangNode.L2TerminationPointEvent notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -865,12 +979,14 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnL2TerminationPointEvent(Ietf.L2.Topology.YangNode.L2TerminationPointEvent notification, DateTime eventTime)
+    public Task OnL2TerminationPointEvent(Ietf.L2.Topology.YangNode.L2TerminationPointEvent notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnBindLneNameFailed(Ietf.Logical.Network.Element.YangNode.BindLneNameFailed notification, DateTime eventTime)
+    public Task OnBindLneNameFailed(Ietf.Logical.Network.Element.YangNode.BindLneNameFailed notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -895,7 +1011,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnTerminationPointEvent(Ietf.L3.Unicast.Topology.YangNode.TerminationPointEvent notification, DateTime eventTime)
+    public Task OnTerminationPointEvent(Ietf.L3.Unicast.Topology.YangNode.TerminationPointEvent notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -910,17 +1027,20 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnHardwareStateOperEnabled(Ietf.Hardware.YangNode.HardwareStateOperEnabled notification, DateTime eventTime)
+    public Task OnHardwareStateOperEnabled(Ietf.Hardware.YangNode.HardwareStateOperEnabled notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnHardwareStateOperDisabled(Ietf.Hardware.YangNode.HardwareStateOperDisabled notification, DateTime eventTime)
+    public Task OnHardwareStateOperDisabled(Ietf.Hardware.YangNode.HardwareStateOperDisabled notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
 
-    public Task OnInvalidIaAddressDetected(Ietf.Dhcpv6.Client.YangNode.InvalidIaAddressDetected notification, DateTime eventTime)
+    public Task OnInvalidIaAddressDetected(Ietf.Dhcpv6.Client.YangNode.InvalidIaAddressDetected notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -930,7 +1050,8 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnUnsuccessfulStatusCode(Ietf.Dhcpv6.Client.YangNode.UnsuccessfulStatusCode notification, DateTime eventTime)
+    public Task OnUnsuccessfulStatusCode(Ietf.Dhcpv6.Client.YangNode.UnsuccessfulStatusCode notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -940,7 +1061,9 @@ public class ExampleYangServer : YangSource.IYangServer
         throw new NotImplementedException();
     }
 
-    public Task OnMepFaultAlarm(Ieee802.Dot1q.Cfm.YangNode.CfmContainer.MaintenanceGroupEntry.MepEntry.MepFaultAlarm notification, DateTime eventTime)
+    public Task OnMepFaultAlarm(
+        Ieee802.Dot1q.Cfm.YangNode.CfmContainer.MaintenanceGroupEntry.MepEntry.MepFaultAlarm notification,
+        DateTime eventTime)
     {
         throw new NotImplementedException();
     }
@@ -987,7 +1110,7 @@ public class ExampleYangServer : YangSource.IYangServer
 
     public Task OnMultihopNotification(Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification notification, DateTime eventTime)
     {
-        throw new NotImplementedException();
+        return Task.CompletedTask;
     }
 
     public Task OnFactoryReset()

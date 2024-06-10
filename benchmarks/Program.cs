@@ -87,6 +87,17 @@ public class ParsingBenchmarks
         }
     };
 
+    private class VoidChannel : IChannel
+    {
+        public string LastSent { get; private set; }
+
+        public Task<Stream> Send(string xml)
+        {
+            LastSent = xml;
+            return Task.FromResult(new MemoryStream() as Stream);
+        }
+    }
+
     [GlobalSetup]
     public void Setup()
     {
@@ -99,7 +110,9 @@ public class ParsingBenchmarks
             NewState = Ietf.Bfd.Types.YangNode.State.Init,
             SourceAddr = new YangNode.IpAddress(new YangNode.Ipv4Address("2.3.4.5"))
         };
-        serialized = notification.ToXML().Result;
+        var tmp = new VoidChannel();
+        notification.Send(tmp).Wait();
+        serialized = tmp.LastSent;
         server = new ExampleYangServer();
         channel = new BenchmarkingChannel(server);
     }
@@ -123,7 +136,12 @@ public class ParsingBenchmarks
         };
 
     [Benchmark]
-    public async Task<string> SerializerMultihopNotification() => await notification.ToXML();
+    public async Task<string> SerializerMultihopNotification()
+    {
+        var tmp = new VoidChannel();
+        await notification.Send(tmp);
+        return tmp.LastSent;
+    }
 
     [Benchmark]
     public MemoryStream ToMemoryStream()
@@ -151,6 +169,12 @@ public class ParsingBenchmarks
     {
         await alarmsContainer.AlarmList!.Alarm![0]
             .SetOperatorState(channel, 123, alarmsContainer, SetOperatorStateInput);
+    }
+
+    [Benchmark]
+    public async Task NotificationRoundTrip()
+    {
+        await notification.Send(channel);
     }
 }
 

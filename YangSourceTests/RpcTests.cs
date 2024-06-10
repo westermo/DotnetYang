@@ -80,6 +80,47 @@ public class RpcTests(ITestOutputHelper outputHelper)
         //     output.Response![1].Ttl);
     }
 
+    private static readonly Ietf.Alarms.YangNode.AlarmsContainer root = new()
+    {
+        AlarmList = new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer
+        {
+            Alarm =
+            [
+                new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry
+                {
+                    TimeCreated = "2015-01-23T12:23:34Z",
+                    Resource = "something",
+                    AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
+                    IsCleared = false,
+                    LastRaised = "2014-01-23T12:23:34Z",
+                    LastChanged = "2014-01-22T12:23:34Z",
+                    PerceivedSeverity = Ietf.Alarms.YangNode.Severity.Critical,
+                    AlarmText = "boo",
+                },
+                new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry
+                {
+                    TimeCreated = "2015-01-23T12:25:34Z",
+                    Resource = "something",
+                    AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
+                    IsCleared = false,
+                    LastRaised = "2014-01-23T12:28:34Z",
+                    LastChanged = "2014-01-22T12:22:34Z",
+                    PerceivedSeverity = Ietf.Alarms.YangNode.Severity.Critical,
+                    AlarmText = "baa",
+                    OperatorActionInstance =
+                        new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.OperatorAction
+                        {
+                            Operator = "Me",
+                            State = new Ietf.Alarms.YangNode.OperatorState(Ietf.Alarms.YangNode.OperatorState
+                                .OperatorState1.Shelved),
+                            Time = "2014-01-23T12:28:34Z",
+                            Text = "Some fine message"
+                        }
+                }
+            ]
+        }
+    };
+
     [Fact]
     public async Task ActionSend()
     {
@@ -87,44 +128,46 @@ public class RpcTests(ITestOutputHelper outputHelper)
         {
             MessageID = Random.Shared.Next()
         };
-        
-        var root = new Ietf.Alarms.YangNode.AlarmsContainer
-        {
-            AlarmList = new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer
+        await root.AlarmList!.Alarm![0].SetOperatorState(channel, channel.MessageID, root,
+            new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput
             {
-                Alarm =
-                [
-                    new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry
-                    {
-                        TimeCreated = "2015-01-23T12:23:34Z",
-                        Resource = "something",
-                        AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
-                        IsCleared = false,
-                        LastRaised = "2014-01-23T12:23:34Z",
-                        LastChanged = "2014-01-22T12:23:34Z",
-                        PerceivedSeverity = Ietf.Alarms.YangNode.Severity.Critical,
-                        AlarmText = "boo"
-                    },
-                    new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry
-                    {
-                        TimeCreated = "2015-01-23T12:25:34Z",
-                        Resource = "something",
-                        AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
-                        IsCleared = false,
-                        LastRaised = "2014-01-23T12:28:34Z",
-                        LastChanged = "2014-01-22T12:22:34Z",
-                        PerceivedSeverity = Ietf.Alarms.YangNode.Severity.Critical,
-                        AlarmText = "baa"
-                    }
-                ]
-            }
-        };
-        await root.AlarmList.Alarm[0].SetOperatorState(channel,channel.MessageID,root,new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput
+                State = Ietf.Alarms.YangNode.WritableOperatorState.Ack,
+                Text = "Acked"
+            });
+
+        outputHelper.WriteLine(channel.LastXML);
+        outputHelper.WriteLine("_____________________________________");
+        outputHelper.WriteLine(channel.LastWritten);
+    }
+
+    [Fact]
+    public async Task NotificationSend()
+    {
+        var channel = new TestChannel
         {
-            State = Ietf.Alarms.YangNode.WritableOperatorState.Ack,
-            Text = "Acked"
-        });
-        
+            MessageID = Random.Shared.Next()
+        };
+
+        await root.AlarmList!.Alarm![1].OperatorActionInstance!.Send(channel, root);
+
+        outputHelper.WriteLine(channel.LastXML);
+        outputHelper.WriteLine("_____________________________________");
+        outputHelper.WriteLine(channel.LastWritten);
+    }
+    [Fact]
+    public async Task TopLevelNotificationSend()
+    {
+        var channel = new TestChannel
+        {
+            MessageID = Random.Shared.Next()
+        };
+
+        var notification = new Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification
+        {
+            DestAddr = new YangNode.IpAddress(new YangNode.Ipv4Address("192.168.0.1")),
+            NewState = Ietf.Bfd.Types.YangNode.State.AdminDown
+        };
+        await notification.Send(channel);
         outputHelper.WriteLine(channel.LastXML);
         outputHelper.WriteLine("_____________________________________");
         outputHelper.WriteLine(channel.LastWritten);

@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Notification : Statement
+public class Notification : NodeDataStatement, IXMLParseable
 {
     public Notification(YangStatement statement) : base(statement)
     {
@@ -33,58 +34,43 @@ public class Notification : Statement
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore)
     ];
 
-    private string FullyQualifiedNamespace()
-    {
-        var parent = Parent;
-        List<string> classChain = new();
-        while (parent is not Module && parent is not null)
-        {
-            switch (parent)
-            {
-                case IXMLParseable xml:
-                    classChain.Insert(0, xml.ClassName);
-                    break;
-                case IXMLReadValue readValue:
-                    classChain.Insert(0, readValue.ClassName);
-                    break;
-            }
+    private string? _className;
+    public bool IsTopLevel => Root == this;
 
-            parent = parent.Parent;
-        }
-
-        if (parent is Module module)
-        {
-            classChain.Insert(0, "YangNode");
-            classChain.Insert(0, MakeNamespace(module.Argument));
-        }
-
-        return string.Join(".", classChain);
-    }
-
-    public string ServerDeclaration => "Task On" + MakeName(Argument) + "(" +
-                                       FullyQualifiedNamespace() + "." + MakeName(Argument) +
+    public string ServerDeclaration => "Task On" + ClassName + "(" + ParsedType +
                                        " notification, global::System.DateTime eventTime);";
 
 
-    public string ReceiveCase => $"case \"{Argument}\" when reader.NamespaceURI is \"{Namespace}\":\n" + $$"""
-          {
-              var input = await {{FullyQualifiedNamespace() + "." + MakeName(Argument)}}.ParseAsync(reader);
-              await server.On{{MakeName(Argument)}}(input, eventTime);
-              break;
-          }
-          """;
+    public string ReceiveCase => IsTopLevel
+        ? $"case \"{XmlObjectName}\" when reader.NamespaceURI is \"{Namespace}\":\n" + $$"""
+              {
+                  var input = await {{ParsedType}}.ParseAsync(reader);
+                  await server.On{{ClassName}}(input, eventTime);
+                  break;
+              }
+              """
+        : $$"""
+            if({{TargetPath}} != null) {
+                await server.On{{ClassName}}({{Root.TargetName}}, eventTime);
+                break;
+            }
+            """;
+
+    private string ParsedType => IsTopLevel ? FullyQualifiedNamespace() + "." + ClassName : QualifiedRootName;
 
     public override string ToCode()
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
         var xmlWrite = GetXmlWriting();
         var xmlRead = GetXmlReading();
+        var addRoot = IsTopLevel ? string.Empty : $", {QualifiedRootName} source";
         return $$"""
+                 public {{ClassName}}? {{TargetName}};
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{MakeName(Argument)}}
+                 public class {{ClassName}}
                  {
                      {{string.Join("\n\t", nodes.Select(Indent))}}
-                     public async Task<string> ToXML()
+                     public async Task Send(IChannel channel{{addRoot}})
                      {
                          StringBuilder stringBuilder = new StringBuilder();
                          using XmlWriter writer = XmlWriter.Create(stringBuilder, SerializationHelper.GetStandardWriterSettings());
@@ -95,9 +81,10 @@ public class Notification : Statement
                          {{xmlWrite}}
                          await writer.WriteEndElementAsync();
                          await writer.FlushAsync();
-                         return stringBuilder.ToString();
+                         var response = await channel.Send(stringBuilder.ToString());
+                         response.Dispose();
                      }
-                     public static async Task<{{MakeName(Argument)}}> ParseAsync(global::System.IO.Stream xmlStream)
+                     public static async Task<{{ParsedType}}> ParseAsync(global::System.IO.Stream xmlStream)
                      {
                          using XmlReader reader = XmlReader.Create(xmlStream,SerializationHelper.GetStandardReaderSettings());
                          await reader.ReadAsync();
@@ -106,43 +93,23 @@ public class Notification : Statement
                              throw new Exception($"Expected stream to start with a <notification> element with namespace \"urn:ietf:params:xml:ns:netconf:notification:1.0\" but got {reader.NodeType}: {reader.Name} in {reader.NamespaceURI}");
                          }
                          await reader.ReadAsync();
-                         while(reader.NodeType == XmlNodeType.Whitespace)
-                         {
-                             await reader.ReadAsync();
-                         }
                          if(reader.NodeType != XmlNodeType.Element || reader.Name != "eventTime")
                          {
                              throw new Exception($"Expected stream to have a second element called <eventTime> element but got {reader.NodeType}: {reader.Name}");
                          }
                          await reader.ReadAsync();
-                         while(reader.NodeType == XmlNodeType.Whitespace)
-                         {
-                             await reader.ReadAsync();
-                         }
                          if(reader.NodeType != XmlNodeType.Text)
                          {
                              if(!global::System.DateTime.TryParse(await reader.GetValueAsync(), out _)) throw new Exception($"Expected <eventTime> element to contain a valid dateTime but got {reader.NodeType}: {reader.Name}");
                          }
                          await reader.ReadAsync();
-                         while(reader.NodeType == XmlNodeType.Whitespace)
-                         {
-                             await reader.ReadAsync();
-                         }
                          if(reader.NodeType != XmlNodeType.EndElement)
                          {
                              throw new Exception($"Expected <eventTime> element to only have one child but got {reader.NodeType}: {reader.Name}");
                          }
                          await reader.ReadAsync();
-                         while(reader.NodeType == XmlNodeType.Whitespace)
-                         {
-                             await reader.ReadAsync();
-                         }
                          var value = {{xmlRead}}
                          await reader.ReadAsync();
-                         while(reader.NodeType == XmlNodeType.Whitespace)
-                         {
-                             await reader.ReadAsync();
-                         }
                          if(reader.NodeType != XmlNodeType.EndElement)
                          {
                              throw new Exception($"Expected </notification> closing element {reader.NodeType}: {reader.Name}");
@@ -150,64 +117,22 @@ public class Notification : Statement
                          return value;
                      }
                      {{Indent(WriteFunction())}}
-                     {{Indent(ReadFunction(MakeName(Argument)))}}
+                     {{Indent(ReadFunction())}}
                  }
                  """;
     }
 
     private string GetXmlWriting()
     {
-        if (Parent is Module)
-        {
-            return "await WriteXMLAsync(writer);";
-        }
-
-        var parent = Parent;
-        while (parent != null)
-        {
-            if (parent.Parent is Module or Submodule)
-            {
-                break;
-            }
-
-            parent = parent.Parent;
-        }
-
-        if (parent is IXMLSource)
-        {
-            return "await WriteXMLAsync(writer);";
-        }
-
-        throw new SemanticError(
-            $"Top level statement of 'notification {Argument}' ({parent?.Source.Keyword} {parent?.Argument}) was not a valid XML source",
-            Source);
+        return IsTopLevel ? "await WriteXMLAsync(writer);" : "await source.WriteXMLAsync(writer);";
     }
 
     private string GetXmlReading()
     {
-        if (Parent is Module)
-        {
-            return "await ParseAsync(reader);";
-        }
-
-        var parent = Parent;
-        while (parent != null)
-        {
-            if (parent.Parent is Module or Submodule)
-            {
-                break;
-            }
-
-            parent = parent.Parent;
-        }
-
-        if (parent is IXMLSource)
-        {
-            return "await ParseAsync(reader);";
-        }
-
-        throw new SemanticError(
-            $"Top level statement of 'notification {Argument}' ({parent?.Source.Keyword} {parent?.Argument}) was not a valid XML source",
-            Source);
+        return IsTopLevel ? "await ParseAsync(reader);" : $"await {QualifiedRootName}.ParseAsync(reader);";
     }
+
+    private string? _targetName;
+    public override string? TargetName => _targetName ??= ClassName + "Instance";
+    public override string ClassName => _className ??= MakeName(Argument);
 }

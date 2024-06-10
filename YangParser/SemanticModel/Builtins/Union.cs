@@ -10,6 +10,7 @@ public class Union() : BuiltinType("union", s =>
     List<string> types = [];
     List<string> declarations = [];
     List<string> switches = [];
+    List<string> stringifications = [];
     foreach (var option in options)
     {
         var typeName = option.Name!;
@@ -24,6 +25,8 @@ public class Union() : BuiltinType("union", s =>
         switches.Add($$"""
                        try { {{BuiltinTypeReference.ValueParsing(option, typeName)}} } catch(Exception ex) {  errors += " " + ex.Message; }
                        """);
+        stringifications.Add(
+            $"if({VariableName(typeName)} is not null) return {BuiltinTypeReference.Stringification(option, VariableName(typeName))};");
     }
 
     var name = sourceName;
@@ -38,7 +41,7 @@ public class Union() : BuiltinType("union", s =>
                            {{Statement.Indent(string.Join("\n", declarations))}}
                            public override string? ToString()
                            {
-                               {{Statement.Indent(Statement.Indent(string.Join("\n", types.Select(typeName => $"if({VariableName(typeName)} is not null) return {VariableName(typeName)}.ToString();"))))}}
+                               {{Statement.Indent(Statement.Indent(string.Join("\n", stringifications)))}}
                                return string.Empty;
                            }
                            public static {{name}} Parse(string value)

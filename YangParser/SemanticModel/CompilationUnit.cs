@@ -34,6 +34,7 @@ public class CompilationUnit : Statement, IXMLParseable
 
         Argument = "root";
         Dictionary<string, List<string>> ActionCases = [];
+        Dictionary<string, List<string>> NotificationCases = [];
         foreach (var module in Children.OfType<Module>())
         {
             foreach (var action in module.Actions)
@@ -51,6 +52,23 @@ public class CompilationUnit : Statement, IXMLParseable
                 }
 
                 list.Add(action.ReceiveCase);
+            }
+
+            foreach (var notification in module.Notifications.Where(n => n.IsTopLevel == false))
+            {
+                var caseName = $$"""
+                                 case "{{notification.Root.XmlObjectName}}":
+                                 {
+                                     var {{notification.Root.TargetName}} = await {{notification.QualifiedRootName}}.ParseAsync(reader);
+                                     
+                                 """;
+                if (!NotificationCases.TryGetValue(caseName, out var list))
+                {
+                    NotificationCases[caseName] = [];
+                    list = NotificationCases[caseName];
+                }
+
+                list.Add(notification.ReceiveCase);
             }
         }
 
@@ -132,14 +150,15 @@ public class CompilationUnit : Statement, IXMLParseable
                         await reader.ReadAsync();
                         switch(reader.Name)
                         {
-                            {{Indent(Indent(Indent(string.Join("\n", ActionCases.Select(c => c.Key + Indent(string.Join("\n", c.Value)) + $"\n}}\nthrow new Exception(\"Could not find valid action\");")))))}}
+                            {{Indent(Indent(Indent(string.Join("\n", ActionCases.Select(c => c.Key + Indent(string.Join("\n", c.Value)) + "\n}\nthrow new Exception(\"Could not find valid action\");")))))}}
                         }
                     }
                     public static async Task ReceiveNotification(this IYangServer server, XmlReader reader, DateTime eventTime)
                     {
                         switch(reader.Name)
                         {
-                            {{Indent(Indent(Indent(string.Join("\n", Children.OfType<Module>().SelectMany(m => m.Notifications).Select(rpc => rpc.ReceiveCase).Distinct()))))}}
+                            {{Indent(Indent(Indent(string.Join("\n", Children.OfType<Module>().SelectMany(m => m.Notifications.Where(n => n.IsTopLevel)).Select(rpc => rpc.ReceiveCase).Distinct()))))}}
+                            {{Indent(Indent(Indent(string.Join("\n", NotificationCases.Select(c => c.Key + Indent(string.Join("\n", c.Value)) + "\n}\nthrow new Exception(\"Could not find valid notification\");")))))}}
                         }
                     }
                  }
