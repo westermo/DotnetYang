@@ -172,4 +172,26 @@ public class RpcTests(ITestOutputHelper outputHelper)
         outputHelper.WriteLine("_____________________________________");
         outputHelper.WriteLine(channel.LastWritten);
     }
+    [Fact]
+    public async Task ExceptionGeneratingTest()
+    {
+        var channel = new TestChannel
+        {
+            MessageID = Random.Shared.Next()
+        };
+
+        var notification = new Ietf.Alarms.YangNode.AlarmNotification 
+        {
+            Resource = "a",
+            Time = "2015-01-23T12:23:34Z",
+            AlarmText = "a",
+            PerceivedSeverity = Ietf.Alarms.YangNode.SeverityWithClear.SeverityWithClear0.Cleared,
+            AlarmTypeId = new Ietf.Alarms.YangNode.AlarmTypeId(Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId)
+        };
+        await notification.Send(channel);
+        outputHelper.WriteLine(channel.LastXML);
+        outputHelper.WriteLine("_____________________________________");
+        outputHelper.WriteLine(channel.LastWritten);
+        Assert.Contains("rpc-error", channel.LastWritten);
+    }
 }

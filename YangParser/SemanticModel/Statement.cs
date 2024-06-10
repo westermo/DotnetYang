@@ -74,7 +74,8 @@ public abstract class Statement : IStatement
                                 switch(reader.Name)
                                 {
                                      {{Indent(Indent(Indent(Indent(Indent(string.Join("\n", cases))))))}}
-                                    default: throw new Exception($"Unexpected element '{reader.Name}' under '{{XmlObjectName}}'");
+                                     case "rpc-error": throw await RpcException.ParseAsync(reader);
+                                     default: throw new Exception($"Unexpected element '{reader.Name}' under '{{XmlObjectName}}'");
                                 }
                             case XmlNodeType.EndElement when reader.Name == "{{XmlObjectName}}":
                                 return new {{type}}{
