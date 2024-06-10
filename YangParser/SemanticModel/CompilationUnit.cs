@@ -72,6 +72,11 @@ public class CompilationUnit : Statement, IXMLParseable
             }
         }
 
+        Dictionary<string, string> a = new()
+        {
+            ["a"] = "b"
+        };
+
         return $$"""
                  using System;
                  using System.Xml;
@@ -90,52 +95,146 @@ public class CompilationUnit : Statement, IXMLParseable
                  {
                     public static async Task Receive(this IYangServer server, global::System.IO.Stream input, global::System.IO.Stream output)
                     {
+                        var initialPosition = output.Position;
+                        string? id = null;
                         using XmlReader reader = XmlReader.Create(input, SerializationHelper.GetStandardReaderSettings());
                         using XmlWriter writer = XmlWriter.Create(output, SerializationHelper.GetStandardWriterSettings());
-                        await reader.ReadAsync();
-                        switch(reader.Name)
+                        try
                         {
-                            case "rpc":
-                                if(reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:base:1.0")
-                                {
-                                    throw new Exception($"Got an <rpc> element with namespace {reader.NamespaceURI}, expected \"urn:ietf:params:xml:ns:netconf:base:1.0\"");
-                                }
-                                var id = reader["message-id"];
-                                await reader.ReadAsync();
-                                await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await reader.ReadAsync();
+                            switch(reader.Name)
+                            {
+                                case "rpc":
+                                    if(reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:base:1.0")
+                                    {
+                                        throw new Exception($"Got an <rpc> element with namespace {reader.NamespaceURI}, expected \"urn:ietf:params:xml:ns:netconf:base:1.0\"");
+                                    }
+                                    id = reader["message-id"];
+                                    if(id is null) throw new RpcException(ErrorType.Rpc,"missing-attribute",Severity.Error, info: new() { ["bad-attribute"] = "message-id", ["bad-element"] = "rpc" });
+                                    await reader.ReadAsync();
+                                    await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                    await writer.WriteAttributeStringAsync(null, "message-id", null, id);
+                                    switch(reader.Name)
+                                    {
+                                        case "action":
+                                            await server.ReceiveAction(reader, writer);
+                                            break;
+                                        default:
+                                            await server.ReceiveRPC(reader, writer);
+                                            break;
+                                    }
+                                    await writer.WriteEndElementAsync();
+                                    await writer.FlushAsync();
+                                    break;
+                                case "notification":
+                                    if(reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:notification:1.0")
+                                    {
+                                        throw new Exception($"Got an <rpc> element with namespace {reader.NamespaceURI}, expected \"urn:ietf:params:xml:ns:netconf:notification:1.0\"");
+                                    }
+                                    await reader.ReadAsync();
+                                    if(reader.Name != "eventTime")
+                                    {
+                                        throw new Exception($"Expected an <eventTime> element as the first child of the <notification> element, but got {reader.Name}");
+                                    }
+                                    await reader.ReadAsync();
+                                    if(!global::System.DateTime.TryParse(await reader.GetValueAsync(), out var eventTime)) throw new Exception($"Expected <eventTime> element to contain a valid dateTime but got {reader.NodeType}: {reader.Name}");
+                                    await reader.ReadAsync();
+                                    if(reader.NodeType != XmlNodeType.EndElement)
+                                    {
+                                        throw new Exception($"Expected <eventTime> element to only have one child but got {reader.NodeType}: {reader.Name}");
+                                    }
+                                    await reader.ReadAsync();
+                                    await server.ReceiveNotification(reader, eventTime);
+                                    break;
+                            }
+                        }
+                        catch(RpcException ex)
+                        {
+                            output.Position = initialPosition;
+                            await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            if(id != null)
+                            {
                                 await writer.WriteAttributeStringAsync(null, "message-id", null, id);
-                                switch(reader.Name)
+                            }
+                            await writer.WriteStartElementAsync(null, "rpc-error", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await writer.WriteStartElementAsync(null, "error-type", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await writer.WriteStringAsync(ex.Type switch {
+                                ErrorType.Transport => "transport",
+                                ErrorType.Rpc => "rpc",
+                                ErrorType.Protocol => "protocol",
+                                ErrorType.Application => "application"
+                            });
+                            await writer.WriteEndElementAsync();
+                            await writer.WriteStartElementAsync(null, "error-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await writer.WriteStringAsync(ex.Tag);
+                            await writer.WriteEndElementAsync();
+                            await writer.WriteStartElementAsync(null, "error-severity", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await writer.WriteStringAsync(ex.Severity switch {
+                                Severity.Error => "error",
+                                Severity.Warning => "warning"
+                            });
+                            await writer.WriteEndElementAsync();
+                            if(ex.ApplicationTag != null)
+                            {
+                                await writer.WriteStartElementAsync(null, "error-app-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                await writer.WriteStringAsync(ex.ApplicationTag);
+                                await writer.WriteEndElementAsync();
+                            }
+                            if(ex.XPath != null)
+                            {
+                                await writer.WriteStartElementAsync(null, "error-path", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                await writer.WriteStringAsync(ex.XPath);
+                                await writer.WriteEndElementAsync();
+                            }
+                            if(ex.Message != null)
+                            {
+                                await writer.WriteStartElementAsync(null, "error-message", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                await writer.WriteStringAsync(ex.Message);
+                                await writer.WriteEndElementAsync();
+                            }
+                            if(ex.Info != null)
+                            {
+                                await writer.WriteStartElementAsync(null, "error-info", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                foreach(var info in ex.Info)
                                 {
-                                    case "action":
-                                        await server.ReceiveAction(reader, writer);
-                                        break;
-                                    default:
-                                        await server.ReceiveRPC(reader, writer);
-                                        break;
+                                    await writer.WriteStartElementAsync(null, info.Key, "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                    await writer.WriteStringAsync(info.Value);
+                                    await writer.WriteEndElementAsync();
                                 }
                                 await writer.WriteEndElementAsync();
-                                await writer.FlushAsync();
-                                break;
-                            case "notification":
-                                if(reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:notification:1.0")
-                                {
-                                    throw new Exception($"Got an <rpc> element with namespace {reader.NamespaceURI}, expected \"urn:ietf:params:xml:ns:netconf:notification:1.0\"");
-                                }
-                                await reader.ReadAsync();
-                                if(reader.Name != "eventTime")
-                                {
-                                    throw new Exception($"Expected an <eventTime> element as the first child of the <notification> element, but got {reader.Name}");
-                                }
-                                await reader.ReadAsync();
-                                if(!global::System.DateTime.TryParse(await reader.GetValueAsync(), out var eventTime)) throw new Exception($"Expected <eventTime> element to contain a valid dateTime but got {reader.NodeType}: {reader.Name}");
-                                await reader.ReadAsync();
-                                if(reader.NodeType != XmlNodeType.EndElement)
-                                {
-                                    throw new Exception($"Expected <eventTime> element to only have one child but got {reader.NodeType}: {reader.Name}");
-                                }
-                                await reader.ReadAsync();
-                                await server.ReceiveNotification(reader, eventTime);
-                                break;
+                            }
+                            await writer.WriteEndElementAsync();
+                            await writer.WriteEndElementAsync();
+                        }
+                        catch(Exception ex)
+                        {
+                            output.Position = initialPosition;
+                            await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            if(id != null)
+                            {
+                                await writer.WriteAttributeStringAsync(null, "message-id", null, id);
+                            }
+                            await writer.WriteStartElementAsync(null, "rpc-error", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await writer.WriteStartElementAsync(null, "error-type", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await writer.WriteStringAsync("application");
+                            await writer.WriteEndElementAsync();
+                            await writer.WriteStartElementAsync(null, "error-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await writer.WriteStringAsync("unknown");
+                            await writer.WriteEndElementAsync();
+                            await writer.WriteStartElementAsync(null, "error-severity", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await writer.WriteStringAsync("error");
+                            await writer.WriteEndElementAsync();
+                            await writer.WriteStartElementAsync(null, "error-app-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await writer.WriteStringAsync(ex.GetType().Name);
+                            await writer.WriteEndElementAsync();
+                            if(ex.Message != null)
+                            {
+                                await writer.WriteStartElementAsync(null, "error-message", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                await writer.WriteStringAsync(ex.Message);
+                                await writer.WriteEndElementAsync();
+                            }
+                            await writer.WriteEndElementAsync();
+                            await writer.WriteEndElementAsync();
                         }
                     }
                     public static async Task ReceiveRPC(this IYangServer server, XmlReader reader, XmlWriter writer)

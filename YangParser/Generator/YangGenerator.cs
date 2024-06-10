@@ -486,6 +486,36 @@ public class YangGenerator : IIncrementalGenerator
                                }
                            }
                        }
+                       public enum ErrorType
+                       {
+                           Transport,
+                           Rpc,
+                           Protocol,
+                           Application
+                       }
+
+                       public enum Severity
+                       {
+                           Error,
+                           Warning
+                       }
+
+                       public class RpcException(
+                           ErrorType type,
+                           string tag,
+                           Severity severity,
+                           string? appTag = null,
+                           string? xpath = null,
+                           string? message = null,
+                           Dictionary<string, string>? info = null) : Exception(message)
+                       {
+                           public ErrorType Type { get; } = type;
+                           public string Tag { get; } = tag;
+                           public Severity Severity { get; } = severity;
+                           public string? ApplicationTag { get; } = appTag;
+                           public string? XPath { get; } = xpath;
+                           public Dictionary<string, string>? Info = info;
+                       }
                        """;
         context.AddSource(fileName, contents);
     }
