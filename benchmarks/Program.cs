@@ -48,6 +48,45 @@ public class ParsingBenchmarks
             CommandSubType = Ietf.Connection.Oriented.Oam.YangNode.CommandSubTypeIdentity.Proactive
         };
 
+    private static readonly Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput
+        SetOperatorStateInput = new()
+        {
+            State = Ietf.Alarms.YangNode.WritableOperatorState.Ack,
+            Text = "Acked"
+        };
+
+    private static readonly Ietf.Alarms.YangNode.AlarmsContainer alarmsContainer = new()
+    {
+        AlarmList = new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer
+        {
+            Alarm =
+            [
+                new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry
+                {
+                    TimeCreated = "2015-01-23T12:23:34Z",
+                    Resource = "something",
+                    AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
+                    IsCleared = false,
+                    LastRaised = "2014-01-23T12:23:34Z",
+                    LastChanged = "2014-01-22T12:23:34Z",
+                    PerceivedSeverity = Ietf.Alarms.YangNode.Severity.Critical,
+                    AlarmText = "boo"
+                },
+                new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry
+                {
+                    TimeCreated = "2015-01-23T12:25:34Z",
+                    Resource = "something",
+                    AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
+                    IsCleared = false,
+                    LastRaised = "2014-01-23T12:28:34Z",
+                    LastChanged = "2014-01-22T12:22:34Z",
+                    PerceivedSeverity = Ietf.Alarms.YangNode.Severity.Critical,
+                    AlarmText = "baa"
+                }
+            ]
+        }
+    };
+
     [GlobalSetup]
     public void Setup()
     {
@@ -105,6 +144,13 @@ public class ParsingBenchmarks
     public async Task<Ietf.Connection.Oriented.Oam.YangNode.TracerouteOutput> TracerouteRoundTrip()
     {
         return await Ietf.Connection.Oriented.Oam.YangNode.Traceroute(channel, 123, input);
+    }
+
+    [Benchmark]
+    public async Task SetOperatorStateRoundTrip()
+    {
+        await alarmsContainer.AlarmList!.Alarm![0]
+            .SetOperatorState(channel, 123, alarmsContainer, SetOperatorStateInput);
     }
 }
 
