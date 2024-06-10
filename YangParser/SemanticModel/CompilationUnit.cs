@@ -40,7 +40,7 @@ public class CompilationUnit : Statement, IXMLParseable
             foreach (var action in module.Actions)
             {
                 var caseName = $$"""
-                                 case "{{action.Root.XmlObjectName}}":
+                                 case "{{action.Root.XmlObjectName}}" when reader.NamespaceURI is "{{action.Root.Namespace}}":
                                  {
                                      var {{action.Root.TargetName}} = await {{action.QualifiedRootName}}.ParseAsync(reader);
                                      
@@ -57,7 +57,7 @@ public class CompilationUnit : Statement, IXMLParseable
             foreach (var notification in module.Notifications.Where(n => n.IsTopLevel == false))
             {
                 var caseName = $$"""
-                                 case "{{notification.Root.XmlObjectName}}":
+                                 case "{{notification.Root.XmlObjectName}}" when reader.NamespaceURI is "{{notification.Root.Namespace}}":
                                  {
                                      var {{notification.Root.TargetName}} = await {{notification.QualifiedRootName}}.ParseAsync(reader);
                                      
