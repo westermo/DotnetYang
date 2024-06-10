@@ -33,6 +33,26 @@ public class CompilationUnit : Statement, IXMLParseable
         }
 
         Argument = "root";
+        Dictionary<string, List<string>> ActionCases = [];
+        foreach (var module in Children.OfType<Module>())
+        {
+            foreach (var action in module.Actions)
+            {
+                var caseName = $$"""
+                                 case "{{action.Root.XmlObjectName}}":
+                                 {
+                                     var {{action.Root.TargetName}} = await {{action.QualifiedRootName}}.ParseAsync(reader);
+                                     
+                                 """;
+                if (!ActionCases.TryGetValue(caseName, out var list))
+                {
+                    ActionCases[caseName] = [];
+                    list = ActionCases[caseName];
+                }
+
+                list.Add(action.ReceiveCase);
+            }
+        }
 
         return $$"""
                  using System;
@@ -69,10 +89,10 @@ public class CompilationUnit : Statement, IXMLParseable
                                 switch(reader.Name)
                                 {
                                     case "action":
-                                        server.ReceiveAction(reader, writer);
+                                        await server.ReceiveAction(reader, writer);
                                         break;
                                     default:
-                                        server.ReceiveRPC(reader, writer);
+                                        await server.ReceiveRPC(reader, writer);
                                         break;
                                 }
                                 await writer.WriteEndElementAsync();
@@ -96,7 +116,7 @@ public class CompilationUnit : Statement, IXMLParseable
                                     throw new Exception($"Expected <eventTime> element to only have one child but got {reader.NodeType}: {reader.Name}");
                                 }
                                 await reader.ReadAsync();
-                                server.ReceiveNotification(reader, eventTime);
+                                await server.ReceiveNotification(reader, eventTime);
                                 break;
                         }
                     }
@@ -109,7 +129,11 @@ public class CompilationUnit : Statement, IXMLParseable
                     }
                     public static async Task ReceiveAction(this IYangServer server, XmlReader reader, XmlWriter writer)
                     {
-                        throw new NotImplementedException();
+                        await reader.ReadAsync();
+                        switch(reader.Name)
+                        {
+                            {{Indent(Indent(Indent(string.Join("\n", ActionCases.Select(c => c.Key + Indent(string.Join("\n", c.Value)) + $"\n}}\nthrow new Exception(\"Could not find valid action\");")))))}}
+                        }
                     }
                     public static async Task ReceiveNotification(this IYangServer server, XmlReader reader, DateTime eventTime)
                     {

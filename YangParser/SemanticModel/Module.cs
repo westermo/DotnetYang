@@ -57,6 +57,7 @@ public class Module : TopLevelStatement, IXMLParseable
     public override string ToCode()
     {
         string ns = MakeNamespace(Argument);
+        var nodes = Children.Select(child => child.ToCode()).Select(Indent).ToArray();
         var interfaceDefinition = Parent is CompilationUnit unit && !string.IsNullOrWhiteSpace(unit.MyNamespace) &&
                                   Rpcs.Count + Actions.Count + Notifications.Count > 0
             ? $$"""
@@ -71,7 +72,6 @@ public class Module : TopLevelStatement, IXMLParseable
                 }
                 """
             : string.Empty;
-        var nodes = Children.Select(child => child.ToCode()).Select(Indent).ToArray();
         var extraDefinitions = HiddenDefinitions.Select(t => Indent(t.ToCode())).ToArray();
         var raw = $$"""
                     using System;
