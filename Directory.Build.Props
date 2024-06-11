@@ -1,24 +1,2 @@
 <Project>
-    <PropertyGroup>
-        <EnablePackageValidation>true</EnablePackageValidation>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <PackageReadmeFile>README_NUGET.md</PackageReadmeFile>
-        <PackageProjectUrl>https://github.com/westermo/DotnetYang</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/westermo/DotnetYang</RepositoryUrl>
-        <RepositoryType>git</RepositoryType>
-        <PackageIcon>icon.png</PackageIcon>
-        <PackageTags>roslyn, yang, compile-time, network, xml, netconf</PackageTags>
-        <CurrentYear>$([System.DateTime]::Now.ToString(yyyy))</CurrentYear>
-        <Company>Westermo Network Technologies AB</Company>
-        <Copyright>Copyright © Westermo Network Technologies AB $(CurrentYear)</Copyright>
-        <Authors>Westermo Network Technologies AB</Authors>
-        <Description>dotnetYang is a source generator for converting .yang files into C# Code</Description>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <None Include="$(ProjectDir)../README_NUGET.md" Link="README.md" Pack="true" PackagePath="/" Condition="Exists('$(ProjectDir)../README.md')"/>
-        <None Include="$(ProjectDir)../icon.png" Link="icon.png" Pack="true" PackagePath="/" Condition="Exists('$(ProjectDir)../icon.png')"/>
-        <None Include="$(ProjectDir)../LICENSE" Link="LICENSE" Pack="true" PackagePath="/" Condition="Exists('$(ProjectDir)../LICENSE')"/>
-    </ItemGroup>
-
 </Project>

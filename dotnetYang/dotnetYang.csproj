@@ -7,7 +7,20 @@
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <IncludeBuildOutput>false</IncludeBuildOutput>
         <RootNamespace>YangParser</RootNamespace>
-        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+        <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
+        <EnablePackageValidation>true</EnablePackageValidation>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README_NUGET.md</PackageReadmeFile>
+        <PackageProjectUrl>https://github.com/westermo/DotnetYang</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/westermo/DotnetYang</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageIcon>icon.png</PackageIcon>
+        <PackageTags>roslyn, yang, compile-time, network, xml, netconf</PackageTags>
+        <CurrentYear>$([System.DateTime]::Now.ToString(yyyy))</CurrentYear>
+        <Company>Westermo Network Technologies AB</Company>
+        <Copyright>Copyright © Westermo Network Technologies AB $(CurrentYear)</Copyright>
+        <Authors>Westermo Network Technologies AB</Authors>
+        <Description>dotnetYang is a source generator for converting .yang files into C# Code</Description>
     </PropertyGroup>
 
     <ItemGroup>
@@ -18,11 +31,14 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\YangSupport\YangSupport.csproj" />
+      <ProjectReference Include="..\YangSupport\YangSupport.csproj" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
         <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
         <None Include="$(OutputPath)\YangSupport.dll" Pack="true" PackagePath="lib/netstandard2.0" Visible="false"/>
+        <None Include="../README_NUGET.md" Link="README_NUGET.md" Pack="true" PackagePath="/" Condition="Exists('../README_NUGET.md')"/>
+        <None Include="../icon.png" Link="icon.png" Pack="true" PackagePath="/" Condition="Exists('../icon.png')"/>
+        <None Include="../LICENSE" Link="LICENSE" Pack="true" PackagePath="/" Condition="Exists('../LICENSE')"/>
     </ItemGroup>
 </Project>
