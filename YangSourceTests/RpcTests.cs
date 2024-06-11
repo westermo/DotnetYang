@@ -9,34 +9,45 @@ namespace YangSourceTests;
 
 public class RpcTests(ITestOutputHelper outputHelper)
 {
-    private class TestChannel : IChannel
+    private class TestChannel : IChannel, IAsyncDisposable
     {
-        public string? LastXML { get; private set; }
-        public string? LastWritten { get; private set; }
+        public string? LastXML => Encoding.UTF8.GetString(((MemoryStream)WriteStream).GetBuffer()).Replace("\0","");
+        public string? LastWritten => Encoding.UTF8.GetString(((MemoryStream)ReadStream).GetBuffer()).Replace("\0","");
         private ExampleYangServer server = new();
 
-        public async Task<Stream> Send(string xml)
+        public async Task Send()
         {
-            using var input = new MemoryStream(Encoding.UTF8.GetBytes(xml));
-            LastXML = xml;
-            var output = new MemoryStream();
-            await server.Receive(input, output);
-            output.Seek(0, SeekOrigin.Begin);
-            LastWritten = Encoding.UTF8.GetString(output.GetBuffer());
-            return output;
+            (LastReadIndex, WriteStream.Position) = (WriteStream.Position, LastReadIndex);
+            LastSentIndex = ReadStream.Position;
+            await server.Receive(WriteStream, ReadStream);
+            ReadStream.Position = LastSentIndex;
+            (LastReadIndex, WriteStream.Position) = (WriteStream.Position, LastReadIndex);
         }
 
-        public int MessageID { get; set; }
+        private long LastSentIndex = 0;
+        private long LastReadIndex = 0;
+        public Stream WriteStream { get; } = new MemoryStream();
+        public Stream ReadStream { get; } = new MemoryStream();
+
+        public void Dispose()
+        {
+            WriteStream.Dispose();
+            ReadStream.Dispose();
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await WriteStream.DisposeAsync();
+            await ReadStream.DisposeAsync();
+        }
     }
 
     [Fact]
     public async Task RpcSend()
     {
-        var channel = new TestChannel
-        {
-            MessageID = Random.Shared.Next()
-        };
-        var reply = await Ietf.Connection.Oriented.Oam.YangNode.Traceroute(channel, channel.MessageID,
+        await using var channel = new TestChannel();
+        var id = Random.Shared.Next();
+        var reply = await Ietf.Connection.Oriented.Oam.YangNode.Traceroute(channel, id,
             new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput
             {
                 MaNameStringValue = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.MaNameString(),
@@ -64,7 +75,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
         using var ms = new MemoryStream();
         await using var writer = XmlWriter.Create(ms, SerializationHelper.GetStandardWriterSettings());
         await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
-        await writer.WriteAttributeStringAsync(null, "message-id", null, channel.MessageID.ToString());
+        await writer.WriteAttributeStringAsync(null, "message-id", null, id.ToString());
         await reply.WriteXMLAsync(writer);
         await writer.WriteEndElementAsync();
         await writer.FlushAsync();
@@ -124,11 +135,9 @@ public class RpcTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task ActionSend()
     {
-        var channel = new TestChannel
-        {
-            MessageID = Random.Shared.Next()
-        };
-        await root.AlarmList!.Alarm![0].SetOperatorState(channel, channel.MessageID, root,
+        
+        await using var channel = new TestChannel();
+        await root.AlarmList!.Alarm![0].SetOperatorState(channel, Random.Shared.Next(), root,
             new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput
             {
                 State = Ietf.Alarms.YangNode.WritableOperatorState.Ack,
@@ -143,11 +152,8 @@ public class RpcTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task NotificationSend()
     {
-        var channel = new TestChannel
-        {
-            MessageID = Random.Shared.Next()
-        };
-
+        
+        await using var channel = new TestChannel();
         await root.AlarmList!.Alarm![1].OperatorActionInstance!.Send(channel, root);
 
         outputHelper.WriteLine(channel.LastXML);
@@ -157,11 +163,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task TopLevelNotificationSend()
     {
-        var channel = new TestChannel
-        {
-            MessageID = Random.Shared.Next()
-        };
-
+        await using var channel = new TestChannel();
         var notification = new Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification
         {
             DestAddr = new YangNode.IpAddress(new YangNode.Ipv4Address("192.168.0.1")),
@@ -175,11 +177,8 @@ public class RpcTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task ExceptionGeneratingTest()
     {
-        var channel = new TestChannel
-        {
-            MessageID = Random.Shared.Next()
-        };
-
+        
+        await using var channel = new TestChannel();
         var notification = new Ietf.Alarms.YangNode.AlarmNotification 
         {
             Resource = "a",
@@ -198,13 +197,11 @@ public class RpcTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task ExceptionThrowingTest()
     {
-        var channel = new TestChannel
-        {
-            MessageID = Random.Shared.Next()
-        };
+        
+        await using var channel = new TestChannel();
         try
         {
-            var result = await Ietf.Subscribed.Notifications.YangNode.EstablishSubscription(channel, channel.MessageID,
+            var result = await Ietf.Subscribed.Notifications.YangNode.EstablishSubscription(channel, Random.Shared.Next(),
                 new Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput
                 {
                     Target = new Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput.TargetChoice

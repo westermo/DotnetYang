@@ -3,7 +3,6 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using Ietf.Inet.Types;
 using YangSupport;
-using YangParser;
 using YangParser.Parser;
 using YangParser.SemanticModel;
 using YangSource;
@@ -14,13 +13,13 @@ namespace Benchmarks;
 [JsonExporterAttribute.FullCompressed]
 public class ParsingBenchmarks
 {
-    private string source;
-    private YangStatement statement;
-    private IStatement model;
-    private Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification notification;
-    private string serialized;
-    private IYangServer server;
-    private IChannel channel;
+    private string source = null!;
+    private YangStatement statement = null!;
+    private IStatement model = null!;
+    private Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification notification = null!;
+    private string serialized = null!;
+    private IYangServer server = null!;
+    private IChannel channel = null!;
 
     private static readonly Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput input =
         new()
@@ -87,14 +86,28 @@ public class ParsingBenchmarks
         }
     };
 
-    private class VoidChannel : IChannel
+    private class VoidChannel : IChannel, IAsyncDisposable
     {
-        public string LastSent { get; private set; }
+        public string? LastSent { get; private set; }
+        public Stream WriteStream { get; } = new MemoryStream();
+        public Stream ReadStream { get; } = new MemoryStream();
 
-        public Task<Stream> Send(string xml)
+        public Task Send()
         {
-            LastSent = xml;
-            return Task.FromResult(new MemoryStream() as Stream);
+            LastSent = Encoding.UTF8.GetString(((MemoryStream)WriteStream).GetBuffer());
+            return Task.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+            WriteStream.Dispose();
+            ReadStream.Dispose();
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await WriteStream.DisposeAsync();
+            await ReadStream.DisposeAsync();
         }
     }
 
@@ -112,7 +125,7 @@ public class ParsingBenchmarks
         };
         var tmp = new VoidChannel();
         notification.Send(tmp).Wait();
-        serialized = tmp.LastSent;
+        serialized = tmp.LastSent!;
         server = new ExampleYangServer();
         channel = new BenchmarkingChannel(server);
     }
@@ -140,7 +153,7 @@ public class ParsingBenchmarks
     {
         var tmp = new VoidChannel();
         await notification.Send(tmp);
-        return tmp.LastSent;
+        return tmp.LastSent!;
     }
 
     [Benchmark]
@@ -178,22 +191,40 @@ public class ParsingBenchmarks
     }
 }
 
-internal class BenchmarkingChannel(IYangServer server) : IChannel
+internal class BenchmarkingChannel(IYangServer server) : IChannel, IAsyncDisposable
 {
-    public async Task<Stream> Send(string xml)
+    public Stream WriteStream { get; } = new MemoryStream();
+    public Stream ReadStream { get; } = new MemoryStream();
+
+    public async Task Send()
     {
-        using var input = new MemoryStream(Encoding.UTF8.GetBytes(xml));
-        var output = new MemoryStream();
-        await server.Receive(input, output);
-        output.Seek(0, SeekOrigin.Begin);
-        return output;
+        (LastReadIndex, WriteStream.Position) = (WriteStream.Position, LastReadIndex);
+        LastSentIndex = ReadStream.Position;
+        await server.Receive(WriteStream, ReadStream);
+        ReadStream.Position = LastSentIndex;
+        (LastReadIndex, WriteStream.Position) = (WriteStream.Position, LastReadIndex);
+    }
+
+    private long LastSentIndex;
+    private long LastReadIndex;
+
+    public void Dispose()
+    {
+        WriteStream.Dispose();
+        ReadStream.Dispose();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await WriteStream.DisposeAsync();
+        await ReadStream.DisposeAsync();
     }
 }
 
 internal static class Program
 {
-    private static void Main(string[] args)
+    private static void Main()
     {
-        var summary = BenchmarkRunner.Run<ParsingBenchmarks>();
+        BenchmarkRunner.Run<ParsingBenchmarks>();
     }
 }

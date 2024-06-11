@@ -7,15 +7,31 @@ namespace YangSourceTests;
 
 public class BfdIpMhTests(ITestOutputHelper output)
 {
-    private class VoidChannel : IChannel
+    private class VoidChannel : IChannel, IAsyncDisposable
     {
         public string? LastSent { get; private set; }
-        public Task<Stream> Send(string xml)
+        public Stream WriteStream { get; } = new MemoryStream();
+        public Stream ReadStream { get; } = new MemoryStream();
+
+        public Task Send()
         {
-            LastSent = xml;
-            return Task.FromResult(new MemoryStream() as Stream);
+            LastSent = Encoding.UTF8.GetString(((MemoryStream)WriteStream).GetBuffer());
+            return Task.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+            WriteStream.Dispose();
+            ReadStream.Dispose();
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await WriteStream.DisposeAsync();
+            await ReadStream.DisposeAsync();
         }
     }
+
     [Fact]
     public async Task NotificationSerializationTest()
     {

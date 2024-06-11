@@ -1,6 +1,8 @@
 namespace YangSupport;
 
-public interface IChannel
+public interface IChannel : IDisposable
 {
-    Task<Stream> Send(string xml);
+    Stream WriteStream { get; }
+    Stream ReadStream { get; }
+    Task Send();
 }

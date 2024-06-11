@@ -90,8 +90,7 @@ public class Rpc : Statement, IFunctionSource
             $"public static async {ReturnType} {MakeName(Argument)}(IChannel channel, int messageID{inputType})");
         builder.AppendLine($$"""
                              {
-                                 StringBuilder stringBuilder = new StringBuilder();
-                                 using XmlWriter writer = XmlWriter.Create(stringBuilder, SerializationHelper.GetStandardWriterSettings());
+                                 using XmlWriter writer = XmlWriter.Create(channel.WriteStream, SerializationHelper.GetStandardWriterSettings());
                                  await writer.WriteStartElementAsync(null,"rpc","urn:ietf:params:xml:ns:netconf:base:1.0");
                                  await writer.WriteAttributeStringAsync(null,"message-id",null,messageID.ToString());
                                  await writer.WriteStartElementAsync("{{Prefix}}","{{Argument}}","{{Namespace}}");
@@ -106,24 +105,22 @@ public class Rpc : Statement, IFunctionSource
                                await writer.WriteEndElementAsync();
                                await writer.WriteEndElementAsync();
                                await writer.FlushAsync();
-                               var response = await channel.Send(stringBuilder.ToString());
+                               await channel.Send();
                            """);
         builder.AppendLine(ReturnType != "Task"
             ? $$"""
-                    using XmlReader reader = XmlReader.Create(response,SerializationHelper.GetStandardReaderSettings());
+                    using XmlReader reader = XmlReader.Create(channel.ReadStream, SerializationHelper.GetStandardReaderSettings());
                     await reader.ReadAsync();
                     if(reader.NodeType != XmlNodeType.Element || reader.Name != "rpc-reply" || reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:base:1.0" || reader["message-id"] != messageID.ToString())
                     {
                         throw new Exception($"Expected stream to start with a <rpc-reply> element with message id {messageID} & \"urn:ietf:params:xml:ns:netconf:base:1.0\" but got {reader.NodeType}: {reader.Name} in {reader.NamespaceURI}");
                     }
                 	var value = await {{OutputType}}.ParseAsync(reader);
-                    response.Dispose();
                     return value;
                 """
             : """
-                  using XmlReader reader = XmlReader.Create(response,SerializationHelper.GetStandardReaderSettings());
+                  using XmlReader reader = XmlReader.Create(channel.ReadStream,SerializationHelper.GetStandardReaderSettings());
                   await SerializationHelper.ExpectOkRpcReply(reader, messageID);
-                  response.Dispose();
               """);
 
         builder.AppendLine("}");

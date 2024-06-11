@@ -102,20 +102,18 @@ public class Action : NodeDataStatement, IXMLParseable
             ;
         var returnFunction = Outgoing is not null
             ? $$"""
-                using XmlReader reader = XmlReader.Create(response,SerializationHelper.GetStandardReaderSettings());
+                using XmlReader reader = XmlReader.Create(channel.ReadStream, SerializationHelper.GetStandardReaderSettings());
                 await reader.ReadAsync();
                 if(reader.NodeType != XmlNodeType.Element || reader.Name != "rpc-reply" || reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:base:1.0" || reader["message-id"] != messageID.ToString())
                 {
                     throw new Exception($"Expected stream to start with a <rpc-reply> element with message id {messageID} & \"urn:ietf:params:xml:ns:netconf:base:1.0\" but got {reader.NodeType}: {reader.Name} in {reader.NamespaceURI}");
                 }
                 var value = await {{OutputType}}.ParseAsync(reader);
-                response.Dispose();
                 return value;
                 """
             : """
-              using XmlReader reader = XmlReader.Create(response,SerializationHelper.GetStandardReaderSettings());
+              using XmlReader reader = XmlReader.Create(channel.ReadStream, SerializationHelper.GetStandardReaderSettings());
               await SerializationHelper.ExpectOkRpcReply(reader, messageID);
-              response.Dispose();
               """;
         var call = $$"""
                      public async {{ReturnType}} {{MakeName(Argument)}}(IChannel channel, int messageID, {{QualifiedRootName}} root{{inputType}})
@@ -124,8 +122,7 @@ public class Action : NodeDataStatement, IXMLParseable
                          {
                              {{inputCall}}
                          };
-                         StringBuilder stringBuilder = new StringBuilder();
-                         using XmlWriter writer = XmlWriter.Create(stringBuilder, SerializationHelper.GetStandardWriterSettings());
+                         using XmlWriter writer = XmlWriter.Create(channel.WriteStream, SerializationHelper.GetStandardWriterSettings());
                          await writer.WriteStartElementAsync(null,"rpc","urn:ietf:params:xml:ns:netconf:base:1.0");
                          await writer.WriteAttributeStringAsync(null,"message-id",null,messageID.ToString());
                          await writer.WriteStartElementAsync(null,"action","urn:ietf:params:xml:ns:yang:1");
@@ -134,7 +131,7 @@ public class Action : NodeDataStatement, IXMLParseable
                          await writer.WriteEndElementAsync();
                          await writer.FlushAsync();
                          {{TargetName}} = null;
-                         var response = await channel.Send(stringBuilder.ToString());
+                         await channel.Send();
                          {{Indent(returnFunction)}}
                      }
                      """;
