@@ -194,4 +194,56 @@ public class RpcTests(ITestOutputHelper outputHelper)
         outputHelper.WriteLine(channel.LastWritten);
         Assert.Contains("rpc-error", channel.LastWritten);
     }
+
+    [Fact]
+    public async Task ExceptionThrowingTest()
+    {
+        var channel = new TestChannel
+        {
+            MessageID = Random.Shared.Next()
+        };
+        try
+        {
+            var result = await Ietf.Subscribed.Notifications.YangNode.EstablishSubscription(channel, channel.MessageID,
+                new Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput
+                {
+                    Target = new Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput.TargetChoice
+                    {
+                        StreamCaseValue =
+                            new Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput.TargetChoice.
+                                StreamCaseValueCase
+                                {
+                                    StreamFilter =
+                                        new Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput.
+                                            TargetChoice.StreamCaseValueCase.StreamFilterChoice
+                                            {
+                                                ByReferenceCaseValue =
+                                                    new Ietf.Subscribed.Notifications.YangNode.
+                                                        EstablishSubscriptionInput.TargetChoice.StreamCaseValueCase.
+                                                        StreamFilterChoice.ByReferenceCaseValueCase()
+                                                        {
+                                                            StreamFilterName =
+                                                                new Ietf.Subscribed.Notifications.YangNode.
+                                                                    StreamFilterRef()
+                                                        }
+                                            }
+                                }
+                    }
+                });
+        }
+        catch (RpcException e)
+        {
+            outputHelper.WriteLine(e.Message);
+            Assert.True(true);
+            return;
+        }
+        catch (Exception e)
+        {
+            outputHelper.WriteLine(channel.LastXML);
+            outputHelper.WriteLine("_____________________________________");
+            outputHelper.WriteLine(channel.LastWritten);
+            throw;
+        }
+        Assert.Fail();
+    }
 }

@@ -96,6 +96,7 @@ public class CompilationUnit : Statement, IXMLParseable
                     public static async Task Receive(this IYangServer server, global::System.IO.Stream input, global::System.IO.Stream output)
                     {
                         var initialPosition = output.Position;
+                        var initialLength = output.Length;
                         string? id = null;
                         using XmlReader reader = XmlReader.Create(input, SerializationHelper.GetStandardReaderSettings());
                         using XmlWriter writer = XmlWriter.Create(output, SerializationHelper.GetStandardWriterSettings());
@@ -150,91 +151,97 @@ public class CompilationUnit : Statement, IXMLParseable
                         }
                         catch(RpcException ex)
                         {
+                            await writer.FlushAsync();
                             output.Position = initialPosition;
-                            await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            output.SetLength(initialLength);
+                            using var exceptionWriter = XmlWriter.Create(output, SerializationHelper.GetStandardWriterSettings()); 
+                            await exceptionWriter.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
                             if(id != null)
                             {
-                                await writer.WriteAttributeStringAsync(null, "message-id", null, id);
+                                await exceptionWriter.WriteAttributeStringAsync(null, "message-id", null, id);
                             }
-                            await writer.WriteStartElementAsync(null, "rpc-error", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                            await writer.WriteStartElementAsync(null, "error-type", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                            await writer.WriteStringAsync(ex.Type switch {
+                            await exceptionWriter.WriteStartElementAsync(null, "rpc-error", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await exceptionWriter.WriteStartElementAsync(null, "error-type", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await exceptionWriter.WriteStringAsync(ex.Type switch {
                                 ErrorType.Transport => "transport",
                                 ErrorType.Rpc => "rpc",
                                 ErrorType.Protocol => "protocol",
                                 ErrorType.Application => "application"
                             });
-                            await writer.WriteEndElementAsync();
-                            await writer.WriteStartElementAsync(null, "error-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                            await writer.WriteStringAsync(ex.Tag);
-                            await writer.WriteEndElementAsync();
-                            await writer.WriteStartElementAsync(null, "error-severity", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                            await writer.WriteStringAsync(ex.Severity switch {
+                            await exceptionWriter.WriteEndElementAsync();
+                            await exceptionWriter.WriteStartElementAsync(null, "error-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await exceptionWriter.WriteStringAsync(ex.Tag);
+                            await exceptionWriter.WriteEndElementAsync();
+                            await exceptionWriter.WriteStartElementAsync(null, "error-severity", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await exceptionWriter.WriteStringAsync(ex.Severity switch {
                                 Severity.Error => "error",
                                 Severity.Warning => "warning"
                             });
-                            await writer.WriteEndElementAsync();
+                            await exceptionWriter.WriteEndElementAsync();
                             if(ex.ApplicationTag != null)
                             {
-                                await writer.WriteStartElementAsync(null, "error-app-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                                await writer.WriteStringAsync(ex.ApplicationTag);
-                                await writer.WriteEndElementAsync();
+                                await exceptionWriter.WriteStartElementAsync(null, "error-app-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                await exceptionWriter.WriteStringAsync(ex.ApplicationTag);
+                                await exceptionWriter.WriteEndElementAsync();
                             }
                             if(ex.XPath != null)
                             {
-                                await writer.WriteStartElementAsync(null, "error-path", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                                await writer.WriteStringAsync(ex.XPath);
-                                await writer.WriteEndElementAsync();
+                                await exceptionWriter.WriteStartElementAsync(null, "error-path", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                await exceptionWriter.WriteStringAsync(ex.XPath);
+                                await exceptionWriter.WriteEndElementAsync();
                             }
                             if(ex.Message != null)
                             {
-                                await writer.WriteStartElementAsync(null, "error-message", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                                await writer.WriteStringAsync(ex.Message);
-                                await writer.WriteEndElementAsync();
+                                await exceptionWriter.WriteStartElementAsync(null, "error-message", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                await exceptionWriter.WriteStringAsync(ex.Message);
+                                await exceptionWriter.WriteEndElementAsync();
                             }
                             if(ex.Info != null)
                             {
-                                await writer.WriteStartElementAsync(null, "error-info", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                await exceptionWriter.WriteStartElementAsync(null, "error-info", "urn:ietf:params:xml:ns:netconf:base:1.0");
                                 foreach(var info in ex.Info)
                                 {
-                                    await writer.WriteStartElementAsync(null, info.Key, "urn:ietf:params:xml:ns:netconf:base:1.0");
-                                    await writer.WriteStringAsync(info.Value);
-                                    await writer.WriteEndElementAsync();
+                                    await exceptionWriter.WriteStartElementAsync(null, info.Key, "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                    await exceptionWriter.WriteStringAsync(info.Value);
+                                    await exceptionWriter.WriteEndElementAsync();
                                 }
-                                await writer.WriteEndElementAsync();
+                                await exceptionWriter.WriteEndElementAsync();
                             }
-                            await writer.WriteEndElementAsync();
-                            await writer.WriteEndElementAsync();
+                            await exceptionWriter.WriteEndElementAsync();
+                            await exceptionWriter.WriteEndElementAsync();
                         }
                         catch(Exception ex)
                         {
+                            await writer.FlushAsync();
                             output.Position = initialPosition;
-                            await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            output.SetLength(initialLength);
+                            using var exceptionWriter = XmlWriter.Create(output, SerializationHelper.GetStandardWriterSettings()); 
+                            await exceptionWriter.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
                             if(id != null)
                             {
-                                await writer.WriteAttributeStringAsync(null, "message-id", null, id);
+                                await exceptionWriter.WriteAttributeStringAsync(null, "message-id", null, id);
                             }
-                            await writer.WriteStartElementAsync(null, "rpc-error", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                            await writer.WriteStartElementAsync(null, "error-type", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                            await writer.WriteStringAsync("application");
-                            await writer.WriteEndElementAsync();
-                            await writer.WriteStartElementAsync(null, "error-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                            await writer.WriteStringAsync("unknown");
-                            await writer.WriteEndElementAsync();
-                            await writer.WriteStartElementAsync(null, "error-severity", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                            await writer.WriteStringAsync("error");
-                            await writer.WriteEndElementAsync();
-                            await writer.WriteStartElementAsync(null, "error-app-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                            await writer.WriteStringAsync(ex.GetType().Name);
-                            await writer.WriteEndElementAsync();
+                            await exceptionWriter.WriteStartElementAsync(null, "rpc-error", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await exceptionWriter.WriteStartElementAsync(null, "error-type", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await exceptionWriter.WriteStringAsync("application");
+                            await exceptionWriter.WriteEndElementAsync();
+                            await exceptionWriter.WriteStartElementAsync(null, "error-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await exceptionWriter.WriteStringAsync("unknown");
+                            await exceptionWriter.WriteEndElementAsync();
+                            await exceptionWriter.WriteStartElementAsync(null, "error-severity", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await exceptionWriter.WriteStringAsync("error");
+                            await exceptionWriter.WriteEndElementAsync();
+                            await exceptionWriter.WriteStartElementAsync(null, "error-app-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                            await exceptionWriter.WriteStringAsync(ex.GetType().Name);
+                            await exceptionWriter.WriteEndElementAsync();
                             if(ex.Message != null)
                             {
-                                await writer.WriteStartElementAsync(null, "error-message", "urn:ietf:params:xml:ns:netconf:base:1.0");
-                                await writer.WriteStringAsync(ex.Message);
-                                await writer.WriteEndElementAsync();
+                                await exceptionWriter.WriteStartElementAsync(null, "error-message", "urn:ietf:params:xml:ns:netconf:base:1.0");
+                                await exceptionWriter.WriteStringAsync(ex.Message);
+                                await exceptionWriter.WriteEndElementAsync();
                             }
-                            await writer.WriteEndElementAsync();
-                            await writer.WriteEndElementAsync();
+                            await exceptionWriter.WriteEndElementAsync();
+                            await exceptionWriter.WriteEndElementAsync();
                         }
                     }
                     public static async Task ReceiveRPC(this IYangServer server, XmlReader reader, XmlWriter writer)

@@ -51,7 +51,10 @@ public class Case : Statement, IClassSource, IXMLParseable
     public string TargetName => MakeName(Argument) + "CaseValue";
 
     public IEnumerable<string> SubTargets =>
-        Children.Where(c => c is IXMLParseable or IXMLReadValue).Select(c => c.XmlObjectName).Distinct();
+        Children
+            .Where(c => c is (IXMLParseable or IXMLReadValue) and not Choice)
+            .Select(c => c.XmlObjectName)
+            .Concat(Children.OfType<Choice>().SelectMany(ch => ch.SubTargets)).Distinct();
 
     public string ClassName => TargetName + "Case";
 }
