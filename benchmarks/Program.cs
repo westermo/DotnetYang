@@ -152,7 +152,7 @@ public class ParsingBenchmarks
     [Benchmark]
     public async Task<string> SerializerMultihopNotification()
     {
-        var tmp = new VoidChannel();
+        await using var tmp = new VoidChannel();
         await notification.Send(tmp);
         return tmp.LastSent!;
     }
