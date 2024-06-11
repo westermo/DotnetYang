@@ -6,11 +6,13 @@
         <Nullable>enable</Nullable>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <IncludeBuildOutput>false</IncludeBuildOutput>
-<!--        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>-->
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.Common"/>
+    </ItemGroup>
+    <ItemGroup>
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
     </ItemGroup>
 
     <ItemGroup>
