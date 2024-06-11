@@ -80,7 +80,7 @@ public class CompilationUnit : Statement, IXMLParseable
         return $$"""
                  using System;
                  using System.Xml;
-                 using Yang.Attributes;
+                 using YangSupport;
                  namespace {{MyNamespace}};
                  ///<summary>
                  ///Configuration root object for {{MyNamespace}} based on provided .yang modules

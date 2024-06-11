@@ -2,7 +2,7 @@
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using Ietf.Inet.Types;
-using Yang.Attributes;
+using YangSupport;
 using YangParser;
 using YangParser.Parser;
 using YangParser.SemanticModel;

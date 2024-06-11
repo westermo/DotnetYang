@@ -1,7 +1,7 @@
 using System.Text;
 using Ietf.Inet.Types;
 using Xunit.Abstractions;
-using Yang.Attributes;
+using YangSupport;
 
 namespace YangSourceTests;
 

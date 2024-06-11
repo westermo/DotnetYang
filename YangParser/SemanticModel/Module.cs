@@ -81,7 +81,7 @@ public class Module : TopLevelStatement, IXMLParseable
                     using System.Runtime.CompilerServices;
                     using System.Xml.Linq;
                     using System.Text.RegularExpressions;
-                    using Yang.Attributes;
+                    using YangSupport;
                     {{interfaceDefinition}}
                     namespace {{ns}}{
                     {{DescriptionString}}{{AttributeString}}
