@@ -4,7 +4,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{7DF11EFE
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Generator", "Generator", "{40A1D392-CFC1-403E-A593-5A0E012182AF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Compiler.Tests", "Compiler.Tests\Compiler.Tests.csproj", "{E35D4026-B610-4BDF-9DFE-497FDD49EACD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dotnetYang.Tests", "dotnetYang.Tests\dotnetYang.Tests.csproj", "{E35D4026-B610-4BDF-9DFE-497FDD49EACD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dotnetYang", "dotnetYang\dotnetYang.csproj", "{AD7EC36C-091F-4C68-BBB0-2E9CD5CAA7C1}"
 EndProject
