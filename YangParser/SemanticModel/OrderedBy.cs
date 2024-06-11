@@ -1,15 +1,16 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
 public class OrderedBy : Statement
 {
-    public OrderedBy(YangStatement statement)
+    public OrderedBy(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
-        Argument = statement.Argument!.ToString();
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
+
         ValidateChildren(statement);
         switch (Argument)
         {
@@ -22,4 +23,10 @@ public class OrderedBy : Statement
     }
 
     public const string Keyword = "ordered-by";
+
+    public override string ToCode()
+    {
+        Parent?.Attributes.Add($"OrderedBy(\"{Argument}\")");
+        return string.Empty;
+    }
 }

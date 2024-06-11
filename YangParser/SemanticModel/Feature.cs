@@ -1,17 +1,15 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
 public class Feature : Statement
 {
-    public Feature(YangStatement statement)
+    public Feature(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
     }
 
     public override ChildRule[] PermittedChildren { get; } =
@@ -23,4 +21,9 @@ public class Feature : Statement
     ];
 
     public const string Keyword = "feature";
+
+    public override string ToCode()
+    {
+        return string.Empty;
+    }
 }

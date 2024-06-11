@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
@@ -50,13 +51,10 @@ namespace YangParser.SemanticModel;
 /// </summary>
 public class Pattern : Statement
 {
-    public Pattern(YangStatement statement)
+    public Pattern(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
     }
 
     public const string Keyword = "pattern";
@@ -66,6 +64,52 @@ public class Pattern : Statement
         new ChildRule(Description.Keyword),
         new ChildRule(ErrorAppTag.Keyword),
         new ChildRule(ErrorMessage.Keyword),
+        new ChildRule(Modifier.Keyword),
         new ChildRule(Reference.Keyword)
     ];
+
+    public string GetConstructorValidation()
+    {
+        var hasError = this.TryGetChild<ErrorMessage>(out var errorMessage);
+        var hasTag = this.TryGetChild<ErrorAppTag>(out var appTag);
+        var invert = Children.FirstOrDefault(c => c is Modifier)?.Argument == "invert-match";
+        var message = hasTag || hasError
+            ? $"\"{SingleLine(appTag?.Argument ?? "No tag")}: {SingleLine(errorMessage?.Argument ?? string.Empty)}\""
+            : invert
+                ? $"$\"string \\\"{{input}}\\\" matches pattern \" + @\"{SingleLine(Argument, "")} but is not allowed to\""
+                : $"$\"string \\\"{{input}}\\\" does not match pattern \" + @\"{SingleLine(Argument, "")}\"";
+        return invert
+            ? $"if(Pattern.Match(input).Success) throw new ArgumentException({message});"
+            : $"if(!Pattern.Match(input).Success) throw new ArgumentException({message});";
+    }
+
+    public string GetDeclaration()
+    {
+        foreach (var child in Children)
+        {
+            child.ToCode();
+        }
+
+        return $"""
+                {DescriptionString}{AttributeString}
+                private static Regex Pattern = new Regex(@"{SingleLine(Argument, "")}");
+                """;
+    }
+}
+
+public class Modifier : Statement
+{
+    public Modifier(YangStatement statement) : base(statement)
+    {
+        if (statement.Keyword != Keyword)
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
+
+        ValidateChildren(statement);
+        if (Argument != "invert-match")
+        {
+            throw new SemanticError($"Invalid argument for '{statement.Keyword}', expected 'invert-match'", statement);
+        }
+    }
+
+    public const string Keyword = "modifier";
 }

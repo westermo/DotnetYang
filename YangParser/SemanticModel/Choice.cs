@@ -1,25 +1,25 @@
-using System;
+using System.Collections.Generic;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Choice : Statement
+public class Choice : Statement, IClassSource, IXMLParseable
 {
-    public Choice(YangStatement statement)
+    public Choice(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
     }
 
     public const string Keyword = "choice";
+
     public override ChildRule[] PermittedChildren { get; } =
     [
+        new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(AnyXml.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Case.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(StateData.Keyword),
+        new ChildRule(Config.Keyword),
         new ChildRule(Container.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(DefaultValue.Keyword),
         new ChildRule(Description.Keyword),
@@ -32,4 +32,32 @@ public class Choice : Statement
         new ChildRule(Status.Keyword),
         new ChildRule(When.Keyword, Cardinality.ZeroOrMore)
     ];
+
+    public List<string> Comments { get; } = new();
+
+    public override string ToCode()
+    {
+        var nodes = Children.Where(t => t is not DefaultValue).Select(child => child.ToCode()).ToArray();
+        string property = $"public{KeywordString}{MakeName(Argument)}Choice? {MakeName(Argument)} {{ get; set; }}";
+
+        return $$"""
+                 {{property}}
+                 {{DescriptionString}}{{AttributeString}}
+                 public class {{TargetName}}Choice
+                 {
+                     {{string.Join("\n\t", nodes.Select(Indent))}}
+                     {{Indent(WriteFunctionInvisibleSelf())}}
+                     {{Indent(ReadFunctionWithInvisibleSelf())}}
+                 }
+                 """;
+    }
+
+    public string TargetName => MakeName(Argument);
+    public string ClassName => TargetName + "Choice";
+
+    private IEnumerable<IStatement> directChildren =>
+        Children.Where(c => c is (IXMLParseable or IXMLReadValue) and not Case);
+
+    public IEnumerable<string> SubTargets => directChildren
+        .Select(c => c.XmlObjectName).Concat(Children.OfType<Case>().SelectMany(c => c.SubTargets)).Distinct();
 }

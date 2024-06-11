@@ -1,19 +1,21 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
 public class YangVersion : Statement
 {
-    public YangVersion(YangStatement statement)
+    public YangVersion(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
-        Value = new Version(Argument);
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
     }
+
     public const string Keyword = "yang-version";
-    public Version Value {get;}
+
+    public override string ToCode()
+    {
+        return $"//Yang Version {Argument}";
+    }
 }

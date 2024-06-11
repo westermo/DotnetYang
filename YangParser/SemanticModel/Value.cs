@@ -1,15 +1,15 @@
 using System;
-using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
 public class Value : Statement
 {
-    public Value(YangStatement statement)
+    public Value(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
-        Argument = statement.Argument!.ToString();
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
+        
         ValidateChildren(statement);
         Integer = int.Parse(Argument);
     }

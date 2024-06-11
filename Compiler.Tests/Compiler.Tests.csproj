@@ -28,4 +28,8 @@
         <Content Include="lin.yang" CopyToOutputDirectory="Always"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <Content Include="ietf-inet-types@2013-07-15.yang" CopyToOutputDirectory="Always"/>
+    </ItemGroup>
+
 </Project>

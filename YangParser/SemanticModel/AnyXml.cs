@@ -1,21 +1,22 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
 public class AnyXml : Statement
 {
-    public AnyXml(YangStatement statement)
+    public AnyXml(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
-        Argument = statement.Argument!.ToString();
-        ValidateChildren(statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
     }
+
     public const string Keyword = "anyxml";
-    public override ChildRule[] PermittedChildren { get; } = [
-        new ChildRule(StateData.Keyword),
+
+    public override ChildRule[] PermittedChildren { get; } =
+    [
+        new ChildRule(Config.Keyword),
         new ChildRule(Description.Keyword),
         new ChildRule(FeatureFlag.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Mandatory.Keyword),
@@ -24,4 +25,26 @@ public class AnyXml : Statement
         new ChildRule(Status.Keyword),
         new ChildRule(When.Keyword)
     ];
+
+    public override string ToCode()
+    {
+        return $"public string? {TargetName} {{ get; set; }}";
+    }
+
+    public string TargetName => MakeName(Argument);
+
+    public string WriteCall
+    {
+        get
+        {
+            return $$"""
+                     if({{TargetName}} != null)
+                     {
+                         await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                         await writer.WriteStringAsync({{TargetName}});
+                         await writer.WriteEndElementAsync();
+                     }
+                     """;
+        }
+    }
 }

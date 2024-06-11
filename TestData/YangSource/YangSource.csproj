@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\YangParser\YangParser.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+        <ProjectReference Include="..\..\YangSupport\YangSupport.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="iana/*.yang" />
+        <AdditionalFiles Include="ietf/*.yang" />
+        <AdditionalFiles Include="IEEE/published/802/*.yang" />
+        <AdditionalFiles Include="IEEE/published/802.1/*.yang" />
+        <AdditionalFiles Include="IEEE/published/802.3/*.yang" />
+        <AdditionalFiles Include="IEEE/published/802.11/*.yang" />
+        <AdditionalFiles Include="IEEE/published/1588/*.yang" />
+        <AdditionalFiles Include="IEEE/published/1906.1/*.yang" />
+    </ItemGroup>
+
+</Project>

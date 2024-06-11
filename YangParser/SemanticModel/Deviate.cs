@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
@@ -45,11 +46,11 @@ namespace YangParser.SemanticModel;
 /// </summary>
 public class Deviate : Statement
 {
-    public Deviate(YangStatement statement)
+    public Deviate(YangStatement statement) : base(statement)
     {
         if (statement.Keyword != Keyword)
-            throw new InvalidOperationException($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}");
-        Argument = statement.Argument!.ToString();
+            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
+        
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
         switch (Argument)
         {
@@ -67,7 +68,7 @@ public class Deviate : Statement
 
     public override ChildRule[] PermittedChildren { get; } =
     [
-        new ChildRule(StateData.Keyword),
+        new ChildRule(Config.Keyword),
         new ChildRule(DefaultValue.Keyword),
         new ChildRule(Mandatory.Keyword),
         new ChildRule(MaxElements.Keyword),

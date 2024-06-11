@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
@@ -6,6 +8,11 @@ public static class StatementFactory
 {
     public static IStatement Create(YangStatement source)
     {
+        if (!string.IsNullOrWhiteSpace(source.Prefix))
+        {
+            return new ExtensionReference(source);
+        }
+
         return source.Keyword switch
         {
             Module.Keyword => new Module(source),
@@ -38,7 +45,7 @@ public static class StatementFactory
             Status.Keyword => new Status(source),
             DefaultValue.Keyword => new DefaultValue(source),
             Mandatory.Keyword => new Mandatory(source),
-            StateData.Keyword => new StateData(source),
+            Config.Keyword => new Config(source),
             Reference.Keyword => new Reference(source),
             Units.Keyword => new Units(source),
             Must.Keyword => new Must(source),
@@ -59,6 +66,21 @@ public static class StatementFactory
             Input.Keyword => new Input(source),
             Output.Keyword => new Output(source),
             Presence.Keyword => new Presence(source),
+            YangVersion.Keyword => new YangVersion(source),
+            Base.Keyword => new Base(source),
+            Feature.Keyword => new Feature(source),
+            FractionDigits.Keyword => new FractionDigits(source),
+            Range.Keyword => new Range(source),
+            Argument.Keyword => new Argument(source),
+            YinElement.Keyword => new YinElement(source),
+            Position.Keyword => new Position(source),
+            ErrorMessage.Keyword => new ErrorMessage(source),
+            Submodule.Keyword => new Submodule(source),
+            Refine.Keyword => new Refine(source),
+            RevisionDate.Keyword => new RevisionDate(source),
+            AnyData.Keyword => new AnyData(source),
+            Modifier.Keyword => new Modifier(source),
+            BelongsTo.Keyword => new BelongsTo(source),
             _ => throw new InvalidOperationException($"Unknown keyword {source.Keyword}")
         };
     }

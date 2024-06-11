@@ -1,0 +1,16 @@
+﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/SourceGeneratedFilesToSkip/=YangSource_005CYangParser_005CYangParser_002EGenerator_002EYangGenerator_005CYangModules_002Fieee1906_002Fieee1906_002Ddot1_002Dtypes_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/SourceGeneratedFilesToSkip/=YangSource_005CYangParser_005CYangParser_002EGenerator_002EYangGenerator_005CYangModules_002Fietf_002Fietf_002Drouting_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=3836f3bd_002D2764_002D422f_002Dbac9_002D9c591764bf25/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="IdentityTest" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;Or&gt;&#xD;
+    &lt;TestAncestor&gt;&#xD;
+      &lt;TestId&gt;xUnit::E35D4026-B610-4BDF-9DFE-497FDD49EACD::net8.0::Compiler.Tests.ParsingTests.IdentityTest&lt;/TestId&gt;&#xD;
+      &lt;TestId&gt;xUnit::D7772430-87F7-4707-8BC1-4F5C601C4AD3::net8.0::YangSourceTests.IetfInterfacesTests.AugmentedSerializationTest&lt;/TestId&gt;&#xD;
+    &lt;/TestAncestor&gt;&#xD;
+    &lt;Project Location="C:\Projects\yang\yang-compiler\YangSourceTests" Presentation="&amp;lt;Tests&amp;gt;\&amp;lt;TestData&amp;gt;\&amp;lt;YangSourceTests&amp;gt;" /&gt;&#xD;
+  &lt;/Or&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	
+
+ <s:Int64 x:Key="/Default/PerformanceThreshold/AnalysisFileSizeThreshold/=CSHARP/@EntryIndexedValue">3000000</s:Int64>
+</wpf:ResourceDictionary>
