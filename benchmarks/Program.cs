@@ -11,6 +11,7 @@ namespace Benchmarks;
 
 [JsonExporterAttribute.Full]
 [JsonExporterAttribute.FullCompressed]
+[MemoryDiagnoser]
 public class ParsingBenchmarks
 {
     private string source = null!;
