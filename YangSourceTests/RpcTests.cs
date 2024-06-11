@@ -237,7 +237,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
             Assert.True(true);
             return;
         }
-        catch (Exception e)
+        catch (Exception)
         {
             outputHelper.WriteLine(channel.LastXML);
             outputHelper.WriteLine("_____________________________________");
