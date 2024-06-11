@@ -37,6 +37,7 @@ jobs:
         run: dotnet test yang-compiler.sln --no-build --no-restore
         
   pack-test:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
 
     steps:
