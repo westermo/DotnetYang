@@ -135,4 +135,75 @@ public class RpcException(
 
         throw new Exception("Couldn't parse RPC error");
     }
+
+    public async Task SerializeAsync(Stream output, string? id)
+    {
+        using var writer = XmlWriter.Create(output, SerializationHelper.GetStandardWriterSettings());
+        await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
+        if (id != null)
+        {
+            await writer.WriteAttributeStringAsync(null, "message-id", null, id);
+        }
+
+        await writer.WriteStartElementAsync(null, "rpc-error", "urn:ietf:params:xml:ns:netconf:base:1.0");
+        await writer.WriteStartElementAsync(null, "error-type", "urn:ietf:params:xml:ns:netconf:base:1.0");
+        await writer.WriteStringAsync(Type switch
+        {
+            ErrorType.Transport => "transport",
+            ErrorType.Rpc => "rpc",
+            ErrorType.Protocol => "protocol",
+            ErrorType.Application => "application",
+            _ => "unknown"
+        });
+        await writer.WriteEndElementAsync();
+        await writer.WriteStartElementAsync(null, "error-tag", "urn:ietf:params:xml:ns:netconf:base:1.0");
+        await writer.WriteStringAsync(Tag);
+        await writer.WriteEndElementAsync();
+        await writer.WriteStartElementAsync(null, "error-severity", "urn:ietf:params:xml:ns:netconf:base:1.0");
+        await writer.WriteStringAsync(Severity switch
+        {
+            Severity.Error => "error",
+            Severity.Warning => "warning",
+            _ => "unknown"
+        });
+        await writer.WriteEndElementAsync();
+        if (ApplicationTag != null)
+        {
+            await writer.WriteStartElementAsync(null, "error-app-tag",
+                "urn:ietf:params:xml:ns:netconf:base:1.0");
+            await writer.WriteStringAsync(ApplicationTag);
+            await writer.WriteEndElementAsync();
+        }
+
+        if (XPath != null)
+        {
+            await writer.WriteStartElementAsync(null, "error-path", "urn:ietf:params:xml:ns:netconf:base:1.0");
+            await writer.WriteStringAsync(XPath);
+            await writer.WriteEndElementAsync();
+        }
+
+        if (Message != null)
+        {
+            await writer.WriteStartElementAsync(null, "error-message",
+                "urn:ietf:params:xml:ns:netconf:base:1.0");
+            await writer.WriteStringAsync(Message);
+            await writer.WriteEndElementAsync();
+        }
+
+        if (Info != null)
+        {
+            await writer.WriteStartElementAsync(null, "error-info", "urn:ietf:params:xml:ns:netconf:base:1.0");
+            foreach (var info in Info)
+            {
+                await writer.WriteStartElementAsync(null, info.Key, "urn:ietf:params:xml:ns:netconf:base:1.0");
+                await writer.WriteStringAsync(info.Value);
+                await writer.WriteEndElementAsync();
+            }
+
+            await writer.WriteEndElementAsync();
+        }
+
+        await writer.WriteEndElementAsync();
+        await writer.WriteEndElementAsync();
+    }
 }
