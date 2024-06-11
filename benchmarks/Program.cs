@@ -126,7 +126,7 @@ public class ParsingBenchmarks
         };
         var tmp = new VoidChannel();
         notification.Send(tmp).Wait();
-        serialized = tmp.LastSent!;
+        serialized = tmp.LastSent!.Replace("\0","");
         server = new ExampleYangServer();
         channel = new BenchmarkingChannel(server);
     }
