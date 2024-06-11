@@ -13,7 +13,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\TestData\YangSource\YangSource.csproj" />
-      <ProjectReference Include="..\YangParser\YangParser.csproj" />
+      <ProjectReference Include="..\dotnetYang\dotnetYang.csproj" />
     </ItemGroup>
 
     <ItemGroup>
