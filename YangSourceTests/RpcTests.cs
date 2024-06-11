@@ -11,8 +11,8 @@ public class RpcTests(ITestOutputHelper outputHelper)
 {
     private class TestChannel : IChannel, IAsyncDisposable
     {
-        public string? LastXML => Encoding.UTF8.GetString(((MemoryStream)WriteStream).GetBuffer()).Replace("\0","");
-        public string? LastWritten => Encoding.UTF8.GetString(((MemoryStream)ReadStream).GetBuffer()).Replace("\0","");
+        public string? LastXML => Encoding.UTF8.GetString(((MemoryStream)WriteStream).GetBuffer()).Replace("\0", "");
+        public string? LastWritten => Encoding.UTF8.GetString(((MemoryStream)ReadStream).GetBuffer()).Replace("\0", "");
         private ExampleYangServer server = new();
 
         public async Task Send()
@@ -46,8 +46,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
     public async Task RpcSend()
     {
         await using var channel = new TestChannel();
-        var id = Random.Shared.Next();
-        var reply = await Ietf.Connection.Oriented.Oam.YangNode.Traceroute(channel, id,
+        var reply = await Ietf.Connection.Oriented.Oam.YangNode.Traceroute(channel, 1,
             new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput
             {
                 MaNameStringValue = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.MaNameString(),
@@ -75,12 +74,35 @@ public class RpcTests(ITestOutputHelper outputHelper)
         using var ms = new MemoryStream();
         await using var writer = XmlWriter.Create(ms, SerializationHelper.GetStandardWriterSettings());
         await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0");
-        await writer.WriteAttributeStringAsync(null, "message-id", null, id.ToString());
+        await writer.WriteAttributeStringAsync(null, "message-id", null, 1.ToString());
         await reply.WriteXMLAsync(writer);
         await writer.WriteEndElementAsync();
         await writer.FlushAsync();
         var replyString = Encoding.UTF8.GetString(ms.GetBuffer());
         Assert.Equal(channel.LastWritten, replyString);
+
+        reply = await Ietf.Connection.Oriented.Oam.YangNode.Traceroute(channel, 2,
+            new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput
+            {
+                MaNameStringValue = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.MaNameString(),
+                MdNameStringValue = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.MdNameString(),
+                Ttl = 2,
+                Count = 4,
+                Interval = 6,
+                CosId = 2,
+                DestinationMep = new()
+                {
+                    MepAddress = new()
+                    {
+                        IpAddressCaseValue = new()
+                        {
+                            IpAddress = new(new YangNode.Ipv4Address("1.2.3.4"))
+                        }
+                    }
+                },
+                SourceMepValue = new(),
+                CommandSubType = Ietf.Connection.Oriented.Oam.YangNode.CommandSubTypeIdentity.Proactive
+            });
         // Assert.Equal(
         //     reply.Response![0].Mip!.MipAddress!.IpAddressCaseValue!.IpAddress!.Ipv4AddressValue!
         //         .WrittenValue,
@@ -135,7 +157,6 @@ public class RpcTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task ActionSend()
     {
-        
         await using var channel = new TestChannel();
         await root.AlarmList!.Alarm![0].SetOperatorState(channel, Random.Shared.Next(), root,
             new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput
@@ -152,7 +173,6 @@ public class RpcTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task NotificationSend()
     {
-        
         await using var channel = new TestChannel();
         await root.AlarmList!.Alarm![1].OperatorActionInstance!.Send(channel, root);
 
@@ -160,6 +180,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
         outputHelper.WriteLine("_____________________________________");
         outputHelper.WriteLine(channel.LastWritten);
     }
+
     [Fact]
     public async Task TopLevelNotificationSend()
     {
@@ -174,12 +195,12 @@ public class RpcTests(ITestOutputHelper outputHelper)
         outputHelper.WriteLine("_____________________________________");
         outputHelper.WriteLine(channel.LastWritten);
     }
+
     [Fact]
     public async Task ExceptionGeneratingTest()
     {
-        
         await using var channel = new TestChannel();
-        var notification = new Ietf.Alarms.YangNode.AlarmNotification 
+        var notification = new Ietf.Alarms.YangNode.AlarmNotification
         {
             Resource = "a",
             Time = "2015-01-23T12:23:34Z",
@@ -197,11 +218,11 @@ public class RpcTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task ExceptionThrowingTest()
     {
-        
         await using var channel = new TestChannel();
         try
         {
-            var result = await Ietf.Subscribed.Notifications.YangNode.EstablishSubscription(channel, Random.Shared.Next(),
+            var result = await Ietf.Subscribed.Notifications.YangNode.EstablishSubscription(channel,
+                Random.Shared.Next(),
                 new Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput
                 {
                     Target = new Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput.TargetChoice
@@ -241,6 +262,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
             outputHelper.WriteLine(channel.LastWritten);
             throw;
         }
+
         Assert.Fail();
     }
 }
