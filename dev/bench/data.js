@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718106982896,
+  "lastUpdate": 1718112640011,
   "repoUrl": "https://github.com/westermo/DotnetYang",
   "entries": {
     "Benchmark.Net Benchmark": [
@@ -2730,6 +2730,90 @@ window.BENCHMARK_DATA = {
             "value": 38775.69251302083,
             "unit": "ns",
             "range": "± 529.4934462528419"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "committer": {
+            "email": "carl.andersson@westermo.com",
+            "name": "caran",
+            "username": "carl-andersson-at-westermo"
+          },
+          "distinct": true,
+          "id": "b00f8bcc935d1a8b5d3ea83eeffc77aef390d364",
+          "message": "Memory",
+          "timestamp": "2024-06-11T15:25:27+02:00",
+          "tree_id": "7d6d4094c3952e8045a73f35f0f8b6e5ea5186e1",
+          "url": "https://github.com/westermo/DotnetYang/commit/b00f8bcc935d1a8b5d3ea83eeffc77aef390d364"
+        },
+        "date": 1718112638958,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmarks.ParsingBenchmarks.Parse",
+            "value": 92969.5876139323,
+            "unit": "ns",
+            "range": "± 1361.5371658237552"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.SemanticModel",
+            "value": 36349.43863619291,
+            "unit": "ns",
+            "range": "± 116.17358727435474"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.ToCode",
+            "value": 53299.143192836214,
+            "unit": "ns",
+            "range": "± 416.521462968063"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.MultihopNotificationCreation",
+            "value": 854.563808631897,
+            "unit": "ns",
+            "range": "± 0.783326489002288"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.SerializerMultihopNotification",
+            "value": 6759.545406595866,
+            "unit": "ns",
+            "range": "± 97.65761877744866"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.ToMemoryStream",
+            "value": 139.02678039073945,
+            "unit": "ns",
+            "range": "± 2.329326038387411"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.MultihopNotificationParsing",
+            "value": 10767.09887084961,
+            "unit": "ns",
+            "range": "± 92.13641974039628"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.TracerouteRoundTrip",
+            "value": 41973.9813079834,
+            "unit": "ns",
+            "range": "± 777.6019588676687"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.SetOperatorStateRoundTrip",
+            "value": 45098.32700020926,
+            "unit": "ns",
+            "range": "± 167.30811181065596"
+          },
+          {
+            "name": "Benchmarks.ParsingBenchmarks.NotificationRoundTrip",
+            "value": 22502.473292759485,
+            "unit": "ns",
+            "range": "± 241.43957837964265"
           }
         ]
       }
