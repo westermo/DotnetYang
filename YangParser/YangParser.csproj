@@ -5,6 +5,8 @@
         <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+<!--        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>-->
     </PropertyGroup>
 
     <ItemGroup>
