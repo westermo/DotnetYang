@@ -76,7 +76,7 @@ public class Program
           TheBigLeaf = 123
       };
       //Call the rpc function, note the slight name changes and the asynchronous nature of the call
-      Some.Module.YangNode.DoSomethingOutput output = await Some.Module.YangNode.DoSomething(channel, message, input);
+      Some.Module.YangNode.DoSomethingOutput output = await Some.Module.YangNode.DoSomething(channel, messageID, input);
       //Write the "response" leaf of the output to console.
       Console.WriteLine(output.Response);
   }
