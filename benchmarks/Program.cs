@@ -158,14 +158,6 @@ public class ParsingBenchmarks
     }
 
     [Benchmark]
-    public MemoryStream ToMemoryStream()
-    {
-        var ms = new MemoryStream(Encoding.UTF8.GetBytes(serialized));
-        ms.Dispose();
-        return ms;
-    }
-
-    [Benchmark]
     public async Task<Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification> MultihopNotificationParsing()
     {
         using var ms = new MemoryStream(Encoding.UTF8.GetBytes(serialized));
