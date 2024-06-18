@@ -385,7 +385,7 @@ public abstract class Statement : IStatement
         return (char.ToUpperInvariant(first) + rest);
     }
 
-    protected static string MakeNamespace(string argument)
+    public static string MakeNamespace(string argument)
     {
         var output = new StringBuilder(argument.Length);
         foreach (var section in argument.Split('-'))

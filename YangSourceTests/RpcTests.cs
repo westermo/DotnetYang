@@ -11,9 +11,9 @@ public class RpcTests(ITestOutputHelper outputHelper)
 {
     private class TestChannel : IChannel, IAsyncDisposable
     {
-        public string? LastXML => Encoding.UTF8.GetString(((MemoryStream)WriteStream).GetBuffer()).Replace("\0", "");
-        public string? LastWritten => Encoding.UTF8.GetString(((MemoryStream)ReadStream).GetBuffer()).Replace("\0", "");
-        private ExampleYangServer server = new();
+        public string LastXML => Encoding.UTF8.GetString(((MemoryStream)WriteStream).GetBuffer()).Replace("\0", "");
+        public string LastWritten => Encoding.UTF8.GetString(((MemoryStream)ReadStream).GetBuffer()).Replace("\0", "");
+        private readonly ExampleYangServer server = new();
 
         public async Task Send()
         {
@@ -24,8 +24,8 @@ public class RpcTests(ITestOutputHelper outputHelper)
             (LastReadIndex, WriteStream.Position) = (WriteStream.Position, LastReadIndex);
         }
 
-        private long LastSentIndex = 0;
-        private long LastReadIndex = 0;
+        private long LastSentIndex;
+        private long LastReadIndex;
         public Stream WriteStream { get; } = new MemoryStream();
         public Stream ReadStream { get; } = new MemoryStream();
 
@@ -49,8 +49,8 @@ public class RpcTests(ITestOutputHelper outputHelper)
         var reply = await Ietf.Connection.Oriented.Oam.YangNode.Traceroute(channel, 1,
             new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput
             {
-                MaNameStringValue = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.MaNameString(),
-                MdNameStringValue = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.MdNameString(),
+                MaNameString = "MA",
+                MdNameString = "MD",
                 Ttl = 2,
                 Count = 4,
                 Interval = 6,
@@ -65,7 +65,6 @@ public class RpcTests(ITestOutputHelper outputHelper)
                         }
                     }
                 },
-                SourceMepValue = new(),
                 CommandSubType = Ietf.Connection.Oriented.Oam.YangNode.CommandSubTypeIdentity.Proactive
             });
         outputHelper.WriteLine(channel.LastXML);
@@ -81,11 +80,11 @@ public class RpcTests(ITestOutputHelper outputHelper)
         var replyString = Encoding.UTF8.GetString(ms.GetBuffer());
         Assert.Equal(channel.LastWritten, replyString);
 
-        reply = await Ietf.Connection.Oriented.Oam.YangNode.Traceroute(channel, 2,
+        await Ietf.Connection.Oriented.Oam.YangNode.Traceroute(channel, 2,
             new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput
             {
-                MaNameStringValue = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.MaNameString(),
-                MdNameStringValue = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.MdNameString(),
+                MaNameString = "Ma",
+                MdNameString = "Md",
                 Ttl = 2,
                 Count = 4,
                 Interval = 6,
@@ -100,17 +99,9 @@ public class RpcTests(ITestOutputHelper outputHelper)
                         }
                     }
                 },
-                SourceMepValue = new(),
+                SourceMep = "Meppy",
                 CommandSubType = Ietf.Connection.Oriented.Oam.YangNode.CommandSubTypeIdentity.Proactive
             });
-        // Assert.Equal(
-        //     reply.Response![0].Mip!.MipAddress!.IpAddressCaseValue!.IpAddress!.Ipv4AddressValue!
-        //         .WrittenValue,
-        //     output.Response![0].Mip!.MipAddress!.IpAddressCaseValue!.IpAddress!.Ipv4AddressValue!
-        //         .WrittenValue);
-        // Assert.Equal(
-        //     reply.Response![1].Ttl,
-        //     output.Response![1].Ttl);
     }
 
     private static readonly Ietf.Alarms.YangNode.AlarmsContainer root = new()
@@ -221,7 +212,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
         await using var channel = new TestChannel();
         try
         {
-            var result = await Ietf.Subscribed.Notifications.YangNode.EstablishSubscription(channel,
+            await Ietf.Subscribed.Notifications.YangNode.EstablishSubscription(channel,
                 Random.Shared.Next(),
                 new Ietf.Subscribed.Notifications.YangNode.EstablishSubscriptionInput
                 {
@@ -240,9 +231,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
                                                         EstablishSubscriptionInput.TargetChoice.StreamCaseValueCase.
                                                         StreamFilterChoice.ByReferenceCaseValueCase()
                                                         {
-                                                            StreamFilterName =
-                                                                new Ietf.Subscribed.Notifications.YangNode.
-                                                                    StreamFilterRef()
+                                                            StreamFilterName = "FilteryMacFilter"
                                                         }
                                             }
                                 }

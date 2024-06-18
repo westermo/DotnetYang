@@ -47,7 +47,8 @@ public static class BuiltinTypeReference
 
     public static bool IsBuiltinKeyword(string keyword)
     {
-        return m_builtIns.Any(b => b.Name == keyword);
+        keyword.Prefix(out var name);
+        return m_builtIns.Any(b => b.Name == name);
     }
 
     public static string Stringification(Type type, string targetName)
@@ -82,14 +83,6 @@ public static class BuiltinTypeReference
                                   public static {{typeName}} Parse(string value)
                                   {
                                      return new {{typeName}}({{baseTypeName}}.Parse(value));
-                                  }
-                                  """;
-                break;
-            case "leafref":
-                parseFunction = $$"""
-                                  public static {{typeName}} Parse(string value)
-                                  {
-                                     return new {{typeName}}(new {{baseTypeName}}());
                                   }
                                   """;
                 break;
@@ -198,15 +191,6 @@ public static class BuiltinTypeReference
                     """;
         }
 
-        if (type.Argument == "leafref")
-        {
-            return $"""
-                    {GetText(argument)}
-                    {target} = new {typeName}();
-                    {EndElement(argument)}
-                    """;
-        }
-
         var baseType = type.GetBaseType(out var prefix, out var chosenType);
         switch (baseType)
         {
@@ -231,7 +215,7 @@ public static class BuiltinTypeReference
                     if (string.IsNullOrEmpty(prefix))
                     {
                         //Is local reference.
-                        return IsBuiltin(type, out _, out _)
+                        return IsBuiltinKeyword(type.Argument)
                             ? //Is direct subtype
                             $"""
                              {GetText(argument)}
@@ -274,7 +258,7 @@ public static class BuiltinTypeReference
     {
         if (typeName == "string")
         {
-            return $"return value;";
+            return "return value;";
         }
 
         var baseType = type.GetBaseType(out var prefix, out var chosen);
@@ -284,8 +268,6 @@ public static class BuiltinTypeReference
                 return $"return {typeName}.Parse(value);";
             case "empty":
                 return "if(string.IsNullOrWhiteSpace(value)) return new object();";
-            case "leafref":
-                return $"if(string.IsNullOrWhiteSpace(value)) return new {typeName}();";
             case "bits":
             case "enumeration":
             case "identityref":
@@ -295,7 +277,7 @@ public static class BuiltinTypeReference
                     if (string.IsNullOrEmpty(prefix))
                     {
                         //Is local reference.
-                        return IsBuiltin(type, out _, out _)
+                        return IsBuiltinKeyword(type.Argument)
                             ? //Is direct subtype
                             $"return Get{local}Value(value);"
                             : $"return YangNode.Get{local}Value(value);";

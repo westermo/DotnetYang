@@ -53,10 +53,12 @@ public class Grouping : Statement
             {
                 use.GetModule()?.Rpcs.Add(rpc);
             }
+
             if (child is Notification notification)
             {
                 use.GetModule()?.Notifications.Add(notification);
             }
+
             if (child is Action action)
             {
                 use.GetModule()?.Actions.Add(action);
@@ -79,7 +81,23 @@ public class Grouping : Statement
                 continue;
             }
 
-            if (BuiltinTypeReference.IsBuiltin(type, out _, out _))
+            if (type.Argument.Contains("leafref"))
+            {
+                var path = type.GetChild<Path>();
+                var value = path.Argument;
+                var components = value.Split('/');
+                var index = value.StartsWith("/") ? 1 : 0;
+                var prefix = components[index].Prefix(out var component);
+                if (string.IsNullOrWhiteSpace(prefix))
+                {
+                    components[index] = this.GetInheritedPrefix() + ":" + components[index];
+                }
+
+                path.Argument = string.Join("/", components);
+            }
+
+
+            if (BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
             {
                 continue;
             }
@@ -137,11 +155,11 @@ public class Grouping : Statement
             {
                 element.Prefix(out var name);
                 var origin = current;
-                current = origin.Children.FirstOrDefault(c => c.Argument == name);
+                current = StatementExtensions.LocateChildWithInvisibleAllowed(current.Children, name);
                 if (current is null)
                 {
                     Log.Write(
-                        $"Could not find part '{name}' of path {refinement.Argument} in source {origin.Source.Keyword} {origin.Argument}");
+                        $"Missing '{name}' in '{refinement.Argument}' at '{origin.Source.Keyword} {origin.Argument}' [{string.Join(", ", origin.Children.Select(o => o.GetType().Name + " " + o.Argument))}]");
                     break; //Target not present, nothing to refine.
                 }
             }

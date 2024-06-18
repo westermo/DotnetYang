@@ -35,7 +35,6 @@ public class Type : Statement
     {
         return string.Empty;
     }
-
     public string? Definition
     {
         get

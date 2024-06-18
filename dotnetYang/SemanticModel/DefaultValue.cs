@@ -83,11 +83,11 @@ public class DefaultValue : Statement
                             return $"new(\"{Argument}\")";
                         }
 
-                        if (BuiltinTypeReference.IsBuiltin(subType, out var typeName, out _))
+                        if (BuiltinTypeReference.IsBuiltinKeyword(subType.Argument))
                         {
                             return chained
-                                ? "new(" + possible + $"/*{typeName}*/" + ")"
-                                : possible + $"/*{typeName}*/";
+                                ? "new(" + possible + ")"
+                                : possible;
                         }
 
                         return "new(new " + MakeName(subType.Argument) + "(" + possible + "))";

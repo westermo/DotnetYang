@@ -25,8 +25,8 @@ public class ParsingBenchmarks
     private static readonly Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput input =
         new()
         {
-            MaNameStringValue = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.MaNameString(),
-            MdNameStringValue = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteInput.MdNameString(),
+            MaNameString = "Mama String",
+            MdNameString = "Maddy String",
             Ttl = 2,
             Count = 4,
             Interval = 6,
@@ -44,7 +44,7 @@ public class ParsingBenchmarks
                                 }
                     }
             },
-            SourceMepValue = new(),
+            SourceMep = "Meppity",
             CommandSubType = Ietf.Connection.Oriented.Oam.YangNode.CommandSubTypeIdentity.Proactive
         };
 

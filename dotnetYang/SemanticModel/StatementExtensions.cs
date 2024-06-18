@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using YangParser.Generator;
 using YangParser.SemanticModel.Builtins;
 
@@ -8,6 +9,143 @@ namespace YangParser.SemanticModel;
 
 public static class StatementExtensions
 {
+    public static string FullyQualifiedClassName(this IStatement? statement)
+    {
+        List<string> classChain = new();
+        while (statement is not Module && statement is not null)
+        {
+            switch (statement)
+            {
+                case IXMLParseable xml:
+                    xml.ClassName.Prefix(out var name);
+                    classChain.Insert(0, name);
+                    break;
+                case IXMLReadValue readValue:
+                    readValue.ClassName.Prefix(out var rname);
+                    classChain.Insert(0, rname);
+                    break;
+            }
+
+            statement = statement.Parent;
+        }
+
+        if (statement is Module module)
+        {
+            classChain.Insert(0, "YangNode");
+            classChain.Insert(0, Statement.MakeNamespace(module.Argument));
+        }
+
+        return string.Join(".", classChain);
+    }
+
+    public static string ModuleQualifiedClassName(this IStatement? statement)
+    {
+        List<string> classChain = [];
+        if (statement is IXMLReadValue rw) classChain.Add(rw.ClassName);
+        else if (statement is IXMLParseable parseable) classChain.Add(parseable.ClassName);
+        while (statement is not Module && statement is not null)
+        {
+            statement = statement.Parent;
+        }
+
+        if (statement is Module module)
+        {
+            classChain.Insert(0, "YangNode");
+            classChain.Insert(0, Statement.MakeNamespace(module.Argument));
+        }
+
+        return string.Join(".", classChain);
+    }
+
+    public static IStatement? Navigate(this IStatement? context, string xpath)
+    {
+        xpath = Regex.Replace(xpath, @"\[.*?]", string.Empty);
+        if (xpath.StartsWith("/")) context = context.GetModule();
+        var components = xpath.Split('/');
+        foreach (var path in components)
+        {
+            var start = context;
+            var prefix = path.Prefix(out var truePath);
+            if (context is Module && !string.IsNullOrWhiteSpace(prefix))
+            {
+                context = context.FindSourceFor(prefix);
+                if (context is null)
+                {
+                    Log.Write($"No module found for '{prefix}' at '{truePath}' in {xpath}, bailing");
+                    return context;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            if (path == "..")
+            {
+                context = context?.Parent;
+                while (context is Case or Choice or Input or Output) context = context.Parent;
+                if (context is null)
+                {
+                    Log.Write($"Parent null at '{path}' in {xpath}, bailing");
+                    return context;
+                }
+
+                continue;
+            }
+
+            var children = context!.Children;
+            context = LocateChild(children, truePath);
+            if (context is null)
+            {
+                Log.Write(
+                    $"Null at '{truePath}' in {xpath} in '{start?.GetType().Name} {start?.Argument}', children: [{string.Join(", ", children.Where(c => c is IXMLParseable or IXMLReadValue).Select(c => $"{c.GetType().Name} \"{c.Argument}\""))}]");
+                return context;
+            }
+        }
+
+        return context;
+    }
+
+    public static IStatement? LocateChild(IEnumerable<IStatement> children, string truePath)
+    {
+        foreach (var child in children)
+        {
+            switch (child)
+            {
+                case Choice:
+                case Case:
+                case Output:
+                case Input:
+                    var potential = LocateChild(child.Children, truePath);
+                    if (potential is not null) return potential;
+                    break;
+                case IXMLParseable or IXMLReadValue when child.Argument == truePath:
+                    return child;
+            }
+        }
+
+        return null;
+    }
+
+    public static IStatement? LocateChildWithInvisibleAllowed(IEnumerable<IStatement> children, string truePath)
+    {
+        foreach (var child in children)
+        {
+            switch (child)
+            {
+                case Choice:
+                case Case:
+                case Output:
+                case Input:
+                    if (child.Argument == truePath) return child;
+                    var potential = LocateChild(child.Children, truePath);
+                    if (potential is not null) return potential;
+                    break;
+                case IXMLParseable or IXMLReadValue when child.Argument == truePath:
+                    return child;
+            }
+        }
+
+        return null;
+    }
+
     private static IStatement Root(this IStatement statement)
     {
         while (statement.Parent is not null)
@@ -81,7 +219,7 @@ public static class StatementExtensions
 
     public static ITopLevelStatement? FindSourceFor(this IStatement source, string prefix)
     {
-        var module = source.GetModule();
+        var module = source as Module ?? source.GetModule();
         if (module?.ImportedModules.TryGetValue(prefix, out var moduleName) == true)
         {
             return module.Root().Children.OfType<Module>().FirstOrDefault(s => s.Argument == moduleName);
@@ -327,6 +465,14 @@ public static class StatementExtensions
         {
             if (BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
             {
+                if (type.Argument == "leafref")
+                {
+                    var path = (Path)type.Children.First(c => c is Path);
+                    var target = type.Parent.Navigate(path.Argument);
+                    type = target!.GetChild<Type>();
+                    continue;
+                }
+
                 chosenType = type;
                 _ = type.Argument.Prefix(out var arg);
                 return arg;

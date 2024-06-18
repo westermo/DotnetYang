@@ -141,7 +141,7 @@ public class CompilationUnit : Statement, IXMLParseable
                             await writer.FlushAsync();
                             output.Position = initialPosition;
                             output.SetLength(initialLength);
-                            output.SerializeRegularExceptionAsync(ex,id);
+                            await output.SerializeRegularExceptionAsync(ex,id);
                         }
                     }
                     public static async Task ReceiveRPC(this IYangServer server, XmlReader reader, XmlWriter writer)

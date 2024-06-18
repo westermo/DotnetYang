@@ -1,4 +1,5 @@
 using System.Linq;
+using YangParser.Generator;
 using YangParser.Parser;
 using YangParser.SemanticModel.Builtins;
 
@@ -186,8 +187,21 @@ public class Augment : Statement, IUnexpandable
 
                 continue;
             }
+            if(type.Argument.Contains("leafref")){
+                var path = type.GetChild<Path>();
+                var value = path.Argument;
+                var components = value.Split('/');
+                var index = value.StartsWith("/") ? 1 : 0;
+                var prefix = components[index].Prefix(out var component);
+                if (string.IsNullOrWhiteSpace(prefix))
+                {
+                    components[index] = this.GetInheritedPrefix() + ":" + components[index];
+                }
 
-            if (BuiltinTypeReference.IsBuiltin(type, out _, out _))
+                path.Argument = string.Join("/", components);
+            }
+
+            if (BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
             {
                 continue;
             }
