@@ -16,39 +16,41 @@ public class LeafReference() : BuiltinType("leafref", (statement) =>
         assignation = string.Empty;
     }
 
-    var type = target!.GetChild<Type>();
     var bname = target switch
     {
         IXMLReadValue rw => rw.ClassName,
         IXMLParseable ps => ps.ClassName,
         _ => "string"
     };
-    if (bname.Contains(":") || bname.Contains("."))
+    if(target.TryGetChild<Type>(out var type))
     {
-        var p = bname.Prefix(out _);
-        if (bname.Contains(":") && !statement.GetModule()!.Usings.ContainsKey(p))
+        if (bname.Contains(":") || bname.Contains("."))
         {
-            statement.GetModule()!.Usings[p] = target.GetModule()!.Usings[p];
+            var p = bname.Prefix(out _);
+            if (bname.Contains(":") && !statement.GetModule()!.Usings.ContainsKey(p))
+            {
+                statement.GetModule()!.Usings[p] = target.GetModule()!.Usings[p];
+            }
+
+            return (bname, null);
         }
 
-        return (bname, null);
-    }
+        if (bname == "string") return (bname, null);
+        if (type.Definition is null && !BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
+        {
+            return (target.ModuleQualifiedClassName(), null);
+        }
 
-    if (bname == "string") return (bname, null);
-    if (type.Definition is null && !BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
-    {
-        return (target.ModuleQualifiedClassName(), null);
-    }
+        if (string.IsNullOrWhiteSpace(prefix) && !BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
+        {
+            return (target.FullyQualifiedClassName(), null);
+        }
 
-    if (string.IsNullOrWhiteSpace(prefix) && !BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
-    {
-        return (target.FullyQualifiedClassName(), null);
-    }
+        if (BuiltinTypeReference.IsBuiltin(type, out var name, out var def))
+        {
+            return def is null ? (name!, null) : (target.FullyQualifiedClassName(), null);
+        }
 
-    if (BuiltinTypeReference.IsBuiltin(type, out var name, out var def))
-    {
-        return def is null ? (name!, null) : (target.FullyQualifiedClassName(), null);
     }
-
     return (assignation + bname, null);
 });

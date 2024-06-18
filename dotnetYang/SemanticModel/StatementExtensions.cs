@@ -176,10 +176,10 @@ public static class StatementExtensions
         return (T)statement.Children.First(c => c is T);
     }
 
-    public static bool TryGetChild<T>(this IStatement statement, out T? child) where T : class, IStatement
+    public static bool TryGetChild<T>(this IStatement? statement, out T? child) where T : class, IStatement
     {
         child = null;
-        if (statement.Children.FirstOrDefault(c => c is T) is T chosen)
+        if (statement?.Children.FirstOrDefault(c => c is T) is T chosen)
         {
             child = chosen;
             return true;
@@ -469,8 +469,11 @@ public static class StatementExtensions
                 {
                     var path = (Path)type.Children.First(c => c is Path);
                     var target = type.Parent.Navigate(path.Argument);
-                    type = target!.GetChild<Type>();
-                    continue;
+                    if (target.TryGetChild<Type>(out var targetType))
+                    {
+                        type = targetType!;
+                        continue;
+                    }
                 }
 
                 chosenType = type;
