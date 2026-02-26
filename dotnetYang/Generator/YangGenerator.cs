@@ -79,6 +79,7 @@ public class YangGenerator : IIncrementalGenerator
             //Replace Uses by their respective groupings
             UnwrapUses(context, compilation);
             InjectAugments(context, compilation);
+            ApplyDeviations(context, compilation);
             foreach (var module in compilation.Children.OfType<Module>())
             {
                 try
@@ -123,6 +124,24 @@ public class YangGenerator : IIncrementalGenerator
                 try
                 {
                     augment.Inject();
+                }
+                catch (SemanticError error)
+                {
+                    ReportDiagnostics(context, new ResultOrException<IStatement>(error));
+                }
+            }
+        }
+    }
+
+    private void ApplyDeviations(SourceProductionContext context, CompilationUnit compilation)
+    {
+        foreach (var module in compilation.Children.OfType<Module>())
+        {
+            foreach (var deviation in module.Deviations)
+            {
+                try
+                {
+                    deviation.Apply();
                 }
                 catch (SemanticError error)
                 {
@@ -207,10 +226,19 @@ public class YangGenerator : IIncrementalGenerator
                 module.Groupings.AddRange(submodule.Groupings);
                 module.Revisions.AddRange(submodule.Revisions);
                 module.Uses.AddRange(submodule.Uses);
+                module.Deviations.AddRange(submodule.Deviations);
                 module.HiddenDefinitions.AddRange(submodule.HiddenDefinitions);
                 foreach (var pair in submodule.ImportedModules)
                 {
                     module.ImportedModules[pair.Key] = pair.Value;
+                }
+
+                foreach (var pair in submodule.PrefixToNamespaceTable)
+                {
+                    if (!module.PrefixToNamespaceTable.ContainsKey(pair.Key))
+                    {
+                        module.PrefixToNamespaceTable[pair.Key] = pair.Value;
+                    }
                 }
             }
         }

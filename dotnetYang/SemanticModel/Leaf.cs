@@ -25,25 +25,14 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-
-        Type = Children.OfType<Type>().First();
-
-        Default = Children.FirstOrDefault(child => child is DefaultValue) as DefaultValue;
-        Required = Children.FirstOrDefault(child => child is Mandatory)?.Argument == "true";
-        if (Required && Default is not null)
-        {
-            throw new SemanticError(
-                $"The '{DefaultValue.Keyword}' statement must not be present on nodes where '{Mandatory.Keyword}' is 'true'",
-                statement);
-        }
     }
 
-    private bool Required { get; }
+    private bool GetRequired() => Children.FirstOrDefault(child => child is Mandatory)?.Argument == "true";
 
-    private DefaultValue? Default { get; }
+    private DefaultValue? GetDefault() => Children.FirstOrDefault(child => child is DefaultValue) as DefaultValue;
 
     public const string Keyword = "leaf";
-    private Type Type { get; }
+    private Type GetTypeChild() => Children.OfType<Type>().First();
 
     public override string ToCode()
     {
@@ -52,13 +41,24 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
             child.ToCode();
         }
 
-        var defaultValue = Default?.ToCode();
+        var currentDefault = GetDefault();
+        var currentRequired = GetRequired();
+        var currentType = GetTypeChild();
+
+        if (currentRequired && currentDefault is not null)
+        {
+            throw new SemanticError(
+                $"The '{DefaultValue.Keyword}' statement must not be present on nodes where '{Mandatory.Keyword}' is 'true'",
+                Source);
+        }
+
+        var defaultValue = currentDefault?.ToCode();
 
         var defaulting = defaultValue is null ? string.Empty : $"= {defaultValue};";
-        var nullable = Required && !Children.Any(c => c is When) ? string.Empty : "?";
+        var nullable = currentRequired && !Children.Any(c => c is When) ? string.Empty : "?";
         var name = MakeName(Argument);
-        var typeName = Type.Name;
-        var definition = Type.Definition;
+        var typeName = currentType.Name;
+        var definition = currentType.Definition;
         if (typeName == name)
         {
             name += "Value";
@@ -70,7 +70,7 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
                  {{DescriptionString}}{{AttributeString}}
                  public{{KeywordString}}{{typeName}}{{nullable}} {{name}} { get; set; } {{defaulting}}
                  {{definition}}
-                 {{Default?.Addendum}}
+                 {{currentDefault?.Addendum}}
                  """;
     }
 
@@ -80,17 +80,18 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
     {
         get
         {
-            if (Type.GetBaseType(out var prefix, out _) is "enumeration" or "bits" or "identityref")
+            var type = GetTypeChild();
+            if (type.GetBaseType(out var prefix, out _) is "enumeration" or "bits" or "identityref")
             {
                 if (string.IsNullOrEmpty(prefix))
                 {
-                    prefix = Type.Name!.Prefix(out _);
+                    prefix = type.Name!.Prefix(out _);
                 }
 
                 if (string.IsNullOrEmpty(prefix))
                 {
-                    if (BuiltinTypeReference.IsBuiltinKeyword(Type.Argument) &&
-                        Type.Argument != "identityref") //Is direct subtype, identitys are always on top-level
+                    if (BuiltinTypeReference.IsBuiltinKeyword(type.Argument) &&
+                        type.Argument != "identityref") //Is direct subtype, identitys are always on top-level
                     {
                         return $$"""
                                  if({{TargetName}} != default)
@@ -125,7 +126,7 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
                          """;
             }
 
-            if (Type.GetBaseType(out _, out _) is "empty")
+            if (type.GetBaseType(out _, out _) is "empty")
             {
                 return $$"""
                          if({{TargetName}} != default)
@@ -147,7 +148,7 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
         }
     }
 
-    public string ClassName => Type.Name!;
+    public string ClassName => GetTypeChild().Name!;
 
-    public string ParseCall => BuiltinTypeReference.ValueTransformation(Type, ClassName, "_" + TargetName, Argument);
+    public string ParseCall => BuiltinTypeReference.ValueTransformation(GetTypeChild(), ClassName, "_" + TargetName, Argument);
 }

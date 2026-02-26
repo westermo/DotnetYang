@@ -22,7 +22,21 @@ public class Must : Statement
 
     public override string ToCode()
     {
-        Parent?.Attributes.Add($"Must(\"{SingleLine(Argument).Replace("\"", "\\\"")}\")");
+        var xpath = SingleLine(Argument).Replace("\"", "\\\"");
+        var hasErrorAppTag = this.TryGetChild<ErrorAppTag>(out var appTag);
+        var hasErrorMessage = this.TryGetChild<ErrorMessage>(out var errorMessage);
+        var extra = string.Empty;
+        if (hasErrorAppTag)
+        {
+            extra += $", ErrorTag=\"{SingleLine(appTag!.Argument).Replace("\"", "\\\"")}\"";
+        }
+
+        if (hasErrorMessage)
+        {
+            extra += $", ErrorMessage=\"{SingleLine(errorMessage!.Argument).Replace("\"", "\\\"")}\"";
+        }
+
+        Parent?.Attributes.Add($"Must(\"{xpath}\"{extra})");
         return string.Empty;
     }
 }

@@ -523,6 +523,15 @@ public abstract class Statement : IStatement
                 case Cardinality.ZeroOrOne:
                 case Cardinality.ZeroOrMore:
                     break;
+                case Cardinality.OneOrMore when occurrences.TryGetValue(allowed.Keyword, out var count):
+                {
+                    if (count >= 1) break;
+                    throw new SemanticError(
+                        $"Child of type {allowed.Keyword} must exist at least once in {GetType()}", statement);
+                }
+                case Cardinality.OneOrMore:
+                    throw new SemanticError(
+                        $"Child of type {allowed.Keyword} must exist at least once in {GetType()}", statement);
                 default:
                     throw new ArgumentOutOfRangeException(allowed.Cardinality.ToString());
             }

@@ -33,6 +33,7 @@ public class Container : Statement, IClassSource, IXMLParseable
     public override ChildRule[] PermittedChildren { get; } =
     [
         new ChildRule(Action.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(AnyXml.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Choice.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Config.Keyword),

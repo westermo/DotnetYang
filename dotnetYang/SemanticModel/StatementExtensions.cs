@@ -493,4 +493,47 @@ public static class StatementExtensions
             type = source.GetChild<Type>();
         }
     }
+
+    /// <summary>
+    /// Applies a refine statement to a target node per RFC 7950 §7.13.2.
+    /// Singleton sub-statements (default, description, reference, config, mandatory,
+    /// presence, min-elements, max-elements) are replaced if they already exist.
+    /// Multi-instance sub-statements (must) are added.
+    /// </summary>
+    public static void ApplyRefinement(this IStatement target, Refine refinement)
+    {
+        foreach (var child in refinement.Children)
+        {
+            if (IsSingletonRefinement(child))
+            {
+                var existing = target.Children.FirstOrDefault(c => c.GetType() == child.GetType());
+                if (existing is not null)
+                {
+                    target.Replace(existing, [child]);
+                    child.Parent = target;
+                    continue;
+                }
+            }
+
+            // Either it's a multi-instance sub-statement (must) or there's no existing
+            // singleton to replace — insert it
+            target.Insert([child]);
+        }
+    }
+
+    /// <summary>
+    /// Returns true if the statement type is a singleton in the refine context
+    /// (RFC 7950 §7.13.2 — these replace existing values rather than accumulate).
+    /// </summary>
+    private static bool IsSingletonRefinement(IStatement statement)
+    {
+        return statement is DefaultValue
+            or Description
+            or Reference
+            or Config
+            or Mandatory
+            or Presence
+            or MinElements
+            or MaxElements;
+    }
 }

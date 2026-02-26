@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using YangParser.Generator;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
@@ -50,7 +51,7 @@ public class Deviate : Statement
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        
+
         Children = statement.Children.Select(StatementFactory.Create).ToArray();
         switch (Argument)
         {
@@ -80,4 +81,106 @@ public class Deviate : Statement
     ];
 
     public const string Keyword = "deviate";
+
+    /// <summary>
+    /// Applies this deviate operation to the given target node.
+    /// RFC 7950 §7.20.3.2-5
+    /// </summary>
+    public void ApplyTo(IStatement target)
+    {
+        switch (Argument)
+        {
+            case "not-supported":
+                ApplyNotSupported(target);
+                break;
+            case "add":
+                ApplyAdd(target);
+                break;
+            case "replace":
+                ApplyReplace(target);
+                break;
+            case "delete":
+                ApplyDelete(target);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// RFC 7950 §7.20.3.2: Remove the target node entirely.
+    /// </summary>
+    private static void ApplyNotSupported(IStatement target)
+    {
+        if (target.Parent is null)
+        {
+            Log.Write($"Deviate not-supported: target '{target.Argument}' has no parent, cannot remove.");
+            return;
+        }
+
+        target.Parent.Replace(target, []);
+    }
+
+    /// <summary>
+    /// RFC 7950 §7.20.3.3: Add properties to the target node.
+    /// Singleton properties must not already exist on the target.
+    /// </summary>
+    private void ApplyAdd(IStatement target)
+    {
+        foreach (var child in Children)
+        {
+            if (child is Description or Reference) continue; // These are about the deviate itself
+            target.Insert([child]);
+        }
+    }
+
+    /// <summary>
+    /// RFC 7950 §7.20.3.4: Replace properties of the target node.
+    /// The properties to replace must already exist on the target.
+    /// </summary>
+    private void ApplyReplace(IStatement target)
+    {
+        foreach (var child in Children)
+        {
+            if (child is Description or Reference) continue;
+
+            var childType = child.GetType();
+            var existing = target.Children.FirstOrDefault(c => c.GetType() == childType);
+            if (existing is not null)
+            {
+                target.Replace(existing, [child]);
+                child.Parent = target;
+            }
+            else
+            {
+                Log.Write(
+                    $"Deviate replace: property '{child.GetType().Name}' not found on target '{target.Argument}', inserting instead.");
+                target.Insert([child]);
+            }
+        }
+    }
+
+    /// <summary>
+    /// RFC 7950 §7.20.3.5: Delete properties from the target node.
+    /// The substatement keyword must match, and argument must be equal.
+    /// </summary>
+    private void ApplyDelete(IStatement target)
+    {
+        foreach (var child in Children)
+        {
+            if (child is Description or Reference) continue;
+
+            var childType = child.GetType();
+            // For delete, we match by type AND argument value
+            var existing = target.Children.FirstOrDefault(c =>
+                c.GetType() == childType && c.Argument == child.Argument);
+            if (existing is not null)
+            {
+                target.Replace(existing, []);
+            }
+            else
+            {
+                Log.Write(
+                    $"Deviate delete: property '{child.GetType().Name} {child.Argument}' not found on target '{target.Argument}'.");
+            }
+        }
+    }
 }
