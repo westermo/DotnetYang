@@ -199,7 +199,7 @@ public abstract class Statement : IStatement
     {
         if (xmlValue.TargetName != null)
         {
-            var isMandatory = xmlValue.TryGetChild<Mandatory>(out _);
+            var isMandatory = xmlValue.TryGetChild<Mandatory>(out var mandatory) && mandatory!.Value;
             var nullability = isMandatory ? string.Empty : "?";
             declarations.Add(child is List
                 ? $"List<{xmlValue.ClassName}>{nullability} _{xmlValue.TargetName} = default!;"
@@ -225,7 +225,7 @@ public abstract class Statement : IStatement
     {
         if (xml.TargetName != null)
         {
-            var isMandatory = xml.TryGetChild<Mandatory>(out _);
+            var isMandatory = xml.TryGetChild<Mandatory>(out var mandatory) && mandatory!.Value;
             var nullability = isMandatory ? string.Empty : "?";
             declarations.Add($"{xml.ClassName}{nullability} _{xml.TargetName} = default!;");
             assignments.Add($"{xml.TargetName} = _{xml.TargetName},");

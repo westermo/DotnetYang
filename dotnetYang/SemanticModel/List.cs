@@ -47,8 +47,10 @@ public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
     public override string ToCode()
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
+        var hasMinElements = this.TryGetChild<MinElements>(out var minEl) && minEl!.Value > 0;
+        var nullable = hasMinElements && !Children.Any(c => c is When) ? string.Empty : "?";
         string property =
-            $"\n{DescriptionString}\npublic{KeywordString}List<{ClassName}>? {TargetName} {{ get; set; }}";
+            $"\n{DescriptionString}\npublic{KeywordString}List<{ClassName}>{nullable} {TargetName} {{ get; set; }}";
         return $$"""
                  {{property}}
                  {{AttributeString}}

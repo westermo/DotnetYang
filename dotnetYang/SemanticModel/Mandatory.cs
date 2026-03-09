@@ -16,7 +16,7 @@ public class Mandatory : Statement
 
     public override string ToCode()
     {
-        Parent?.Keywords.Add("required");
+        if (Value) Parent?.Keywords.Add("required");
         return string.Empty;
     }
 }

@@ -38,7 +38,9 @@ public class Choice : Statement, IClassSource, IXMLParseable
     public override string ToCode()
     {
         var nodes = Children.Where(t => t is not DefaultValue).Select(child => child.ToCode()).ToArray();
-        string property = $"public{KeywordString}{MakeName(Argument)}Choice? {MakeName(Argument)} {{ get; set; }}";
+        var isMandatory = this.TryGetChild<Mandatory>(out var mandatory) && mandatory!.Value;
+        var nullable = isMandatory && !Children.Any(c => c is When) ? string.Empty : "?";
+        string property = $"public{KeywordString}{MakeName(Argument)}Choice{nullable} {MakeName(Argument)} {{ get; set; }}";
 
         return $$"""
                  {{property}}
