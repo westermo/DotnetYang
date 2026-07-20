@@ -14,14 +14,29 @@ public class MaxElements : Statement
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
         
         ValidateChildren(statement);
-        Value = int.Parse(Argument);
+        if (Argument.Trim().Equals("unbounded", StringComparison.OrdinalIgnoreCase))
+        {
+            Value = int.MaxValue;
+            IsUnbounded = true;
+        }
+        else
+        {
+            Value = int.Parse(Argument);
+            IsUnbounded = false;
+        }
     }
 
     public int Value { get; }
+    
+    /// <summary>
+    /// True when max-elements was explicitly set to "unbounded" (effectively no limit).
+    /// </summary>
+    public bool IsUnbounded { get; }
 
     public override string ToCode()
     {
-        Parent?.Attributes.Add($"MaxElements({Value})");
+        if (!IsUnbounded)
+            Parent?.Attributes.Add($"MaxElements({Value})");
         return string.Empty;
     }
 }

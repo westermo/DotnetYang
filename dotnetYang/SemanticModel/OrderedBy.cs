@@ -24,6 +24,11 @@ public class OrderedBy : Statement
 
     public const string Keyword = "ordered-by";
 
+    /// <summary>
+    /// Whether the list is ordered by user (insertion order matters).
+    /// </summary>
+    public bool IsUserOrdered => Argument == "user";
+
     public override string ToCode()
     {
         Parent?.Attributes.Add($"OrderedBy(\"{Argument}\")");

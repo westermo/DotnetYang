@@ -58,6 +58,7 @@ public class Module : TopLevelStatement, IXMLParseable
     {
         string ns = MakeNamespace(Argument);
         var nodes = Children.Select(child => child.ToCode()).Select(Indent).ToArray();
+        var validate = global::YangParser.SemanticModel.XPath.ValidateEmitter.EmitValidateMethod(this);
         var interfaceDefinition = Parent is CompilationUnit unit && !string.IsNullOrWhiteSpace(unit.MyNamespace) &&
                                   Rpcs.Count + Actions.Count + Notifications.Count > 0
             ? $$"""
@@ -73,12 +74,19 @@ public class Module : TopLevelStatement, IXMLParseable
                 """
             : string.Empty;
         var extraDefinitions = HiddenDefinitions.Select(t => Indent(t.ToCode())).ToArray();
+        var configType = Parent is CompilationUnit cu
+            ? $"global::{cu.MyNamespace}.Configuration"
+            : null;
+        var yangParentDecl = configType is not null
+            ? $"public {configType}? YangParent {{ get; internal set; }}"
+            : string.Empty;
         var raw = $$"""
                     using System;
                     using System.Xml;
                     using System.Text;
                     using System.Collections.Generic;
                     using System.Runtime.CompilerServices;
+                    using System.Reflection;
                     using System.Xml.Linq;
                     using System.Text.RegularExpressions;
                     using YangSupport;
@@ -87,6 +95,7 @@ public class Module : TopLevelStatement, IXMLParseable
                     {{DescriptionString}}{{AttributeString}}
                     public class YangNode
                     {
+                        {{yangParentDecl}}
                         public const string ModuleName = "{{Argument}}";
                         public const string Revision = "{{Revisions.FirstOrDefault()?.Argument}}";
                         public static string[] Features = [{{string.Join(",", Features.Select(f => $"\"{f.Argument}\""))}}];
@@ -94,6 +103,8 @@ public class Module : TopLevelStatement, IXMLParseable
                         {{string.Join("\n\t", extraDefinitions)}}
                         {{Indent(ReadFunction())}}
                         {{Indent(WriteFunction())}}
+                        {{Indent(GetChildMethod())}}
+                        {{Indent(validate)}}
                     }
                     }
                     """;
@@ -109,6 +120,8 @@ public class Module : TopLevelStatement, IXMLParseable
             raw = raw.Replace(" " + prefix + ":", " " + Usings[prefix]);
             raw = raw.Replace("\t" + prefix + ":", "\t" + Usings[prefix]);
             raw = raw.Replace("(" + prefix + ":", "(" + Usings[prefix]);
+            raw = raw.Replace("<" + prefix + ":", "<" + Usings[prefix]);
+            raw = raw.Replace("," + prefix + ":", "," + Usings[prefix]);
         }
 
         return raw;

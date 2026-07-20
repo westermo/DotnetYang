@@ -1,11 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <PublishAot>true</PublishAot>
     </PropertyGroup>
 
     <ItemGroup>
@@ -22,6 +21,8 @@
         <AdditionalFiles Include="IEEE/published/802.11/*.yang" />
         <AdditionalFiles Include="IEEE/published/1588/*.yang" />
         <AdditionalFiles Include="IEEE/published/1906.1/*.yang" />
+        <AdditionalFiles Include="tree-test.yang" />
+        <AdditionalFiles Include="rfc7950-compliance-test.yang" />
     </ItemGroup>
 
 </Project>

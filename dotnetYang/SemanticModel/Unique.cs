@@ -12,12 +12,20 @@ public class Unique : Statement
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
 
         ValidateChildren(statement);
-        Identifiers = Argument.Split(' ', '\n', '\t');
+        Identifiers = Argument.Split(' ', '\n', '\t').Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
     }
 
     public const string Keyword = "unique";
 
+    /// <summary>
+    /// The raw YANG unique field identifiers.
+    /// </summary>
     public string[] Identifiers { get; }
+
+    /// <summary>
+    /// The C# property names for the unique fields.
+    /// </summary>
+    public string[] PropertyNames => Identifiers.Select(i => MakeName(SingleLine(i).Replace("\"", ""))).ToArray();
 
     public override string ToCode()
     {

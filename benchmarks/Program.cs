@@ -59,13 +59,14 @@ public class ParsingBenchmarks
     {
         AlarmList = new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer
         {
-            Alarm =
-            [
+            Alarm = new YangSupport.YangList<(Ietf.Alarms.YangNode.Resource, Ietf.Alarms.YangNode.AlarmTypeId, Ietf.Alarms.YangNode.AlarmTypeQualifier), Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry>(e => (e.Resource!, e.AlarmTypeId, e.AlarmTypeQualifier!))
+            {
                 new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry
                 {
                     TimeCreated = "2015-01-23T12:23:34Z",
                     Resource = "something",
                     AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
+                    AlarmTypeQualifier = "",
                     IsCleared = false,
                     LastRaised = "2014-01-23T12:23:34Z",
                     LastChanged = "2014-01-22T12:23:34Z",
@@ -75,15 +76,16 @@ public class ParsingBenchmarks
                 new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry
                 {
                     TimeCreated = "2015-01-23T12:25:34Z",
-                    Resource = "something",
+                    Resource = "something2",
                     AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
+                    AlarmTypeQualifier = "",
                     IsCleared = false,
                     LastRaised = "2014-01-23T12:28:34Z",
                     LastChanged = "2014-01-22T12:22:34Z",
                     PerceivedSeverity = Ietf.Alarms.YangNode.Severity.Critical,
                     AlarmText = "baa"
                 }
-            ]
+            }
         }
     };
 

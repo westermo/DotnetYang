@@ -793,10 +793,248 @@ public class ParsingTests(ITestOutputHelper output)
         {
             var code = module.ToCode();
             output.WriteLine(code);
-            Assert.Contains("ErrorTag", code);
+            // error-app-tag and error-message are now folded into the
+            // YangValidationException thrown by the generated Validate() body.
+            Assert.Contains("errorAppTag", code);
             Assert.Contains("invalid-port", code);
-            Assert.Contains("ErrorMessage", code);
             Assert.Contains("Port must be between 1 and 65535", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void MinMaxElements_GeneratesValidationCode()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module minmax-mod {
+                yang-version 1.1;
+                namespace "urn:ns:minmax";
+                prefix mm;
+                container config {
+                    list servers {
+                        key "name";
+                        min-elements 1;
+                        max-elements 10;
+                        leaf name { type string; }
+                    }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            Assert.Contains("min-elements", code);
+            Assert.Contains("max-elements", code);
+            Assert.Contains("YangValidationException", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void UniqueConstraint_GeneratesValidationCode()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module unique-mod {
+                yang-version 1.1;
+                namespace "urn:ns:unique";
+                prefix um;
+                container data {
+                    list users {
+                        key "id";
+                        unique "email";
+                        leaf id { type uint32; }
+                        leaf email { type string; }
+                    }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            Assert.Contains("unique", code);
+            Assert.Contains("HashSet", code);
+            Assert.Contains("YangValidationException", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void IfFeature_PrunesNodesWhenFeatureNotEnabled()
+    {
+        string[] sources =
+        [
+            """
+            module feat-mod {
+                yang-version 1.1;
+                namespace "urn:ns:feat";
+                prefix fm;
+                feature advanced;
+                container config {
+                    leaf basic-setting {
+                        type string;
+                    }
+                    leaf advanced-setting {
+                        if-feature "advanced";
+                        type string;
+                    }
+                }
+            }
+            """
+        ];
+
+        var (compilation, modules) = BuildCompilation(sources);
+
+        // Prune without "advanced" feature enabled
+        var enabledFeatures = new HashSet<string> { "basic" }; // "advanced" not included
+        PruneUnsupportedFeatures(compilation, enabledFeatures);
+
+        var code = modules["feat-mod"].ToCode();
+        output.WriteLine(code);
+
+        Assert.Contains("BasicSetting", code);
+        Assert.DoesNotContain("AdvancedSetting", code);
+    }
+
+    [Fact]
+    public void IfFeature_KeepsNodesWhenFeatureEnabled()
+    {
+        string[] sources =
+        [
+            """
+            module feat-mod {
+                yang-version 1.1;
+                namespace "urn:ns:feat";
+                prefix fm;
+                feature advanced;
+                container config {
+                    leaf basic-setting {
+                        type string;
+                    }
+                    leaf advanced-setting {
+                        if-feature "advanced";
+                        type string;
+                    }
+                }
+            }
+            """
+        ];
+
+        var (compilation, modules) = BuildCompilation(sources);
+
+        // Enable "advanced" feature
+        var enabledFeatures = new HashSet<string> { "advanced" };
+        PruneUnsupportedFeatures(compilation, enabledFeatures);
+
+        var code = modules["feat-mod"].ToCode();
+        output.WriteLine(code);
+
+        Assert.Contains("BasicSetting", code);
+        Assert.Contains("AdvancedSetting", code);
+    }
+
+    [Fact]
+    public void MaxElements_UnboundedDoesNotGenerateValidation()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module unbound-mod {
+                yang-version 1.1;
+                namespace "urn:ns:unbound";
+                prefix ub;
+                container data {
+                    list items {
+                        key "id";
+                        max-elements unbounded;
+                        leaf id { type string; }
+                    }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            // "unbounded" should not generate a max-elements check
+            Assert.DoesNotContain("max-elements", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void GetChild_MethodIsGenerated()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module getchild-mod {
+                yang-version 1.1;
+                namespace "urn:ns:getchild";
+                prefix gc;
+                container settings {
+                    leaf name { type string; }
+                    leaf value { type uint32; }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            Assert.Contains("GetChild", code);
+            Assert.Contains("\"name\"", code);
+            Assert.Contains("\"value\"", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void OrderedByUser_GeneratesInsertAttribute()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module ordered-mod {
+                yang-version 1.1;
+                namespace "urn:ns:ordered";
+                prefix om;
+                container data {
+                    list entries {
+                        key "name";
+                        ordered-by user;
+                        leaf name { type string; }
+                    }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            // Should contain yang:insert parsing logic
+            Assert.Contains("insert", code);
+            Assert.Contains("urn:ietf:params:xml:ns:yang:1", code);
         }
         else
         {
@@ -847,6 +1085,35 @@ public class ParsingTests(ITestOutputHelper output)
             {
                 deviation.Apply();
             }
+        }
+    }
+
+    private static void PruneUnsupportedFeatures(IStatement root, HashSet<string> enabledFeatures)
+    {
+        var toPrune = new List<(IStatement parent, IStatement child)>();
+        CollectUnsupported(root, enabledFeatures, toPrune);
+        foreach (var (parent, child) in toPrune)
+        {
+            parent.Replace(child, Array.Empty<IStatement>());
+        }
+    }
+
+    private static void CollectUnsupported(IStatement node, HashSet<string> enabledFeatures,
+        List<(IStatement, IStatement)> toPrune)
+    {
+        foreach (var child in node.Children.ToArray())
+        {
+            var ifFeatures = child.Children.OfType<FeatureFlag>().ToArray();
+            if (ifFeatures.Length > 0)
+            {
+                var allSupported = ifFeatures.All(ff => enabledFeatures.Contains(ff.Argument.Trim()));
+                if (!allSupported)
+                {
+                    toPrune.Add((node, child));
+                    continue;
+                }
+            }
+            CollectUnsupported(child, enabledFeatures, toPrune);
         }
     }
 

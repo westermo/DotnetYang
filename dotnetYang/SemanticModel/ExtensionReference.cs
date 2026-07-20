@@ -16,6 +16,15 @@ public class ExtensionReference : Statement
 
     public string SourceModulePrefix { get; }
 
+    public string ClassName
+    {
+        get
+        {
+            var classNameSource = Argument.Contains('/') ? ExtensionName + Argument.GetHashCode() : Argument;
+            return MakeName(classNameSource) + "Extension";
+        }
+    }
+
     public override string ToCode()
     {
         var sourceModule = this.FindSourceFor(SourceModulePrefix);

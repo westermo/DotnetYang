@@ -350,10 +350,11 @@ public class ExampleYangServer : YangSource.IYangServer
     {
         return Task.FromResult(new Ietf.Connection.Oriented.Oam.YangNode.TracerouteOutput
         {
-            Response = new List<Ietf.Connection.Oriented.Oam.YangNode.TracerouteOutput.ResponseEntry>
+            Response = new YangSupport.YangList<byte, Ietf.Connection.Oriented.Oam.YangNode.TracerouteOutput.ResponseEntry>(e => e.ResponseIndex)
             {
                 new()
                 {
+                    ResponseIndex = 0,
                     Mip = new Ietf.Connection.Oriented.Oam.YangNode.TracerouteOutput.ResponseEntry.MipContainer
                     {
                         MipAddress =
@@ -372,6 +373,7 @@ public class ExampleYangServer : YangSource.IYangServer
                 },
                 new()
                 {
+                    ResponseIndex = 1,
                     Ttl = 1,
                     MonitorStats =
                         new Ietf.Connection.Oriented.Oam.YangNode.TracerouteOutput.ResponseEntry.MonitorStatsChoice

@@ -36,14 +36,40 @@ public class Case : Statement, IClassSource, IXMLParseable
     public override string ToCode()
     {
         var nodes = Children.Select(c => c.ToCode()).ToArray();
+        var parentName = ParentClassName;
+        string property;
+        if (parentName is null)
+        {
+            property = $"public {ClassName}? {TargetName} {{ get; set; }}";
+        }
+        else
+        {
+            property = $$"""
+                         private {{ClassName}}? _{{TargetName}};
+                         public {{ClassName}}? {{TargetName}}
+                         {
+                             get => _{{TargetName}};
+                             set
+                             {
+                                 if (_{{TargetName}} is not null) _{{TargetName}}.YangParent = null;
+                                 _{{TargetName}} = value;
+                                 if (value is not null) value.YangParent = this;
+                             }
+                         }
+                         """;
+        }
+        var parentDecl = ParentPropertyDeclaration();
+        var validate = global::YangParser.SemanticModel.XPath.ValidateEmitter.EmitValidateMethod(this);
         return $$"""
-                 public {{ClassName}}? {{TargetName}};
+                 {{property}}
                  {{DescriptionString}}{{AttributeString}}
                  public class {{ClassName}}
                  {
+                    {{Indent(parentDecl)}}
                     {{Indent(string.Join("\n", nodes))}}
                      {{Indent(WriteFunctionInvisibleSelf())}}
                      {{Indent(ReadFunctionWithInvisibleSelf())}}
+                     {{Indent(validate)}}
                  }
                  """;
     }

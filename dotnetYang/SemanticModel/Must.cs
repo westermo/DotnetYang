@@ -22,21 +22,9 @@ public class Must : Statement
 
     public override string ToCode()
     {
-        var xpath = SingleLine(Argument).Replace("\"", "\\\"");
-        var hasErrorAppTag = this.TryGetChild<ErrorAppTag>(out var appTag);
-        var hasErrorMessage = this.TryGetChild<ErrorMessage>(out var errorMessage);
-        var extra = string.Empty;
-        if (hasErrorAppTag)
-        {
-            extra += $", ErrorTag=\"{SingleLine(appTag!.Argument).Replace("\"", "\\\"")}\"";
-        }
-
-        if (hasErrorMessage)
-        {
-            extra += $", ErrorMessage=\"{SingleLine(errorMessage!.Argument).Replace("\"", "\\\"")}\"";
-        }
-
-        Parent?.Attributes.Add($"Must(\"{xpath}\"{extra})");
+        // The XPath itself is intentionally NOT persisted as a string in the
+        // generated code. error-app-tag / error-message are used by the
+        // validation emitter when building exception messages.
         return string.Empty;
     }
 }

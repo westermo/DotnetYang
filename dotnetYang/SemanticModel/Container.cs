@@ -57,15 +57,43 @@ public class Container : Statement, IClassSource, IXMLParseable
     public override string ToCode()
     {
         var nodes = Children.Select(child => child.ToCode()).ToArray();
-        string property = $"public{KeywordString}{ClassName}? {TargetName} {{ get; set; }}";
+        var parentName = ParentClassName;
+        string property;
+        if (parentName is null)
+        {
+            property = $"public{KeywordString}{ClassName}? {TargetName} {{ get; set; }}";
+        }
+        else
+        {
+            // Backing-field + setter that wires Parent on the child.
+            property =
+                $$"""
+                  private {{ClassName}}? _{{TargetName}};
+                  public{{KeywordString}}{{ClassName}}? {{TargetName}}
+                  {
+                      get => _{{TargetName}};
+                      set
+                      {
+                          if (_{{TargetName}} is not null) _{{TargetName}}.YangParent = null;
+                          _{{TargetName}} = value;
+                          if (value is not null) value.YangParent = this;
+                      }
+                  }
+                  """;
+        }
+        var parentDecl = ParentPropertyDeclaration();
+        var validate = global::YangParser.SemanticModel.XPath.ValidateEmitter.EmitValidateMethod(this);
         return $$"""
                  {{property}}
                  {{DescriptionString}}{{AttributeString}}
                  public class {{ClassName}}
                  {
+                     {{Indent(parentDecl)}}
                      {{string.Join("\n\t", nodes.Select(Indent))}}
                      {{Indent(WriteFunction())}}
                      {{Indent(ReadFunction())}}
+                     {{Indent(GetChildMethod())}}
+                     {{Indent(validate)}}
                  }
                  """;
     }

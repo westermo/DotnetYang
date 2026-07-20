@@ -199,11 +199,17 @@ public abstract class Statement : IStatement
     {
         if (xmlValue.TargetName != null)
         {
-            var isMandatory = xmlValue.TryGetChild<Mandatory>(out var mandatory) && mandatory!.Value;
+            var isMandatory = (child is Leaf leaf && leaf.IsRequired)
+                              || (xmlValue.TryGetChild<Mandatory>(out var mandatory) && mandatory!.Value);
             var nullability = isMandatory ? string.Empty : "?";
-            declarations.Add(child is List
-                ? $"List<{xmlValue.ClassName}>{nullability} _{xmlValue.TargetName} = default!;"
-                : $"{xmlValue.ClassName}{nullability} _{xmlValue.TargetName} = default!;");
+            if (child is List listChild)
+            {
+                declarations.Add($"{listChild.CollectionTypeString}{nullability} _{xmlValue.TargetName} = default!;");
+            }
+            else
+            {
+                declarations.Add($"{xmlValue.ClassName}{nullability} _{xmlValue.TargetName} = default!;");
+            }
 
             assignments.Add($"{xmlValue.TargetName} = _{xmlValue.TargetName},");
         }
@@ -457,6 +463,110 @@ public abstract class Statement : IStatement
     }
 
     protected string KeywordString => " " + string.Join(" ", Keywords) + (Keywords.Count > 0 ? " " : "");
+
+    /// <summary>
+    /// Returns the fully qualified C# type name of the nearest enclosing generated class
+    /// (the parent of this statement in the generated code tree). Returns <c>null</c> when
+    /// this statement would be at module-namespace top level without a containing instance
+    /// class.
+    /// </summary>
+    public string? ParentClassName => ResolveQualifiedClassName(Parent);
+
+    /// <summary>
+    /// Returns the fully qualified generated C# class name for any statement that
+    /// emits a class (Container, List entry, Choice, Case, Input, Output,
+    /// Notification, ExtensionReference, Module), walking outwards through
+    /// nested classes; returns <c>null</c> if the statement does not map to a
+    /// generated class.
+    /// </summary>
+    public static string? ResolveQualifiedClassName(IStatement? statement)
+    {
+        if (statement is null) return null;
+        var chain = new List<string>();
+        string? rootNamespace = null;
+        var p = statement;
+        while (p is not null)
+        {
+            switch (p)
+            {
+                case Container c: chain.Add(c.ClassName); break;
+                case List l: chain.Add(l.ClassName); break;
+                case Choice ch: chain.Add(ch.ClassName); break;
+                case Case cs: chain.Add(cs.ClassName); break;
+                case Input i: chain.Add(i.ClassName); break;
+                case Output o: chain.Add(o.ClassName); break;
+                // Action: its Input/Output are siblings, not nested in its class.
+                case Action: break;
+                case Notification n: chain.Add(n.ClassName); break;
+                case ExtensionReference er: chain.Add(er.ClassName); break;
+                case Module m:
+                    chain.Add("YangNode");
+                    rootNamespace = MakeNamespace(m.Argument);
+                    break;
+            }
+            if (rootNamespace != null) break;
+            p = p.Parent;
+        }
+        if (chain.Count == 0) return null;
+        if (rootNamespace == null) return chain[0];
+        chain.Reverse();
+        return "global::" + rootNamespace + "." + string.Join(".", chain);
+    }
+
+    /// <summary>
+    /// Emits a strongly-typed tree-parent property for a generated class, or an empty
+    /// string if no parent class is resolvable. The property is named <c>YangParent</c>
+    /// (not <c>Parent</c>) to avoid colliding with any YANG identifier named "parent".
+    /// </summary>
+    protected string ParentPropertyDeclaration()
+    {
+        var parentName = ParentClassName;
+        if (parentName is null) return string.Empty;
+        return $"public {parentName}? YangParent {{ get; internal set; }}";
+    }
+
+    /// <summary>
+    /// Generates a GetChild(string yangName) method that maps YANG element names
+    /// to C# property values. Used for instance-identifier resolution at runtime.
+    /// </summary>
+    protected string GetChildMethod()
+    {
+        var cases = new List<string>();
+        var seenNames = new HashSet<string>();
+        foreach (var child in Children)
+        {
+            string? targetName = null;
+            switch (child)
+            {
+                case Container c: targetName = c.TargetName; break;
+                case List l: targetName = l.TargetName; break;
+                case Leaf lf: targetName = lf.TargetName; break;
+                case LeafList ll when !string.IsNullOrEmpty(ll.TargetName): targetName = ll.TargetName; break;
+                case Choice ch: targetName = MakeName(ch.Argument); break;
+                case AnyXml ax: targetName = MakeName(ax.Argument); break;
+                case AnyData ad: targetName = MakeName(ad.Argument); break;
+            }
+            if (string.IsNullOrEmpty(targetName)) continue;
+            var yangName = child.Argument;
+            if (!seenNames.Add(yangName)) continue; // skip duplicates
+            cases.Add($"\"{yangName}\" => {targetName},");
+        }
+
+        if (cases.Count == 0)
+        {
+            return """
+                   public object? GetChild(string yangName) => null;
+                   """;
+        }
+
+        return $$"""
+                 public object? GetChild(string yangName) => yangName switch
+                 {
+                     {{Indent(string.Join("\n", cases))}}
+                     _ => null
+                 };
+                 """;
+    }
 
     public string AttributeString
     {
