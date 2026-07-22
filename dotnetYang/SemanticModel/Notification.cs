@@ -67,8 +67,10 @@ public class Notification : NodeDataStatement, IXMLParseable
         return $$"""
                  public {{ClassName}}? {{TargetName}};
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{ClassName}}
+                 public class {{ClassName}} : YangSupport.IYangNode
                  {
+                     YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
+                     public object? GetChild(string yangName) => null;
                      {{string.Join("\n\t", nodes.Select(Indent))}}
                      public async Task Send(IChannel channel{{addRoot}})
                      {

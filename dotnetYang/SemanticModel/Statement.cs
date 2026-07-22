@@ -521,8 +521,14 @@ public abstract class Statement : IStatement
     protected string ParentPropertyDeclaration()
     {
         var parentName = ParentClassName;
-        if (parentName is null) return string.Empty;
-        return $"public {parentName}? YangParent {{ get; internal set; }}";
+        if (parentName is null)
+        {
+            return "YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;";
+        }
+        return $$"""
+                 public {{parentName}}? YangParent { get; internal set; }
+                 YangSupport.IYangNode? YangSupport.IYangNode.YangParent => YangParent;
+                 """;
     }
 
     /// <summary>

@@ -78,22 +78,24 @@ public class Module : TopLevelStatement, IXMLParseable
             ? $"global::{cu.MyNamespace}.Configuration"
             : null;
         var yangParentDecl = configType is not null
-            ? $"public {configType}? YangParent {{ get; internal set; }}"
-            : string.Empty;
+            ? $$"""
+                 public {{configType}}? YangParent { get; internal set; }
+                 YangSupport.IYangNode? YangSupport.IYangNode.YangParent => YangParent;
+                 """
+            : "YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;";
         var raw = $$"""
                     using System;
                     using System.Xml;
                     using System.Text;
                     using System.Collections.Generic;
                     using System.Runtime.CompilerServices;
-                    using System.Reflection;
                     using System.Xml.Linq;
                     using System.Text.RegularExpressions;
                     using YangSupport;
                     {{interfaceDefinition}}
                     namespace {{ns}}{
                     {{DescriptionString}}{{AttributeString}}
-                    public class YangNode
+                    public class YangNode : YangSupport.IYangNode
                     {
                         {{yangParentDecl}}
                         public const string ModuleName = "{{Argument}}";

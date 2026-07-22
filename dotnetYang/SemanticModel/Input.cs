@@ -34,8 +34,10 @@ public class Input : Statement, IXMLParseable
     {
         Argument = Parent!.Argument;
         return $$"""
-                 public class {{ClassName}}
+                 public class {{ClassName}} : YangSupport.IYangNode
                  {
+                     YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
+                     public object? GetChild(string yangName) => null;
                      {{string.Join("\n\t", Children.Select(child => Indent(child.ToCode())))}}
                      {{Indent(WriteFunctionInvisibleSelf())}}
                      {{Indent(ReadFunction())}}

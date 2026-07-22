@@ -115,8 +115,9 @@ public class CompilationUnit : Statement, IXMLParseable
                  ///<summary>
                  ///Configuration root object for {{MyNamespace}} based on provided .yang modules
                  ///</summary>{{AttributeString}}
-                 public class Configuration
+                 public class Configuration : YangSupport.IYangNode
                  {
+                     YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
                      {{Indent(string.Join("\n", members))}}
                      {{Indent(WriteFunction())}}
                      {{Indent(ReadFunction())}}
@@ -132,7 +133,7 @@ public class CompilationUnit : Statement, IXMLParseable
                          object? current = this;
                          foreach (var segment in segments)
                          {
-                             if (current is null) return null;
+                             if (current is not YangSupport.IYangNode yangNode) return null;
                              // Parse key predicate if present: name[key='value']
                              var bracketIdx = segment.IndexOf('[');
                              var name = bracketIdx >= 0 ? segment.Substring(0, bracketIdx) : segment;
@@ -140,12 +141,8 @@ public class CompilationUnit : Statement, IXMLParseable
                              // but use full name for top-level module lookup)
                              var colonIdx = name.IndexOf(':');
                              var localName = colonIdx >= 0 ? name.Substring(colonIdx + 1) : name;
-                             // Navigate: use GetChild via reflection-free interface
-                             var method = current.GetType().GetMethod("GetChild", new[] { typeof(string) });
-                             if (method is null) return null;
-                             // Try with local name first, then full prefixed name
-                             current = method.Invoke(current, new object[] { localName })
-                                        ?? method.Invoke(current, new object[] { name });
+                             // Navigate via IYangNode interface
+                             current = yangNode.GetChild(localName) ?? yangNode.GetChild(name);
                              if (current is null) return null;
                              // Handle key predicate for list access
                              if (bracketIdx >= 0)
@@ -156,7 +153,7 @@ public class CompilationUnit : Statement, IXMLParseable
                                  if (eqIdx > 0)
                                  {
                                      var keyValue = predicate.Substring(eqIdx + 1).Trim('[', ']', '\'', '"', ' ');
-                                     // Use indexer via TryGetValue or indexer
+                                     // Use indexer for list key lookup
                                      var indexer = current.GetType().GetProperty("Item", new[] { typeof(string) });
                                      if (indexer is not null)
                                      {

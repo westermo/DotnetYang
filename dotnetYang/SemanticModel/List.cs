@@ -133,7 +133,9 @@ public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
         var collectionType = CollectionTypeString;
         var key = GetKey();
         var parentName = ParentClassName;
-        var classInterfaces = keyType != null ? $" : global::System.IEquatable<{ClassName}>" : string.Empty;
+        var classInterfaces = keyType != null
+            ? $" : global::System.IEquatable<{ClassName}>, YangSupport.IYangNode"
+            : " : YangSupport.IYangNode";
         var equalityMembers = (key != null && keyType != null) ? GenerateEqualityMembers(key) : string.Empty;
 
         string property;

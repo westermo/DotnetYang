@@ -69,12 +69,13 @@ public class Choice : Statement, IClassSource, IXMLParseable
         return $$"""
                  {{property}}
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{TargetName}}Choice
+                 public class {{TargetName}}Choice : YangSupport.IYangNode
                  {
                      {{Indent(parentDecl)}}
                      {{string.Join("\n\t", nodes.Select(Indent))}}
                      {{Indent(WriteFunctionInvisibleSelf())}}
                      {{Indent(ReadFunctionWithInvisibleSelf())}}
+                     {{Indent(GetChildMethod())}}
                      {{Indent(validate)}}
                  }
                  """;

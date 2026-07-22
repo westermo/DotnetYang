@@ -63,12 +63,13 @@ public class Case : Statement, IClassSource, IXMLParseable
         return $$"""
                  {{property}}
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{ClassName}}
+                 public class {{ClassName}} : YangSupport.IYangNode
                  {
                     {{Indent(parentDecl)}}
                     {{Indent(string.Join("\n", nodes))}}
                      {{Indent(WriteFunctionInvisibleSelf())}}
                      {{Indent(ReadFunctionWithInvisibleSelf())}}
+                     {{Indent(GetChildMethod())}}
                      {{Indent(validate)}}
                  }
                  """;

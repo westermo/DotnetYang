@@ -13,13 +13,24 @@ public class InstanceIdentifier(string path)
     public override string ToString() => Path;
 
     /// <summary>
-    /// Resolves this instance-identifier against a Configuration root, returning
-    /// the referenced object or null if the path cannot be resolved.
+    /// Resolves this instance-identifier against a YANG node, walking up to the root
+    /// and resolving the path from there.
     /// </summary>
-    /// <param name="root">The Configuration root that exposes a ResolveInstanceIdentifier method.</param>
-    /// <returns>The resolved object, or null if not found.</returns>
+    public object? Resolve(IYangNode node)
+    {
+        return node.ResolveInstanceIdentifier(Path);
+    }
+
+    /// <summary>
+    /// Resolves this instance-identifier against a root object (e.g. Configuration).
+    /// Falls back to reflection if the root doesn't implement IYangNode.
+    /// </summary>
     public object? Resolve(object root)
     {
+        if (root is IYangNode yangNode)
+        {
+            return yangNode.ResolveInstanceIdentifier(Path);
+        }
         var method = root.GetType().GetMethod("ResolveInstanceIdentifier", new[] { typeof(string) });
         if (method is null) return null;
         return method.Invoke(root, new object[] { Path });

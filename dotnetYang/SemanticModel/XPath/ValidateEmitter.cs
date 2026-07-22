@@ -321,19 +321,9 @@ internal static class ValidateEmitter
         var schemaPath = EscapeForString(leaf.XPath);
         body.AppendLine($$"""
                           // require-instance true for instance-identifier leaf '{{leaf.TargetName}}'
-                          if ({{leaf.TargetName}} is not null && this.YangParent is not null)
+                          if ({{leaf.TargetName}} is not null)
                           {
-                              // Walk up to Configuration root via YangParent chain
-                              object? __root = this;
-                              while (true)
-                              {
-                                  var __parentProp = __root!.GetType().GetProperty("YangParent");
-                                  if (__parentProp is null) break;
-                                  var __next = __parentProp.GetValue(__root);
-                                  if (__next is null) break;
-                                  __root = __next;
-                              }
-                              var __resolved = {{leaf.TargetName}}.Resolve(__root!);
+                              var __resolved = {{leaf.TargetName}}.Resolve((YangSupport.IYangNode)this);
                               if (__resolved is null)
                               {
                                   throw new global::YangSupport.YangValidationException(

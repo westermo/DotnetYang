@@ -46,8 +46,10 @@ public class ExtensionReference : Statement
             return $$"""
                      public {{MakeName(classNameSource)}}Extension? {{MakeName(classNameSource)}}ExtensionValue { get; }
                      {{DescriptionString}}{{AttributeString}}
-                     public class {{MakeName(classNameSource)}}Extension : {{inheritance}}
+                     public class {{MakeName(classNameSource)}}Extension : {{inheritance}}, YangSupport.IYangNode
                      {
+                         YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
+                         public object? GetChild(string yangName) => null;
                          public {{MakeName(classNameSource)}}Extension() : base("{{SingleLine(Argument).Replace("\n", "\\\n")}}")
                          {
                          }
@@ -59,8 +61,10 @@ public class ExtensionReference : Statement
         return $$"""
                  public {{MakeName(classNameSource)}}Extension? {{MakeName(classNameSource)}}ExtensionValue { get; }
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{MakeName(classNameSource)}}Extension : {{inheritance}}
+                 public class {{MakeName(classNameSource)}}Extension : {{inheritance}}, YangSupport.IYangNode
                  {
+                     YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
+                     public object? GetChild(string yangName) => null;
                      {{Indent(string.Join("\n", children))}}
                  }
                  """;
