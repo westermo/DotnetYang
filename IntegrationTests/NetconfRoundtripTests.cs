@@ -1,6 +1,5 @@
 using System.Text;
 using System.Xml;
-using Xunit.Abstractions;
 using YangSupport;
 using YangSupport.Netconf;
 
@@ -10,14 +9,12 @@ namespace IntegrationTests;
 /// Tests that validate DotnetYang-generated XML against netopeer2
 /// using the high-level NetconfClient API.
 /// </summary>
-[Trait("Category", "Integration")]
-public class NetconfRoundtripTests : IAsyncLifetime
+[Category("Integration")]
+public class NetconfRoundtripTests
 {
-    private readonly ITestOutputHelper _output;
     private SshNetconfClient? _client;
 
-    public NetconfRoundtripTests(ITestOutputHelper output) => _output = output;
-
+    [Before(Test)]
     public async Task InitializeAsync()
     {
         try
@@ -25,38 +22,38 @@ public class NetconfRoundtripTests : IAsyncLifetime
             _client = await SshNetconfClient.ConnectAsync(
                 NetconfConfig.Host, NetconfConfig.Port,
                 NetconfConfig.User, NetconfConfig.Password);
-            _output.WriteLine($"Connected. Base 1.1: {_client.Session.Base11}, " +
+            Console.WriteLine($"Connected. Base 1.1: {_client.Session.Base11}, " +
                 $"Candidate: {_client.Session.Candidate}, Validate: {_client.Session.Validate}");
         }
         catch (Exception ex)
         {
-            _output.WriteLine($"Could not connect ({ex.GetType().Name}): {ex.Message}");
+            Console.WriteLine($"Could not connect ({ex.GetType().Name}): {ex.Message}");
         }
     }
 
-    public Task DisposeAsync()
+    [After(Test)]
+    public void CleanUp()
     {
         _client?.Dispose();
-        return Task.CompletedTask;
     }
 
-    [Fact]
+    [Test]
     public async Task GetConfig_ReturnsData()
     {
-        if (_client is null) { _output.WriteLine("Skipped"); return; }
+        if (_client is null) { Console.WriteLine("Skipped"); return; }
 
         var data = await _client.GetConfigAsync();
-        Assert.NotNull(data);
-        _output.WriteLine($"GetConfig returned {data!.ChildNodes.Count} top-level elements");
+        await Assert.That(data).IsNotNull();
+        Console.WriteLine($"GetConfig returned {data!.ChildNodes.Count} top-level elements");
     }
 
     /// <summary>
     /// Full roundtrip: edit-config with DotnetYang-generated types → get-config → verify.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task EditConfig_ThenGetConfig_RoundTrips()
     {
-        if (_client is null) { _output.WriteLine("Skipped"); return; }
+        if (_client is null) { Console.WriteLine("Skipped"); return; }
 
         var interfaces = new Ietf.Interfaces.YangNode.InterfacesContainer
         {
@@ -77,51 +74,51 @@ public class NetconfRoundtripTests : IAsyncLifetime
 
         // Edit config with generated types — configOnly: true excludes state data
         await _client.EditConfigAsync(interfaces, configOnly: true);
-        _output.WriteLine("edit-config succeeded");
+        Console.WriteLine("edit-config succeeded");
 
         // Read back and verify
         var filter = "<interfaces xmlns=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\"/>";
         var data = await _client.GetConfigAsync(filter: filter);
-        Assert.NotNull(data);
+        await Assert.That(data).IsNotNull();
         var xml = data!.OuterXml;
-        _output.WriteLine($"get-config: {xml}");
+        Console.WriteLine($"get-config: {xml}");
 
-        Assert.Contains("test-eth0", xml);
-        Assert.Contains("DotnetYang roundtrip test", xml);
-        Assert.Contains("ethernetCsmacd", xml);
+        await Assert.That(xml).Contains("test-eth0");
+        await Assert.That(xml).Contains("DotnetYang roundtrip test");
+        await Assert.That(xml).Contains("ethernetCsmacd");
     }
 
-    [Fact]
+    [Test]
     public async Task Lock_Unlock_Works()
     {
-        if (_client is null) { _output.WriteLine("Skipped"); return; }
+        if (_client is null) { Console.WriteLine("Skipped"); return; }
 
         await _client.LockAsync(Datastore.Running);
-        _output.WriteLine("Lock acquired");
+        Console.WriteLine("Lock acquired");
 
         await _client.UnlockAsync(Datastore.Running);
-        _output.WriteLine("Lock released");
+        Console.WriteLine("Lock released");
     }
 
-    [Fact]
+    [Test]
     public async Task Validate_Works()
     {
         if (_client is null || !_client.Session.Validate)
         {
-            _output.WriteLine("Skipped: validate not supported");
+            Console.WriteLine("Skipped: validate not supported");
             return;
         }
 
         await _client.ValidateAsync(Datastore.Running);
-        _output.WriteLine("Validate succeeded");
+        Console.WriteLine("Validate succeeded");
     }
 
-    [Fact]
+    [Test]
     public async Task Candidate_Commit_Works()
     {
         if (_client is null || !_client.Session.Candidate)
         {
-            _output.WriteLine("Skipped: candidate not supported");
+            Console.WriteLine("Skipped: candidate not supported");
             return;
         }
 
@@ -143,25 +140,25 @@ public class NetconfRoundtripTests : IAsyncLifetime
         };
 
         await _client.EditConfigAsync(interfaces, target: Datastore.Candidate, configOnly: true);
-        _output.WriteLine("edit-config to candidate succeeded");
+        Console.WriteLine("edit-config to candidate succeeded");
 
         await _client.CommitAsync();
-        _output.WriteLine("commit succeeded");
+        Console.WriteLine("commit succeeded");
 
         // Verify in running
         var filter = "<interfaces xmlns=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\"/>";
         var data = await _client.GetConfigAsync(filter: filter);
-        Assert.Contains("candidate-if0", data!.OuterXml);
-        _output.WriteLine("Verified in running after commit");
+        await Assert.That(data!.OuterXml).Contains("candidate-if0");
+        Console.WriteLine("Verified in running after commit");
     }
 
     /// <summary>
     /// Test typed deserialization: get-config → ParseAsync → typed C# object.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task GetConfigTyped_DeserializesIntoGeneratedType()
     {
-        if (_client is null) { _output.WriteLine("Skipped"); return; }
+        if (_client is null) { Console.WriteLine("Skipped"); return; }
 
         // First ensure there's data to read
         var interfaces = new Ietf.Interfaces.YangNode.InterfacesContainer
@@ -185,7 +182,7 @@ public class NetconfRoundtripTests : IAsyncLifetime
         // Get config and deserialize into generated type
         var filter = "<interfaces xmlns=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\"/>";
         var data = await _client.GetConfigAsync(filter: filter);
-        Assert.NotNull(data);
+        await Assert.That(data).IsNotNull();
 
         // Parse the <interfaces> element directly using the container's ParseAsync
         var xml = data!.InnerXml;
@@ -194,23 +191,23 @@ public class NetconfRoundtripTests : IAsyncLifetime
         await reader.ReadAsync();
         var parsedInterfaces = await Ietf.Interfaces.YangNode.InterfacesContainer.ParseAsync(reader);
 
-        Assert.NotNull(parsedInterfaces);
-        Assert.NotNull(parsedInterfaces!.Interface);
+        await Assert.That(parsedInterfaces).IsNotNull();
+        await Assert.That(parsedInterfaces!.Interface).IsNotNull();
 
         var entry = parsedInterfaces.Interface!["typed-if0"];
-        Assert.NotNull(entry);
-        Assert.Equal("Typed deserialization test", entry!.Description);
-        Assert.Equal(Ietf.Interfaces.YangNode.InterfaceTypeIdentity.EthernetCsmacd, entry.Type);
-        _output.WriteLine($"Deserialized: name={entry.Name}, type={entry.Type}, desc={entry.Description}");
+        await Assert.That(entry).IsNotNull();
+        await Assert.That(entry!.Description).IsEqualTo("Typed deserialization test");
+        await Assert.That(entry.Type).IsEqualTo(Ietf.Interfaces.YangNode.InterfaceTypeIdentity.EthernetCsmacd);
+        Console.WriteLine($"Deserialized: name={entry.Name}, type={entry.Type}, desc={entry.Description}");
     }
 
     /// <summary>
     /// Test client-side validation before edit-config.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task EditConfigValidated_EnforcesConstraints()
     {
-        if (_client is null) { _output.WriteLine("Skipped"); return; }
+        if (_client is null) { Console.WriteLine("Skipped"); return; }
 
         // Create a valid interface and send with validation
         var interfaces = new Ietf.Interfaces.YangNode.InterfacesContainer
@@ -232,11 +229,11 @@ public class NetconfRoundtripTests : IAsyncLifetime
 
         // EditConfigValidatedAsync runs YangValidate() before sending
         await _client.EditConfigValidatedAsync(interfaces, configOnly: true);
-        _output.WriteLine("edit-config with validation succeeded");
+        Console.WriteLine("edit-config with validation succeeded");
 
         // Verify it was applied
         var filter = "<interfaces xmlns=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\"/>";
         var data = await _client.GetConfigAsync(filter: filter);
-        Assert.Contains("validated-if0", data!.OuterXml);
+        await Assert.That(data!.OuterXml).Contains("validated-if0");
     }
 }

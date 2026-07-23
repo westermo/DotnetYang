@@ -4,140 +4,140 @@ namespace Compiler.Tests;
 
 public class XPathParserTests
 {
-    [Theory]
-    [InlineData("true()")]
-    [InlineData("false()")]
-    [InlineData("1")]
-    [InlineData("1.5")]
-    [InlineData("'hello'")]
-    [InlineData("\"hello\"")]
-    [InlineData(".")]
-    [InlineData("..")]
-    [InlineData("foo")]
-    [InlineData("foo/bar")]
-    [InlineData("../foo")]
-    [InlineData("/foo")]
-    [InlineData("/foo/bar")]
-    [InlineData("//foo")]
-    [InlineData("pfx:foo")]
-    [InlineData("foo[bar='baz']")]
-    [InlineData("foo[bar = 'baz' and qux > 3]")]
-    [InlineData("count(foo)")]
-    [InlineData("count(../foo) > 0")]
-    [InlineData("not(foo)")]
-    [InlineData("not(../enabled = 'true')")]
-    [InlineData("../config/enabled = 'true' or ../disabled = 'false'")]
-    [InlineData("string-length(name) > 0")]
-    [InlineData("(a or b) and c")]
-    [InlineData("child::foo/parent::bar")]
-    [InlineData("@id = 'x'")]
-    [InlineData("foo | bar")]
-    [InlineData("position() = last()")]
-    public void ParsesWithoutError(string expr)
+    [Test]
+    [Arguments("true()")]
+    [Arguments("false()")]
+    [Arguments("1")]
+    [Arguments("1.5")]
+    [Arguments("'hello'")]
+    [Arguments("\"hello\"")]
+    [Arguments(".")]
+    [Arguments("..")]
+    [Arguments("foo")]
+    [Arguments("foo/bar")]
+    [Arguments("../foo")]
+    [Arguments("/foo")]
+    [Arguments("/foo/bar")]
+    [Arguments("//foo")]
+    [Arguments("pfx:foo")]
+    [Arguments("foo[bar='baz']")]
+    [Arguments("foo[bar = 'baz' and qux > 3]")]
+    [Arguments("count(foo)")]
+    [Arguments("count(../foo) > 0")]
+    [Arguments("not(foo)")]
+    [Arguments("not(../enabled = 'true')")]
+    [Arguments("../config/enabled = 'true' or ../disabled = 'false'")]
+    [Arguments("string-length(name) > 0")]
+    [Arguments("(a or b) and c")]
+    [Arguments("child::foo/parent::bar")]
+    [Arguments("@id = 'x'")]
+    [Arguments("foo | bar")]
+    [Arguments("position() = last()")]
+    public async Task ParsesWithoutError(string expr)
     {
         var ast = XPathParser.Parse(expr);
-        Assert.NotNull(ast);
+        await Assert.That(ast).IsNotNull();
     }
 
-    [Fact]
-    public void NumberLiteralParses()
+    [Test]
+    public async Task NumberLiteralParses()
     {
         var ast = (NumberLiteralExpr)XPathParser.Parse("42");
-        Assert.Equal(42.0, ast.Value);
+        await Assert.That(ast.Value).IsEqualTo(42.0);
     }
 
-    [Fact]
-    public void StringLiteralPreservesContents()
+    [Test]
+    public async Task StringLiteralPreservesContents()
     {
         var ast = (StringLiteralExpr)XPathParser.Parse("'hi there'");
-        Assert.Equal("hi there", ast.Value);
+        await Assert.That(ast.Value).IsEqualTo("hi there");
     }
 
-    [Fact]
-    public void AndBindsTighterThanOr()
+    [Test]
+    public async Task AndBindsTighterThanOr()
     {
         // 'a or b and c' parses as 'a or (b and c)'.
         var ast = (BinaryExpr)XPathParser.Parse("a or b and c");
-        Assert.Equal(BinaryOp.Or, ast.Op);
+        await Assert.That(ast.Op).IsEqualTo(BinaryOp.Or);
         var right = (BinaryExpr)ast.Right;
-        Assert.Equal(BinaryOp.And, right.Op);
+        await Assert.That(right.Op).IsEqualTo(BinaryOp.And);
     }
 
-    [Fact]
-    public void DoubleDotIsParentStep()
+    [Test]
+    public async Task DoubleDotIsParentStep()
     {
         var path = (PathExpr)XPathParser.Parse("..");
-        Assert.Single(path.Steps);
-        Assert.Equal(XPathAxis.Parent, path.Steps[0].Axis);
+        await Assert.That(path.Steps.Count).IsEqualTo(1);
+        await Assert.That(path.Steps[0].Axis).IsEqualTo(XPathAxis.Parent);
     }
 
-    [Fact]
-    public void AbsolutePathFlagged()
+    [Test]
+    public async Task AbsolutePathFlagged()
     {
         var path = (PathExpr)XPathParser.Parse("/foo/bar");
-        Assert.True(path.IsAbsolute);
-        Assert.Equal(2, path.Steps.Count);
+        await Assert.That(path.IsAbsolute).IsTrue();
+        await Assert.That(path.Steps.Count).IsEqualTo(2);
     }
 
-    [Fact]
-    public void PredicateIsParsedAsExpression()
+    [Test]
+    public async Task PredicateIsParsedAsExpression()
     {
         var path = (PathExpr)XPathParser.Parse("foo[bar='baz']");
-        Assert.Single(path.Steps);
-        Assert.Single(path.Steps[0].Predicates);
+        await Assert.That(path.Steps.Count).IsEqualTo(1);
+        await Assert.That(path.Steps[0].Predicates.Count).IsEqualTo(1);
         var pred = (BinaryExpr)path.Steps[0].Predicates[0];
-        Assert.Equal(BinaryOp.Eq, pred.Op);
+        await Assert.That(pred.Op).IsEqualTo(BinaryOp.Eq);
     }
 
-    [Fact]
-    public void FunctionCallWithMultipleArgs()
+    [Test]
+    public async Task FunctionCallWithMultipleArgs()
     {
         var ast = (FunctionCallExpr)XPathParser.Parse("substring('abc', 1, 2)");
-        Assert.Equal("substring", ast.Name);
-        Assert.Equal(3, ast.Arguments.Count);
+        await Assert.That(ast.Name).IsEqualTo("substring");
+        await Assert.That(ast.Arguments.Count).IsEqualTo(3);
     }
 
-    [Fact]
-    public void DoubleSlashParsesAsDescendantOrSelf()
+    [Test]
+    public async Task DoubleSlashParsesAsDescendantOrSelf()
     {
         var path = (PathExpr)XPathParser.Parse("//foo");
-        Assert.True(path.IsAbsolute);
+        await Assert.That(path.IsAbsolute).IsTrue();
         // Parser inserts: descendant-or-self::node(), child::foo
-        Assert.Equal(2, path.Steps.Count);
-        Assert.Equal(XPathAxis.DescendantOrSelf, path.Steps[0].Axis);
-        Assert.Equal(XPathAxis.Child, path.Steps[1].Axis);
+        await Assert.That(path.Steps.Count).IsEqualTo(2);
+        await Assert.That(path.Steps[0].Axis).IsEqualTo(XPathAxis.DescendantOrSelf);
+        await Assert.That(path.Steps[1].Axis).IsEqualTo(XPathAxis.Child);
     }
 
-    [Fact]
-    public void RelativeDoubleSlashParsesCorrectly()
+    [Test]
+    public async Task RelativeDoubleSlashParsesCorrectly()
     {
         var path = (PathExpr)XPathParser.Parse("a//b");
-        Assert.False(path.IsAbsolute);
+        await Assert.That(path.IsAbsolute).IsFalse();
         // Steps: child::a, descendant-or-self::node(), child::b
-        Assert.Equal(3, path.Steps.Count);
-        Assert.Equal(XPathAxis.Child, path.Steps[0].Axis);
-        Assert.Equal(XPathAxis.DescendantOrSelf, path.Steps[1].Axis);
-        Assert.Equal(XPathAxis.Child, path.Steps[2].Axis);
+        await Assert.That(path.Steps.Count).IsEqualTo(3);
+        await Assert.That(path.Steps[0].Axis).IsEqualTo(XPathAxis.Child);
+        await Assert.That(path.Steps[1].Axis).IsEqualTo(XPathAxis.DescendantOrSelf);
+        await Assert.That(path.Steps[2].Axis).IsEqualTo(XPathAxis.Child);
     }
 
-    [Fact]
-    public void WildcardStepParsesAsNameTestStar()
+    [Test]
+    public async Task WildcardStepParsesAsNameTestStar()
     {
         var path = (PathExpr)XPathParser.Parse("foo/*");
-        Assert.Equal(2, path.Steps.Count);
+        await Assert.That(path.Steps.Count).IsEqualTo(2);
         var star = path.Steps[1].Test as NameTest;
-        Assert.NotNull(star);
-        Assert.Equal("*", star!.LocalName);
+        await Assert.That(star).IsNotNull();
+        await Assert.That(star!.LocalName).IsEqualTo("*");
     }
 
-    [Fact]
-    public void CountStarParsesCorrectly()
+    [Test]
+    public async Task CountStarParsesCorrectly()
     {
         var fc = (FunctionCallExpr)XPathParser.Parse("count(*)");
-        Assert.Equal("count", fc.Name);
-        Assert.Single(fc.Arguments);
+        await Assert.That(fc.Name).IsEqualTo("count");
+        await Assert.That(fc.Arguments.Count).IsEqualTo(1);
         var arg = (PathExpr)fc.Arguments[0];
-        Assert.Single(arg.Steps);
-        Assert.Equal("*", ((NameTest)arg.Steps[0].Test).LocalName);
+        await Assert.That(arg.Steps.Count).IsEqualTo(1);
+        await Assert.That(((NameTest)arg.Steps[0].Test).LocalName).IsEqualTo("*");
     }
 }

@@ -5,18 +5,18 @@ namespace YangSourceTests;
 
 public class TreeAwarenessTests
 {
-    [Fact]
-    public void ContainerSetsYangParentOnAssignment()
+    [Test]
+    public async Task ContainerSetsYangParentOnAssignment()
     {
         var node = new YangNode
         {
             Root = new YangNode.RootContainer()
         };
-        Assert.Same(node, node.Root!.YangParent);
+        await Assert.That(node.Root!.YangParent).IsSameReferenceAs(node);
     }
 
-    [Fact]
-    public void NestedContainerGetsYangParent()
+    [Test]
+    public async Task NestedContainerGetsYangParent()
     {
         var node = new YangNode
         {
@@ -25,11 +25,11 @@ public class TreeAwarenessTests
                 Nested = new YangNode.RootContainer.NestedContainer { Value = 42 }
             }
         };
-        Assert.Same(node.Root, node.Root!.Nested!.YangParent);
+        await Assert.That(node.Root!.Nested!.YangParent).IsSameReferenceAs(node.Root);
     }
 
-    [Fact]
-    public void NestedListEntryGetsYangParentFromContainerSetter()
+    [Test]
+    public async Task NestedListEntryGetsYangParentFromContainerSetter()
     {
         var node = new YangNode
         {
@@ -45,12 +45,12 @@ public class TreeAwarenessTests
 
         var first = node.Root!.Items![0];
         var second = node.Root.Items[1];
-        Assert.Same(node.Root, first.YangParent);
-        Assert.Same(node.Root, second.YangParent);
+        await Assert.That(first.YangParent).IsSameReferenceAs(node.Root);
+        await Assert.That(second.YangParent).IsSameReferenceAs(node.Root);
     }
 
-    [Fact]
-    public void YangListAddWiresYangParentAfterAssignment()
+    [Test]
+    public async Task YangListAddWiresYangParentAfterAssignment()
     {
         var node = new YangNode
         {
@@ -62,11 +62,11 @@ public class TreeAwarenessTests
 
         var entry = new YangNode.RootContainer.ItemsEntry { Id = "x" };
         node.Root!.Items!.Add(entry);
-        Assert.Same(node.Root, entry.YangParent);
+        await Assert.That(entry.YangParent).IsSameReferenceAs(node.Root);
     }
 
-    [Fact]
-    public void YangListRemoveByKeyClearsYangParent()
+    [Test]
+    public async Task YangListRemoveByKeyClearsYangParent()
     {
         var entry = new YangNode.RootContainer.ItemsEntry { Id = "x" };
         var node = new YangNode
@@ -79,41 +79,41 @@ public class TreeAwarenessTests
                 }
             }
         };
-        Assert.Same(node.Root, entry.YangParent);
-        Assert.True(node.Root!.Items!.RemoveByKey("x"));
-        Assert.Null(entry.YangParent);
+        await Assert.That(entry.YangParent).IsSameReferenceAs(node.Root);
+        await Assert.That(node.Root!.Items!.RemoveByKey("x")).IsTrue();
+        await Assert.That(entry.YangParent).IsNull();
     }
 
-    [Fact]
-    public void ReassigningContainerClearsOldParentAndSetsNew()
+    [Test]
+    public async Task ReassigningContainerClearsOldParentAndSetsNew()
     {
         var shared = new YangNode.RootContainer();
         var nodeA = new YangNode { Root = shared };
-        Assert.Same(nodeA, shared.YangParent);
+        await Assert.That(shared.YangParent).IsSameReferenceAs(nodeA);
 
         var nodeB = new YangNode();
         nodeA.Root = null;
-        Assert.Null(shared.YangParent);
+        await Assert.That(shared.YangParent).IsNull();
         nodeB.Root = shared;
-        Assert.Same(nodeB, shared.YangParent);
+        await Assert.That(shared.YangParent).IsSameReferenceAs(nodeB);
     }
 
-    [Fact]
-    public void ParentWiringSurvivesAddAfterAssignment()
+    [Test]
+    public async Task ParentWiringSurvivesAddAfterAssignment()
     {
         var list = new YangList<string, YangNode.RootContainer.ItemsEntry>(e => e.Id);
         var entryBefore = new YangNode.RootContainer.ItemsEntry { Id = "before" };
         list.Add(entryBefore);
 
         var root = new YangNode.RootContainer { Items = list };
-        Assert.Same(root, entryBefore.YangParent);
+        await Assert.That(entryBefore.YangParent).IsSameReferenceAs(root);
 
         var entryAfter = new YangNode.RootContainer.ItemsEntry { Id = "after" };
         list.Add(entryAfter);
-        Assert.Same(root, entryAfter.YangParent);
+        await Assert.That(entryAfter.YangParent).IsSameReferenceAs(root);
     }
 
-    [Fact]
+    [Test]
     public async Task ParseAsyncWiresYangParent()
     {
         const string xml = """
@@ -129,15 +129,14 @@ public class TreeAwarenessTests
         await reader.ReadAsync();
         var root = await YangNode.RootContainer.ParseAsync(reader);
 
-        Assert.NotNull(root.Nested);
-        Assert.Same(root, root.Nested!.YangParent);
+        await Assert.That(root.Nested).IsNotNull();
+        await Assert.That(root.Nested!.YangParent).IsSameReferenceAs(root);
 
-        Assert.NotNull(root.Items);
-        Assert.Equal(2, root.Items!.Count);
+        await Assert.That(root.Items).IsNotNull();
+        await Assert.That(root.Items!.Count).IsEqualTo(2);
         foreach (var item in root.Items)
         {
-            Assert.Same(root, item.YangParent);
+            await Assert.That(item.YangParent).IsSameReferenceAs(root);
         }
     }
 }
-

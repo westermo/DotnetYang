@@ -38,7 +38,7 @@ jobs:
       # Run the offline XML interop tests (no Docker dependency)
       - name: Run XML interop tests
         run: |
-          dotnet test IntegrationTests/IntegrationTests.csproj \
+          dotnet test --project IntegrationTests/IntegrationTests.csproj \
             --filter "FullyQualifiedName~XmlInteropTests|FullyQualifiedName~NotificationInteropTests" \
             --logger "console;verbosity=detailed"
 
@@ -51,7 +51,7 @@ jobs:
           NETCONF_USER: netconf
           NETCONF_PASSWORD: netconf
         run: |
-          dotnet test IntegrationTests/IntegrationTests.csproj \
+          dotnet test --project IntegrationTests/IntegrationTests.csproj \
             --filter "FullyQualifiedName~NetconfRoundtripTests" \
             --logger "console;verbosity=detailed" || true
         # `|| true` because netopeer2 service container may need custom setup;

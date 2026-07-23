@@ -1,5 +1,4 @@
 using System.Text;
-using Xunit.Abstractions;
 using YangParser;
 using YangParser.Generator;
 using YangParser.Parser;
@@ -7,10 +6,10 @@ using YangParser.SemanticModel;
 
 namespace Compiler.Tests;
 
-public class ParsingTests(ITestOutputHelper output)
+public class ParsingTests
 {
-    [Fact]
-    public void IdentityTest()
+    [Test]
+    public async Task IdentityTest()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -91,6 +90,7 @@ public class ParsingTests(ITestOutputHelper output)
                 }
             }
             """));
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             foreach (var identity in module.Identities)
@@ -99,20 +99,16 @@ public class ParsingTests(ITestOutputHelper output)
             }
 
             var code = top.ToCode();
-            output.WriteLine(code);
-            Assert.Contains("public enum AIdentity", code, StringComparison.InvariantCultureIgnoreCase);
-            Assert.Contains("public enum BIdentity", code, StringComparison.InvariantCultureIgnoreCase);
-            Assert.Contains("public enum CIdentity", code, StringComparison.InvariantCultureIgnoreCase);
-            Assert.Contains("public enum DIdentity", code, StringComparison.InvariantCultureIgnoreCase);
-        }
-        else
-        {
-            Assert.Fail($"Top was of type {top.GetType()}");
+            Console.WriteLine(code);
+            await Assert.That(code).Contains("public enum AIdentity");
+            await Assert.That(code).Contains("public enum BIdentity");
+            await Assert.That(code).Contains("public enum CIdentity");
+            await Assert.That(code).Contains("public enum DIdentity");
         }
     }
 
-    [Fact]
-    public void AugmentationIsFoundTest()
+    [Test]
+    public async Task AugmentationIsFoundTest()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -124,16 +120,16 @@ public class ParsingTests(ITestOutputHelper output)
                 augment b;
             }
             """));
-        Assert.IsType<Module>(top);
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
-            Assert.Equal(2, module.Augments.Count);
-            Assert.Equal("a", module.Augments[0].Argument);
-            Assert.Equal("b", module.Augments[1].Argument);
+            await Assert.That(module.Augments.Count).IsEqualTo(2);
+            await Assert.That(module.Augments[0].Argument).IsEqualTo("a");
+            await Assert.That(module.Augments[1].Argument).IsEqualTo("b");
         }
     }
 
-    [Fact]
+    [Test]
     public void BaseParsingTest()
     {
         var result = Parser.Parse("memory", File.ReadAllText("ietf-inet-types@2013-07-15.yang"));
@@ -245,8 +241,8 @@ public class ParsingTests(ITestOutputHelper output)
                                       }
                                       """;
 
-    [Fact]
-    public void GroupingTest()
+    [Test]
+    public async Task GroupingTest()
     {
         string[] sources = [ModuleOne, ModuleTwo, ModuleThree];
         List<IStatement> modules = new();
@@ -278,35 +274,35 @@ public class ParsingTests(ITestOutputHelper output)
             if (statement.IsUnderGrouping()) continue;
             if (statement is Uses uses)
             {
-                output.WriteLine(uses.Parent!.ToString());
+                Console.WriteLine(uses.Parent!.ToString());
             }
 
-            Assert.IsNotType<Uses>(statement);
+            await Assert.That(statement).IsNotTypeOf<Uses>();
         }
 
-        output.WriteLine(compilationUnit.ToCode());
+        Console.WriteLine(compilationUnit.ToCode());
         foreach (var child in compilationUnit.Children)
         {
-            output.WriteLine(child.ToCode());
+            Console.WriteLine(child.ToCode());
         }
 
         Log.Clear();
     }
 
-    [Fact]
-    public void ReplacementTest()
+    [Test]
+    public async Task ReplacementTest()
     {
         var result = Parser.Parse("memory", File.ReadAllText("ietf-inet-types@2013-07-15.yang"));
         var statements = StatementFactory.Create(result);
         var preLength = statements.Children.Length;
         var original = statements.Children[2];
         statements.Replace(statements.Children[2], statements.Children);
-        Assert.Equal(preLength, statements.Children.Length);
-        Assert.Equal(original, statements.Children[^1]);
+        await Assert.That(statements.Children.Length).IsEqualTo(preLength);
+        await Assert.That(statements.Children[^1]).IsEqualTo(original);
     }
 
-    [Fact]
-    public void UnwrapTest()
+    [Test]
+    public async Task UnwrapTest()
     {
         var result = Parser.Parse("memory", File.ReadAllText("ietf-inet-types@2013-07-15.yang"));
         var statements = StatementFactory.Create(result);
@@ -315,7 +311,7 @@ public class ParsingTests(ITestOutputHelper output)
         {
             for (int j = i + 1; j < array.Length; j++)
             {
-                Assert.False(ReferenceEquals(array[i], array[j]));
+                await Assert.That(ReferenceEquals(array[i], array[j])).IsFalse();
             }
         }
     }
@@ -334,11 +330,11 @@ public class ParsingTests(ITestOutputHelper output)
             tabs.Append('\t');
         }
 
-        output.WriteLine($"{tabs}{statement.GetType().Name} {statement.Argument}{terminator}");
+        Console.WriteLine($"{tabs}{statement.GetType().Name} {statement.Argument}{terminator}");
         if (statement.Children.Length <= 0) return;
-        output.WriteLine($"{tabs}{{");
+        Console.WriteLine($"{tabs}{{");
         foreach (var sub in statement.Children) Print(sub, indent + 1);
-        output.WriteLine($"{tabs}}}");
+        Console.WriteLine($"{tabs}}}");
     }
 
 
@@ -374,8 +370,8 @@ public class ParsingTests(ITestOutputHelper output)
 
     #region Deviation Tests
 
-    [Fact]
-    public void DeviateNotSupportedRemovesNode()
+    [Test]
+    public async Task DeviateNotSupportedRemovesNode()
     {
         string[] sources =
         [
@@ -415,14 +411,14 @@ public class ParsingTests(ITestOutputHelper output)
 
         var targetModule = modules["target-mod"];
         var code = targetModule.ToCode();
-        output.WriteLine(code);
+        Console.WriteLine(code);
 
-        Assert.Contains("Hostname", code);
-        Assert.DoesNotContain("DeprecatedSetting", code);
+        await Assert.That(code).Contains("Hostname");
+        await Assert.That(code).DoesNotContain("DeprecatedSetting");
     }
 
-    [Fact]
-    public void DeviateAddAppendsProperties()
+    [Test]
+    public async Task DeviateAddAppendsProperties()
     {
         string[] sources =
         [
@@ -462,11 +458,11 @@ public class ParsingTests(ITestOutputHelper output)
         var configContainer = targetModule.Unwrap().First(c => c.Argument == "config");
         var portLeaf = configContainer.Children.First(c => c.Argument == "port");
         var hasDefault = portLeaf.Children.Any(c => c is DefaultValue);
-        Assert.True(hasDefault, "Default should have been added by deviate add");
+        await Assert.That(hasDefault).IsTrue();
     }
 
-    [Fact]
-    public void DeviateReplaceReplacesProperty()
+    [Test]
+    public async Task DeviateReplaceReplacesProperty()
     {
         string[] sources =
         [
@@ -506,12 +502,12 @@ public class ParsingTests(ITestOutputHelper output)
         var targetModule = modules["target-mod"];
         var portLeaf = targetModule.Unwrap().First(c => c.Argument == "port");
         var defaultValue = portLeaf.Children.OfType<DefaultValue>().FirstOrDefault();
-        Assert.NotNull(defaultValue);
-        Assert.Equal("443", defaultValue.Argument);
+        await Assert.That(defaultValue).IsNotNull();
+        await Assert.That(defaultValue!.Argument).IsEqualTo("443");
     }
 
-    [Fact]
-    public void DeviateDeleteRemovesMatchingProperty()
+    [Test]
+    public async Task DeviateDeleteRemovesMatchingProperty()
     {
         string[] sources =
         [
@@ -554,15 +550,15 @@ public class ParsingTests(ITestOutputHelper output)
         var targetModule = modules["target-mod"];
         var portLeaf = targetModule.Unwrap().First(c => c.Argument == "port");
         var hasMust = portLeaf.Children.Any(c => c is Must);
-        Assert.False(hasMust, "Must should have been deleted by deviate delete");
+        await Assert.That(hasMust).IsFalse();
     }
 
     #endregion
 
     #region Refine Tests
 
-    [Fact]
-    public void RefineSingletonReplacesExistingDefault()
+    [Test]
+    public async Task RefineSingletonReplacesExistingDefault()
     {
         string[] sources =
         [
@@ -595,12 +591,12 @@ public class ParsingTests(ITestOutputHelper output)
         var serversContainer = mod.Unwrap().First(c => c is Container && c.Argument == "servers");
         var portLeaf = serversContainer.Children.First(c => c is Leaf && c.Argument == "port");
         var defaults = portLeaf.Children.OfType<DefaultValue>().ToArray();
-        Assert.Single(defaults);
-        Assert.Equal("443", defaults[0].Argument);
+        await Assert.That(defaults.Length).IsEqualTo(1);
+        await Assert.That(defaults[0].Argument).IsEqualTo("443");
     }
 
-    [Fact]
-    public void RefineMandatoryReplacesExisting()
+    [Test]
+    public async Task RefineMandatoryReplacesExisting()
     {
         string[] sources =
         [
@@ -632,16 +628,16 @@ public class ParsingTests(ITestOutputHelper output)
         var serversContainer = mod.Unwrap().First(c => c is Container && c.Argument == "servers");
         var hostnameLeaf = serversContainer.Children.First(c => c is Leaf && c.Argument == "hostname");
         var mandatory = hostnameLeaf.Children.OfType<Mandatory>().FirstOrDefault();
-        Assert.NotNull(mandatory);
-        Assert.Equal("true", mandatory.Argument);
+        await Assert.That(mandatory).IsNotNull();
+        await Assert.That(mandatory!.Argument).IsEqualTo("true");
     }
 
     #endregion
 
     #region AnyXml/AnyData Tests
 
-    [Fact]
-    public void AnyXmlGeneratesParseSupport()
+    [Test]
+    public async Task AnyXmlGeneratesParseSupport()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -655,22 +651,19 @@ public class ParsingTests(ITestOutputHelper output)
             }
             """));
 
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             var code = module.ToCode();
-            output.WriteLine(code);
-            Assert.Contains("Filter", code);
-            Assert.Contains("string?", code);
-            Assert.Contains("ReadInnerXml", code);
-        }
-        else
-        {
-            Assert.Fail("Expected Module");
+            Console.WriteLine(code);
+            await Assert.That(code).Contains("Filter");
+            await Assert.That(code).Contains("string?");
+            await Assert.That(code).Contains("ReadInnerXml");
         }
     }
 
-    [Fact]
-    public void AnyDataGeneratesParseSupport()
+    [Test]
+    public async Task AnyDataGeneratesParseSupport()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -684,17 +677,14 @@ public class ParsingTests(ITestOutputHelper output)
             }
             """));
 
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             var code = module.ToCode();
-            output.WriteLine(code);
-            Assert.Contains("Content", code);
-            Assert.Contains("string?", code);
-            Assert.Contains("ReadInnerXml", code);
-        }
-        else
-        {
-            Assert.Fail("Expected Module");
+            Console.WriteLine(code);
+            await Assert.That(code).Contains("Content");
+            await Assert.That(code).Contains("string?");
+            await Assert.That(code).Contains("ReadInnerXml");
         }
     }
 
@@ -702,8 +692,8 @@ public class ParsingTests(ITestOutputHelper output)
 
     #region Grouping with action/notification Tests
 
-    [Fact]
-    public void GroupingWithActionIsParsed()
+    [Test]
+    public async Task GroupingWithActionIsParsed()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -726,16 +716,16 @@ public class ParsingTests(ITestOutputHelper output)
             }
             """));
 
-        Assert.IsType<Module>(top);
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             var grouping = module.Groupings.First();
-            Assert.Contains(grouping.Children, c => c is YangParser.SemanticModel.Action);
+            await Assert.That(grouping.Children.Any(c => c is YangParser.SemanticModel.Action)).IsTrue();
         }
     }
 
-    [Fact]
-    public void GroupingWithNotificationIsParsed()
+    [Test]
+    public async Task GroupingWithNotificationIsParsed()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -756,11 +746,11 @@ public class ParsingTests(ITestOutputHelper output)
             }
             """));
 
-        Assert.IsType<Module>(top);
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             var grouping = module.Groupings.First();
-            Assert.Contains(grouping.Children, c => c is Notification);
+            await Assert.That(grouping.Children.Any(c => c is Notification)).IsTrue();
         }
     }
 
@@ -768,8 +758,8 @@ public class ParsingTests(ITestOutputHelper output)
 
     #region Must error-app-tag Test
 
-    [Fact]
-    public void MustIncludesErrorAppTagInAttribute()
+    [Test]
+    public async Task MustIncludesErrorAppTagInAttribute()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -789,24 +779,19 @@ public class ParsingTests(ITestOutputHelper output)
             }
             """));
 
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             var code = module.ToCode();
-            output.WriteLine(code);
-            // error-app-tag and error-message are now folded into the
-            // YangValidationException thrown by the generated Validate() body.
-            Assert.Contains("errorAppTag", code);
-            Assert.Contains("invalid-port", code);
-            Assert.Contains("Port must be between 1 and 65535", code);
-        }
-        else
-        {
-            Assert.Fail("Expected Module");
+            Console.WriteLine(code);
+            await Assert.That(code).Contains("errorAppTag");
+            await Assert.That(code).Contains("invalid-port");
+            await Assert.That(code).Contains("Port must be between 1 and 65535");
         }
     }
 
-    [Fact]
-    public void MinMaxElements_GeneratesValidationCode()
+    [Test]
+    public async Task MinMaxElements_GeneratesValidationCode()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -825,22 +810,19 @@ public class ParsingTests(ITestOutputHelper output)
             }
             """));
 
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             var code = module.ToCode();
-            output.WriteLine(code);
-            Assert.Contains("min-elements", code);
-            Assert.Contains("max-elements", code);
-            Assert.Contains("YangValidationException", code);
-        }
-        else
-        {
-            Assert.Fail("Expected Module");
+            Console.WriteLine(code);
+            await Assert.That(code).Contains("min-elements");
+            await Assert.That(code).Contains("max-elements");
+            await Assert.That(code).Contains("YangValidationException");
         }
     }
 
-    [Fact]
-    public void UniqueConstraint_GeneratesValidationCode()
+    [Test]
+    public async Task UniqueConstraint_GeneratesValidationCode()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -859,22 +841,19 @@ public class ParsingTests(ITestOutputHelper output)
             }
             """));
 
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             var code = module.ToCode();
-            output.WriteLine(code);
-            Assert.Contains("unique", code);
-            Assert.Contains("HashSet", code);
-            Assert.Contains("YangValidationException", code);
-        }
-        else
-        {
-            Assert.Fail("Expected Module");
+            Console.WriteLine(code);
+            await Assert.That(code).Contains("unique");
+            await Assert.That(code).Contains("HashSet");
+            await Assert.That(code).Contains("YangValidationException");
         }
     }
 
-    [Fact]
-    public void IfFeature_PrunesNodesWhenFeatureNotEnabled()
+    [Test]
+    public async Task IfFeature_PrunesNodesWhenFeatureNotEnabled()
     {
         string[] sources =
         [
@@ -904,14 +883,14 @@ public class ParsingTests(ITestOutputHelper output)
         PruneUnsupportedFeatures(compilation, enabledFeatures);
 
         var code = modules["feat-mod"].ToCode();
-        output.WriteLine(code);
+        Console.WriteLine(code);
 
-        Assert.Contains("BasicSetting", code);
-        Assert.DoesNotContain("AdvancedSetting", code);
+        await Assert.That(code).Contains("BasicSetting");
+        await Assert.That(code).DoesNotContain("AdvancedSetting");
     }
 
-    [Fact]
-    public void IfFeature_KeepsNodesWhenFeatureEnabled()
+    [Test]
+    public async Task IfFeature_KeepsNodesWhenFeatureEnabled()
     {
         string[] sources =
         [
@@ -941,14 +920,14 @@ public class ParsingTests(ITestOutputHelper output)
         PruneUnsupportedFeatures(compilation, enabledFeatures);
 
         var code = modules["feat-mod"].ToCode();
-        output.WriteLine(code);
+        Console.WriteLine(code);
 
-        Assert.Contains("BasicSetting", code);
-        Assert.Contains("AdvancedSetting", code);
+        await Assert.That(code).Contains("BasicSetting");
+        await Assert.That(code).Contains("AdvancedSetting");
     }
 
-    [Fact]
-    public void MaxElements_UnboundedDoesNotGenerateValidation()
+    [Test]
+    public async Task MaxElements_UnboundedDoesNotGenerateValidation()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -966,21 +945,18 @@ public class ParsingTests(ITestOutputHelper output)
             }
             """));
 
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             var code = module.ToCode();
-            output.WriteLine(code);
+            Console.WriteLine(code);
             // "unbounded" should not generate a max-elements check
-            Assert.DoesNotContain("max-elements", code);
-        }
-        else
-        {
-            Assert.Fail("Expected Module");
+            await Assert.That(code).DoesNotContain("max-elements");
         }
     }
 
-    [Fact]
-    public void GetChild_MethodIsGenerated()
+    [Test]
+    public async Task GetChild_MethodIsGenerated()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -995,22 +971,19 @@ public class ParsingTests(ITestOutputHelper output)
             }
             """));
 
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             var code = module.ToCode();
-            output.WriteLine(code);
-            Assert.Contains("GetChild", code);
-            Assert.Contains("\"name\"", code);
-            Assert.Contains("\"value\"", code);
-        }
-        else
-        {
-            Assert.Fail("Expected Module");
+            Console.WriteLine(code);
+            await Assert.That(code).Contains("GetChild");
+            await Assert.That(code).Contains("\"name\"");
+            await Assert.That(code).Contains("\"value\"");
         }
     }
 
-    [Fact]
-    public void OrderedByUser_GeneratesInsertAttribute()
+    [Test]
+    public async Task OrderedByUser_GeneratesInsertAttribute()
     {
         var top = StatementFactory.Create(Parser.Parse("memory",
             """
@@ -1028,17 +1001,14 @@ public class ParsingTests(ITestOutputHelper output)
             }
             """));
 
+        await Assert.That(top).IsTypeOf<Module>();
         if (top is Module module)
         {
             var code = module.ToCode();
-            output.WriteLine(code);
+            Console.WriteLine(code);
             // Should contain yang:insert parsing logic
-            Assert.Contains("insert", code);
-            Assert.Contains("urn:ietf:params:xml:ns:yang:1", code);
-        }
-        else
-        {
-            Assert.Fail("Expected Module");
+            await Assert.That(code).Contains("insert");
+            await Assert.That(code).Contains("urn:ietf:params:xml:ns:yang:1");
         }
     }
 

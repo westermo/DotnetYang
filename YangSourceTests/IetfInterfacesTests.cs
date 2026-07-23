@@ -1,12 +1,11 @@
 using System.Text;
 using System.Xml;
 using Ietf.Interfaces;
-using Xunit.Abstractions;
 using YangSupport;
 
 namespace YangSourceTests;
 
-public class IetfInterfacesTests(ITestOutputHelper output)
+public class IetfInterfacesTests
 {
     private static readonly YangNode node = new()
     {
@@ -59,17 +58,17 @@ public class IetfInterfacesTests(ITestOutputHelper output)
         }
     };
 
-    [Fact]
+    [Test]
     public async Task AugmentedSerializationTest()
     {
         var builder = new StringBuilder();
         await using var writer = XmlWriter.Create(builder, SerializationHelper.GetStandardWriterSettings());
         await node.WriteXMLAsync(writer);
         await writer.FlushAsync();
-        output.WriteLine(builder.ToString());
+        Console.WriteLine(builder.ToString());
     }
 
-    [Fact]
+    [Test]
     public async Task AugmentedDeserializationTest()
     {
         var builder = new StringBuilder();
@@ -81,13 +80,13 @@ public class IetfInterfacesTests(ITestOutputHelper output)
         using var reader = XmlReader.Create(ms, SerializationHelper.GetStandardReaderSettings());
         await reader.ReadAsync();
         var nNode = await YangNode.ParseAsync(reader);
-        Assert.Equal(nNode.Interfaces!.Interface![0].BridgePort!.External,
-            node.Interfaces!.Interface![0]!.BridgePort!.External);
+        await Assert.That(nNode.Interfaces!.Interface![0].BridgePort!.External)
+            .IsEqualTo(node.Interfaces!.Interface![0]!.BridgePort!.External);
         builder = new StringBuilder();
         await using var writer2 = XmlWriter.Create(builder, SerializationHelper.GetStandardWriterSettings());
         await nNode.WriteXMLAsync(writer2);
         await writer2.FlushAsync();
         var secondXml = builder.ToString();
-        Assert.Equal(firstXml, secondXml);
+        await Assert.That(secondXml).IsEqualTo(firstXml);
     }
 }

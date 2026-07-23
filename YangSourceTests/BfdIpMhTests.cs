@@ -1,11 +1,10 @@
 using System.Text;
 using Ietf.Inet.Types;
-using Xunit.Abstractions;
 using YangSupport;
 
 namespace YangSourceTests;
 
-public class BfdIpMhTests(ITestOutputHelper output)
+public class BfdIpMhTests
 {
     private class VoidChannel : IChannel, IAsyncDisposable
     {
@@ -32,7 +31,7 @@ public class BfdIpMhTests(ITestOutputHelper output)
         }
     }
 
-    [Fact]
+    [Test]
     public async Task NotificationSerializationTest()
     {
         var notification = new Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification
@@ -42,10 +41,10 @@ public class BfdIpMhTests(ITestOutputHelper output)
         };
         var channel = new VoidChannel();
         await notification.Send(channel);
-        output.WriteLine(channel.LastSent);
+        Console.WriteLine(channel.LastSent);
     }
 
-    [Fact]
+    [Test]
     public async Task NotificationDeserializationTest()
     {
         var notification = new Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification
@@ -57,9 +56,9 @@ public class BfdIpMhTests(ITestOutputHelper output)
         await notification.Send(channel);
         using var ms = new MemoryStream(Encoding.UTF8.GetBytes(channel.LastSent!));
         var newNotification = await Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification.ParseAsync(ms);
-        Assert.Equal(notification.DestAddr!.Ipv4AddressValue!.WrittenValue,
-            newNotification.DestAddr!.Ipv4AddressValue!.WrittenValue);
-        Assert.Equal(notification.NewState, newNotification.NewState);
-        Assert.Equal(notification.LocalDiscr, newNotification.LocalDiscr);
+        await Assert.That(newNotification.DestAddr!.Ipv4AddressValue!.WrittenValue)
+            .IsEqualTo(notification.DestAddr!.Ipv4AddressValue!.WrittenValue);
+        await Assert.That(newNotification.NewState).IsEqualTo(notification.NewState);
+        await Assert.That(newNotification.LocalDiscr).IsEqualTo(notification.LocalDiscr);
     }
 }
