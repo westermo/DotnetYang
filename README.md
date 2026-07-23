@@ -2,105 +2,250 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/westermo/dotnetYang/build.yml?branch=main&style=flat-square)](https://github.com/westermo/dotnetYang/actions)
 [![License](https://img.shields.io/github/license/westermo/dotnetYang?style=flat-square)](https://github.com/westermo/dotnetYang/blob/develop/LICENSE)
 
-dotnetYang is a [Roslyn](https://github.com/dotnet/roslyn) source generator for using the .yang language to generate C# code, providing access to data models, ease-of-use asynchronous RPC, Action & Notification calls directly from code and generated server interfaces.
+dotnetYang is a [Roslyn](https://github.com/dotnet/roslyn) source generator that compiles YANG models into C# code, providing typed data models, NETCONF client/server operations, and async RPC/Action/Notification support — all without manually parsing XML.
 
 ## Features
 
-- **Drop-and-go:** Add your .yang files to a C# project as additional files that references this generator, that is it, your .yang defined RPC's and more are now available directly in  that C# projects code
-- **Server-interface:** Want to implement a server that responds to NETCONF calls? Look no further than the generated interface `IYangServer` and it's extension method `async Task Recieve(this IYangServer server, Stream input, Stream output);` which provides a framework for implementing your own server without having to worry about serializing and parsing NETCONF directly, but instead work with well defined C# Datatypes.
+- **Drop-and-go:** Add `.yang` files to a C# project as additional files — RPCs, containers, lists, and notifications become typed C# classes immediately.
+- **NETCONF Client:** High-level `NetconfClient` with typed `GetConfig`, `EditConfig`, `Lock`, `Validate`, `Commit`, and notification subscriptions.
+- **NETCONF Server:** `DatastoreManager` with running/candidate/startup datastores, locking, copy-config, and `NetconfServerSession` for handling incoming RPCs.
+- **Config-only serialization:** `WriteXMLAsync(writer, configOnly: true)` filters out `config false` state data for `edit-config` operations.
+- **Interop-correct XML:** Namespace-prefixed identity values, lowercase booleans, proper NETCONF framing (base:1.0 and 1.1).
+- **Server interface:** Generated `IYangServer` with extension method `Receive(input, output)` for implementing YANG-based servers.
 
-## Documentation
+## Getting Started
 
-### Getting Started
-
-In order to start using `dotnetYang` on a new .csproj project, start by adding the nuget packages by, for example, using the dotnet CLI in your project directory:
-`dotnet add package dotnetYang`
-
-Afterwards, create or add a .yang file to said project:
-`some-module.yang`
-```yang
-module some-module {
-    yang-version 1.1;
-    namespace "urn:dotnet:yang:some:module";
-    prefix sm;
-    identity someIdentity;
-    identity someOtherIdentity
-    {
-        base someIdentity;
-    }
-    rpc doSomething {
-        input {
-            leaf the-big-leaf
-            {
-                type uint32;
-                default "4";
-                description "The value that is the input of the doSomething rpc";
-            }
-        }
-        output {
-            leaf response
-            {
-                type identityref
-                {
-                    base someIdentity;
-                }
-                default "someOtherIdentity";
-                description "The identity that is the output of the doSomething rpc";
-            }
-        }
-    }
-}
+Add the NuGet package:
+```bash
+dotnet add package dotnetYang
 ```
-And then add it as an additional file to your .csproj file
+
+Add a `.yang` file to your project:
 ```xml
-<Project Sdk="Microsoft.NET.Sdk">
-    <!--Other parts of the .csproj file -->
-    <ItemGroup>
-        <AdditionalFiles Include="some-module.yang" />
-    </ItemGroup>
-    <!--Other parts of the .csproj file -->
-</Project>
+<ItemGroup>
+    <AdditionalFiles Include="ietf-interfaces@2018-02-20.yang" />
+    <AdditionalFiles Include="iana-if-type@2023-01-26.yang" />
+</ItemGroup>
 ```
-Now the generated C# code from `some-module.yang` will be available, with it's naming conventions adjusted to be C# compliant
+
+The generated types are immediately available in your code.
+
+---
+
+## NETCONF Client Usage
+
+### Connecting to a device
+
 ```csharp
-namespace MyProject;
-public class Program
+using YangSupport.Netconf;
+using Renci.SshNet;
+
+// Connect via SSH.NET
+var ssh = new NetConfClient("192.168.1.1", 830, "admin", "password");
+ssh.Connect();
+
+// Or use the stream-based client with base:1.1 chunked framing
+var client = await NetconfClient.ConnectAsync(inputStream, outputStream);
+Console.WriteLine($"Session {client.Session.SessionId}, Base 1.1: {client.Session.Base11}");
+```
+
+### Reading configuration (typed)
+
+```csharp
+// Get raw XML
+var data = await client.GetConfigAsync(filter: "<interfaces xmlns=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\"/>");
+
+// Or deserialize directly into generated types
+var config = await client.GetConfigAsync(
+    Ietf.Interfaces.YangNode.InterfacesContainer.ParseAsync,
+    filter: "<interfaces xmlns=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\"/>");
+
+// Access typed properties
+foreach (var iface in config.Interface!)
 {
-  public static async Task Main()
-  {
-      IChannel channel = //...Code for setting up whatever channel you want to send the rpc over
-      int messageID = //...Code for getting message id;
-      //Set up the rpc input, not the slight name changes
-      Some.Module.YangNode.DoSomethingInput input = new Some.Module.YangNode.DoSomethingInput
-      {
-          TheBigLeaf = 123
-      };
-      //Call the rpc function, note the slight name changes and the asynchronous nature of the call
-      Some.Module.YangNode.DoSomethingOutput output = await Some.Module.YangNode.DoSomething(channel, messageID, input);
-      //Write the "response" leaf of the output to console.
-      Console.WriteLine(output.Response);
-  }
+    Console.WriteLine($"{iface.Name}: {iface.Type} - {iface.Description}");
 }
 ```
 
-### Server creation
-Say that you want to create a server that can response to calls defined in `some-module.yang`, then you would create a class that implementes the generated `IYangServer` interface, which might look something like this:
+### Writing configuration
 
 ```csharp
-using Some.Module;
-namespace MyProject;
-public class Server : IYangServer
+// Build config using generated types
+var interfaces = new Ietf.Interfaces.YangNode.InterfacesContainer
+{
+    Interface = new YangList<string, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry>(
+        e => e.Name)
+    {
+        new()
+        {
+            Name = "eth0",
+            Type = Ietf.Interfaces.YangNode.InterfaceTypeIdentity.EthernetCsmacd,
+            Description = "Management interface",
+        }
+    }
+};
+
+// Send to device — configOnly: true automatically excludes state data
+await client.EditConfigAsync(interfaces, configOnly: true);
+```
+
+### Candidate datastore workflow
+
+```csharp
+await client.LockAsync(Datastore.Candidate);
+
+await client.EditConfigAsync(interfaces, target: Datastore.Candidate, configOnly: true);
+await client.ValidateAsync(Datastore.Candidate);
+await client.CommitAsync();
+
+await client.UnlockAsync(Datastore.Candidate);
+```
+
+### With client-side YANG validation
+
+```csharp
+// Validates must/when constraints before sending to the server
+await client.EditConfigValidatedAsync(interfaces, configOnly: true);
+```
+
+### Subscribing to notifications (RFC 5277)
+
+```csharp
+// Stream-based subscription with typed parsing
+var sub = await NetconfSubscription.CreateAsync(inputStream, outputStream);
+await sub.CreateSubscriptionAsync(stream: "NETCONF");
+
+await foreach (var (eventTime, notification) in
+    sub.ReadNotificationsAsync(MyModule.YangNode.MyNotification.ParseAsync))
+{
+    Console.WriteLine($"[{eventTime}] {notification.SomeField}");
+}
+```
+
+### Calling RPCs
+
+```csharp
+IChannel channel = // your channel implementation
+int messageId = 1;
+
+var input = new Some.Module.YangNode.DoSomethingInput { TheBigLeaf = 123 };
+var output = await Some.Module.YangNode.DoSomething(channel, messageId, input);
+Console.WriteLine(output.Response);
+```
+
+---
+
+## NETCONF Server Usage
+
+### Setting up datastores
+
+```csharp
+using YangSupport.Datastore;
+using YangSupport.Netconf;
+
+// Create the datastore manager with your generated Configuration type
+var datastores = new DatastoreManager<MyNamespace.Configuration>(
+    MyNamespace.Configuration.ParseAsync);
+
+// Load saved startup configuration
+await datastores.LoadFromFileAsync("/etc/netconf/startup.xml", copyToRunning: true);
+```
+
+### Handling NETCONF sessions
+
+```csharp
+// For each incoming NETCONF connection:
+var session = new NetconfServerSession<MyNamespace.Configuration>(datastores);
+
+// Send hello
+var hello = session.GetHello();
+// ... send hello over transport ...
+
+// Process RPCs in a loop
+bool keepAlive = true;
+while (keepAlive)
+{
+    // Read framed message from transport into inputStream
+    keepAlive = await session.HandleRpcAsync(inputStream, outputStream);
+    // Send outputStream content back over transport
+}
+```
+
+The server automatically handles: `get-config`, `edit-config`, `copy-config`, `delete-config`, `lock`, `unlock`, `validate`, `commit`, `discard-changes`, `close-session`, `kill-session`.
+
+### Programmatic datastore access
+
+```csharp
+// Modify running config programmatically
+datastores.Running.Modify(cfg =>
+{
+    cfg.IetfInterfaces!.Interfaces!.Interface!.Add(new() { Name = "lo0", ... });
+});
+
+// Copy running → startup (persist)
+await datastores.CopyConfigAsync(Datastore.Running, Datastore.Startup);
+await datastores.SaveToFileAsync("/etc/netconf/startup.xml");
+
+// Validate before commit
+datastores.Validate(Datastore.Candidate); // throws YangValidationException on failure
+await datastores.CommitAsync(); // candidate → running
+```
+
+### Implementing module-specific RPCs
+
+```csharp
+public class MyServer : IYangServer
 {
     public async Task<YangNode.DoSomethingOutput> OnDoSomething(YangNode.DoSomethingInput input)
     {
-        //Do whatever it is the server is expected to do when told to "doSomething"...
-        //Await something, do something else, the options are endless...
-        
-        //Create the output, not nessecarily like this..
-        YangNode.DoSomethingOutput output = new YangNode.DoSomethingOutput(); 
-        return output;
+        // Your business logic here
+        return new YangNode.DoSomethingOutput { Response = SomeIdentity.SomeValue };
     }
 }
 ```
 
-Of course, if there are a lot of yang modules in a project, `IYangServer` runs the risk of becoming rather big. In such a case, it is recommended to split it's implementation into several `partial` server classes in order to maintain readability.  
+For large projects with many YANG modules, split `IYangServer` into partial classes for readability.
+
+---
+
+## Project Structure
+
+```
+dotnetYang/          — Roslyn source generator (compiles .yang → C#)
+YangSupport/         — Runtime library (ships with NuGet package)
+├── Netconf/         — NETCONF client: NetconfClient, NetconfSubscription, framing
+├── Datastore/       — Server runtime: DatastoreManager, YangDatastore, NetconfServerSession
+├── IChannel.cs      — Transport abstraction for RPCs
+├── SerializationHelper.cs — XML read/write utilities
+└── YangList.cs      — Typed YANG list collection
+IntegrationTests/    — End-to-end tests against netopeer2/sysrepo in Docker
+```
+
+## Config-Only Serialization
+
+YANG distinguishes `config true` (writable) from `config false` (read-only state) data. When sending `edit-config`, you must exclude state data:
+
+```csharp
+// Serializes everything (config + state)
+await node.WriteXMLAsync(writer);
+
+// Serializes only config data (for edit-config operations)
+await node.WriteXMLAsync(writer, configOnly: true);
+```
+
+Properties marked `[NotConfigurationData]` are automatically excluded when `configOnly: true`.
+
+## Integration Testing
+
+See [IntegrationTests/README.md](IntegrationTests/README.md) for running tests against netopeer2/sysrepo in Docker. The tests validate the full pipeline: YANG compilation → C# types → XML serialization → NETCONF round-trip → typed deserialization.
+
+```bash
+cd IntegrationTests && ./run-integration-tests.sh
+```
+
+## Documentation
+
+- [Integration Testing Guide](IntegrationTests/README.md)
+- [YANG RFC 7950](https://tools.ietf.org/html/rfc7950)
+- [NETCONF RFC 6241](https://tools.ietf.org/html/rfc6241)
+- [NETCONF over SSH RFC 6242](https://tools.ietf.org/html/rfc6242)
