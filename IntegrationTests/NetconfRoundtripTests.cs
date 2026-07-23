@@ -2,18 +2,19 @@ using System.Text;
 using System.Xml;
 using Xunit.Abstractions;
 using YangSupport;
+using YangSupport.Netconf;
 
 namespace IntegrationTests;
 
 /// <summary>
-/// Tests that validate DotnetYang-generated XML serialization against netopeer2.
-/// These tests perform real NETCONF operations over SSH against a live server.
+/// Tests that validate DotnetYang-generated XML against netopeer2
+/// using the high-level NetconfClient API.
 /// </summary>
 [Trait("Category", "Integration")]
 public class NetconfRoundtripTests : IAsyncLifetime
 {
     private readonly ITestOutputHelper _output;
-    private NetconfSshChannel? _channel;
+    private SshNetconfClient? _client;
 
     public NetconfRoundtripTests(ITestOutputHelper output) => _output = output;
 
@@ -21,164 +22,221 @@ public class NetconfRoundtripTests : IAsyncLifetime
     {
         try
         {
-            _channel = await NetconfSshChannel.ConnectAsync(
+            _client = await SshNetconfClient.ConnectAsync(
                 NetconfConfig.Host, NetconfConfig.Port,
                 NetconfConfig.User, NetconfConfig.Password);
+            _output.WriteLine($"Connected. Base 1.1: {_client.Session.Base11}, " +
+                $"Candidate: {_client.Session.Candidate}, Validate: {_client.Session.Validate}");
         }
         catch (Exception ex)
         {
-            _output.WriteLine($"Could not connect to NETCONF server ({ex.GetType().Name}): {ex.Message}");
-            _output.WriteLine("Ensure docker-compose is running: docker compose -f IntegrationTests/docker/docker-compose.yml up -d netopeer2");
+            _output.WriteLine($"Could not connect ({ex.GetType().Name}): {ex.Message}");
         }
     }
 
-    public async Task DisposeAsync()
+    public Task DisposeAsync()
     {
-        if (_channel != null)
-            await _channel.DisposeAsync();
+        _client?.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task GetConfig_ReturnsValidXml()
+    public async Task GetConfig_ReturnsData()
     {
-        if (_channel is null)
-        {
-            _output.WriteLine("Skipped: NETCONF server not available");
-            return;
-        }
+        if (_client is null) { _output.WriteLine("Skipped"); return; }
 
-        await using var writer = XmlWriter.Create(_channel!.WriteStream,
-            SerializationHelper.GetStandardWriterSettings());
-        await writer.WriteStartElementAsync(null, "rpc", "urn:ietf:params:xml:ns:netconf:base:1.0");
-        await writer.WriteAttributeStringAsync(null, "message-id", null, "1");
-        await writer.WriteStartElementAsync(null, "get-config", "urn:ietf:params:xml:ns:netconf:base:1.0");
-        await writer.WriteStartElementAsync(null, "source", "urn:ietf:params:xml:ns:netconf:base:1.0");
-        await writer.WriteElementStringAsync(null, "running", "urn:ietf:params:xml:ns:netconf:base:1.0", null);
-        await writer.WriteEndElementAsync(); // source
-        await writer.WriteEndElementAsync(); // get-config
-        await writer.WriteEndElementAsync(); // rpc
-        await writer.FlushAsync();
-
-        await _channel.Send();
-
-        _channel.ReadStream.Position = 0;
-        using var reader = new StreamReader(_channel.ReadStream, Encoding.UTF8, leaveOpen: true);
-        var response = await reader.ReadToEndAsync();
-        _output.WriteLine("Response:");
-        _output.WriteLine(response);
-
-        Assert.Contains("rpc-reply", response);
-        Assert.DoesNotContain("rpc-error", response);
+        var data = await _client.GetConfigAsync();
+        Assert.NotNull(data);
+        _output.WriteLine($"GetConfig returned {data!.ChildNodes.Count} top-level elements");
     }
 
     /// <summary>
-    /// Full reconfiguration roundtrip using DotnetYang-generated types:
-    /// 1. Serialize config using WriteConfigXMLAsync
-    /// 2. Send edit-config to netopeer2
-    /// 3. Read back with get-config
-    /// 4. Verify the data matches what was sent
+    /// Full roundtrip: edit-config with DotnetYang-generated types → get-config → verify.
     /// </summary>
     [Fact]
     public async Task EditConfig_ThenGetConfig_RoundTrips()
     {
-        if (_channel is null)
-        {
-            _output.WriteLine("Skipped: NETCONF server not available");
-            return;
-        }
+        if (_client is null) { _output.WriteLine("Skipped"); return; }
 
-        // Build config using DotnetYang-generated types
-        var node = new Ietf.Interfaces.YangNode
+        var interfaces = new Ietf.Interfaces.YangNode.InterfacesContainer
         {
-            Interfaces = new Ietf.Interfaces.YangNode.InterfacesContainer
+            Interface = new YangList<string, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry>(
+                e => e.Name)
             {
-                Interface = new YangList<string, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry>(
-                    e => e.Name)
+                new Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry
                 {
-                    new Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry
-                    {
-                        Name = "test-eth0",
-                        Type = Ietf.Interfaces.YangNode.InterfaceTypeIdentity.EthernetCsmacd,
-                        Description = "DotnetYang integration test",
-                        // State fields are required by the type but excluded by WriteConfigXMLAsync
-                        AdminStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.AdminStatus.Up,
-                        OperStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.OperStatus.Up,
-                        IfIndexValue = 1,
-                    }
+                    Name = "test-eth0",
+                    Type = Ietf.Interfaces.YangNode.InterfaceTypeIdentity.EthernetCsmacd,
+                    Description = "DotnetYang roundtrip test",
+                    AdminStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.AdminStatus.Up,
+                    OperStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.OperStatus.Up,
+                    IfIndexValue = 1,
                 }
             }
         };
 
-        // Serialize using WriteConfigXMLAsync (config-only, no state data)
-        var configXmlBuilder = new StringBuilder();
-        await using (var configWriter = XmlWriter.Create(configXmlBuilder, SerializationHelper.GetStandardWriterSettings()))
-        {
-            await node.Interfaces!.WriteConfigXMLAsync(configWriter);
-            await configWriter.FlushAsync();
-        }
-        var configXml = configXmlBuilder.ToString();
-        _output.WriteLine("Config XML (WriteConfigXMLAsync):");
-        _output.WriteLine(configXml);
+        // Edit config with generated types — configOnly: true excludes state data
+        await _client.EditConfigAsync(interfaces, configOnly: true);
+        _output.WriteLine("edit-config succeeded");
 
-        // Send edit-config with DotnetYang-serialized config
-        await using (var writer = XmlWriter.Create(_channel!.WriteStream,
-            SerializationHelper.GetStandardWriterSettings()))
-        {
-            await writer.WriteStartElementAsync(null, "rpc", "urn:ietf:params:xml:ns:netconf:base:1.0");
-            await writer.WriteAttributeStringAsync(null, "message-id", null, "2");
-            await writer.WriteStartElementAsync(null, "edit-config", "urn:ietf:params:xml:ns:netconf:base:1.0");
-            await writer.WriteStartElementAsync(null, "target", "urn:ietf:params:xml:ns:netconf:base:1.0");
-            await writer.WriteElementStringAsync(null, "running", "urn:ietf:params:xml:ns:netconf:base:1.0", null);
-            await writer.WriteEndElementAsync(); // target
-            await writer.WriteStartElementAsync(null, "config", "urn:ietf:params:xml:ns:netconf:base:1.0");
-            await writer.WriteRawAsync(configXml);
-            await writer.WriteEndElementAsync(); // config
-            await writer.WriteEndElementAsync(); // edit-config
-            await writer.WriteEndElementAsync(); // rpc
-            await writer.FlushAsync();
-        }
+        // Read back and verify
+        var filter = "<interfaces xmlns=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\"/>";
+        var data = await _client.GetConfigAsync(filter: filter);
+        Assert.NotNull(data);
+        var xml = data!.OuterXml;
+        _output.WriteLine($"get-config: {xml}");
 
-        await _channel.Send();
+        Assert.Contains("test-eth0", xml);
+        Assert.Contains("DotnetYang roundtrip test", xml);
+        Assert.Contains("ethernetCsmacd", xml);
+    }
 
-        _channel.ReadStream.Position = 0;
-        using (var reader = new StreamReader(_channel.ReadStream, Encoding.UTF8, leaveOpen: true))
+    [Fact]
+    public async Task Lock_Unlock_Works()
+    {
+        if (_client is null) { _output.WriteLine("Skipped"); return; }
+
+        await _client.LockAsync(Datastore.Running);
+        _output.WriteLine("Lock acquired");
+
+        await _client.UnlockAsync(Datastore.Running);
+        _output.WriteLine("Lock released");
+    }
+
+    [Fact]
+    public async Task Validate_Works()
+    {
+        if (_client is null || !_client.Session.Validate)
         {
-            var editResponse = await reader.ReadToEndAsync();
-            _output.WriteLine("Edit-config response:");
-            _output.WriteLine(editResponse);
-            Assert.DoesNotContain("rpc-error", editResponse);
+            _output.WriteLine("Skipped: validate not supported");
+            return;
         }
 
-        // Read back with get-config and verify data round-trips
-        await using (var writer = XmlWriter.Create(_channel.WriteStream,
-            SerializationHelper.GetStandardWriterSettings()))
+        await _client.ValidateAsync(Datastore.Running);
+        _output.WriteLine("Validate succeeded");
+    }
+
+    [Fact]
+    public async Task Candidate_Commit_Works()
+    {
+        if (_client is null || !_client.Session.Candidate)
         {
-            await writer.WriteStartElementAsync(null, "rpc", "urn:ietf:params:xml:ns:netconf:base:1.0");
-            await writer.WriteAttributeStringAsync(null, "message-id", null, "3");
-            await writer.WriteStartElementAsync(null, "get-config", "urn:ietf:params:xml:ns:netconf:base:1.0");
-            await writer.WriteStartElementAsync(null, "source", "urn:ietf:params:xml:ns:netconf:base:1.0");
-            await writer.WriteElementStringAsync(null, "running", "urn:ietf:params:xml:ns:netconf:base:1.0", null);
-            await writer.WriteEndElementAsync(); // source
-            await writer.WriteStartElementAsync(null, "filter", "urn:ietf:params:xml:ns:netconf:base:1.0");
-            await writer.WriteAttributeStringAsync(null, "type", null, "subtree");
-            await writer.WriteStartElementAsync(null, "interfaces", "urn:ietf:params:xml:ns:yang:ietf-interfaces");
-            await writer.WriteEndElementAsync();
-            await writer.WriteEndElementAsync(); // filter
-            await writer.WriteEndElementAsync(); // get-config
-            await writer.WriteEndElementAsync(); // rpc
-            await writer.FlushAsync();
+            _output.WriteLine("Skipped: candidate not supported");
+            return;
         }
 
-        await _channel.Send();
-
-        _channel.ReadStream.Position = 0;
-        using (var reader = new StreamReader(_channel.ReadStream, Encoding.UTF8, leaveOpen: true))
+        var interfaces = new Ietf.Interfaces.YangNode.InterfacesContainer
         {
-            var getResponse = await reader.ReadToEndAsync();
-            _output.WriteLine("Get-config response:");
-            _output.WriteLine(getResponse);
-            Assert.Contains("test-eth0", getResponse);
-            Assert.Contains("DotnetYang integration test", getResponse);
-        }
+            Interface = new YangList<string, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry>(
+                e => e.Name)
+            {
+                new Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry
+                {
+                    Name = "candidate-if0",
+                    Type = Ietf.Interfaces.YangNode.InterfaceTypeIdentity.EthernetCsmacd,
+                    Description = "Candidate commit test",
+                    AdminStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.AdminStatus.Up,
+                    OperStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.OperStatus.Up,
+                    IfIndexValue = 2,
+                }
+            }
+        };
+
+        await _client.EditConfigAsync(interfaces, target: Datastore.Candidate, configOnly: true);
+        _output.WriteLine("edit-config to candidate succeeded");
+
+        await _client.CommitAsync();
+        _output.WriteLine("commit succeeded");
+
+        // Verify in running
+        var filter = "<interfaces xmlns=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\"/>";
+        var data = await _client.GetConfigAsync(filter: filter);
+        Assert.Contains("candidate-if0", data!.OuterXml);
+        _output.WriteLine("Verified in running after commit");
+    }
+
+    /// <summary>
+    /// Test typed deserialization: get-config → ParseAsync → typed C# object.
+    /// </summary>
+    [Fact]
+    public async Task GetConfigTyped_DeserializesIntoGeneratedType()
+    {
+        if (_client is null) { _output.WriteLine("Skipped"); return; }
+
+        // First ensure there's data to read
+        var interfaces = new Ietf.Interfaces.YangNode.InterfacesContainer
+        {
+            Interface = new YangList<string, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry>(
+                e => e.Name)
+            {
+                new Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry
+                {
+                    Name = "typed-if0",
+                    Type = Ietf.Interfaces.YangNode.InterfaceTypeIdentity.EthernetCsmacd,
+                    Description = "Typed deserialization test",
+                    AdminStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.AdminStatus.Up,
+                    OperStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.OperStatus.Up,
+                    IfIndexValue = 3,
+                }
+            }
+        };
+        await _client.EditConfigAsync(interfaces, configOnly: true);
+
+        // Get config and deserialize into generated type
+        var filter = "<interfaces xmlns=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\"/>";
+        var data = await _client.GetConfigAsync(filter: filter);
+        Assert.NotNull(data);
+
+        // Parse the <interfaces> element directly using the container's ParseAsync
+        var xml = data!.InnerXml;
+        using var stringReader = new System.IO.StringReader(xml);
+        using var reader = XmlReader.Create(stringReader, SerializationHelper.GetStandardReaderSettings());
+        await reader.ReadAsync();
+        var parsedInterfaces = await Ietf.Interfaces.YangNode.InterfacesContainer.ParseAsync(reader);
+
+        Assert.NotNull(parsedInterfaces);
+        Assert.NotNull(parsedInterfaces!.Interface);
+
+        var entry = parsedInterfaces.Interface!["typed-if0"];
+        Assert.NotNull(entry);
+        Assert.Equal("Typed deserialization test", entry!.Description);
+        Assert.Equal(Ietf.Interfaces.YangNode.InterfaceTypeIdentity.EthernetCsmacd, entry.Type);
+        _output.WriteLine($"Deserialized: name={entry.Name}, type={entry.Type}, desc={entry.Description}");
+    }
+
+    /// <summary>
+    /// Test client-side validation before edit-config.
+    /// </summary>
+    [Fact]
+    public async Task EditConfigValidated_EnforcesConstraints()
+    {
+        if (_client is null) { _output.WriteLine("Skipped"); return; }
+
+        // Create a valid interface and send with validation
+        var interfaces = new Ietf.Interfaces.YangNode.InterfacesContainer
+        {
+            Interface = new YangList<string, Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry>(
+                e => e.Name)
+            {
+                new Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry
+                {
+                    Name = "validated-if0",
+                    Type = Ietf.Interfaces.YangNode.InterfaceTypeIdentity.EthernetCsmacd,
+                    Description = "Validation test",
+                    AdminStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.AdminStatus.Up,
+                    OperStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.OperStatus.Up,
+                    IfIndexValue = 4,
+                }
+            }
+        };
+
+        // EditConfigValidatedAsync runs YangValidate() before sending
+        await _client.EditConfigValidatedAsync(interfaces, configOnly: true);
+        _output.WriteLine("edit-config with validation succeeded");
+
+        // Verify it was applied
+        var filter = "<interfaces xmlns=\"urn:ietf:params:xml:ns:yang:ietf-interfaces\"/>";
+        var data = await _client.GetConfigAsync(filter: filter);
+        Assert.Contains("validated-if0", data!.OuterXml);
     }
 }

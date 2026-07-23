@@ -86,7 +86,7 @@ public class Container : Statement, IClassSource, IXMLParseable
         return $$"""
                  {{property}}
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{ClassName}} : YangSupport.IYangNode
+                 public class {{ClassName}} : YangSupport.IYangNode, YangSupport.IYangXmlSerializable
                  {
                      {{Indent(parentDecl)}}
                      {{string.Join("\n\t", nodes.Select(Indent))}}

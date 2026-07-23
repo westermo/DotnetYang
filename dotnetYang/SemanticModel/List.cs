@@ -134,8 +134,8 @@ public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
         var key = GetKey();
         var parentName = ParentClassName;
         var classInterfaces = keyType != null
-            ? $" : global::System.IEquatable<{ClassName}>, YangSupport.IYangNode"
-            : " : YangSupport.IYangNode";
+            ? $" : global::System.IEquatable<{ClassName}>, YangSupport.IYangNode, YangSupport.IYangXmlSerializable"
+            : " : YangSupport.IYangNode, YangSupport.IYangXmlSerializable";
         var equalityMembers = (key != null && keyType != null) ? GenerateEqualityMembers(key) : string.Empty;
 
         string property;
@@ -256,18 +256,7 @@ public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
           {
               foreach(var element in {{TargetName}})
               {
-                  await element!.WriteXMLAsync(writer);
-              }
-          }
-          """;
-
-    public string ConfigWriteCall =>
-        $$"""
-          if({{TargetName}} != null)
-          {
-              foreach(var element in {{TargetName}})
-              {
-                  await element!.WriteConfigXMLAsync(writer);
+                  await element!.WriteXMLAsync(writer, configOnly);
               }
           }
           """;

@@ -86,12 +86,12 @@ public class XmlInteropTests
     }
 
     [Fact]
-    public async Task WriteConfigXMLAsync_ExcludesStateData()
+    public async Task WriteXMLAsync_ConfigOnly_ExcludesStateData()
     {
         var node = CreateTestNode("test0", "Config filter test");
         var sb = new StringBuilder();
         await using var writer = XmlWriter.Create(sb, SerializationHelper.GetStandardWriterSettings());
-        await node.WriteConfigXMLAsync(writer);
+        await node.WriteXMLAsync(writer, configOnly: true);
         await writer.FlushAsync();
 
         var xml = sb.ToString();
@@ -129,7 +129,7 @@ public class XmlInteropTests
             Name = name,
             Type = Ietf.Interfaces.YangNode.InterfaceTypeIdentity.EthernetCsmacd,
             Description = description,
-            // State fields are required by the generated type but will be excluded by WriteConfigXMLAsync
+            // State fields are required by the generated type but will be excluded by configOnly: true
             AdminStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.AdminStatus.Up,
             OperStatusValue = Ietf.Interfaces.YangNode.InterfacesContainer.InterfaceEntry.OperStatus.Up,
             IfIndexValue = 1,

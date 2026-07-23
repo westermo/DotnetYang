@@ -31,8 +31,8 @@ The integration tests exercise the full DotnetYang pipeline end-to-end:
 3. **NETCONF round-trip** — Serialized config is sent via `edit-config` to netopeer2
    and read back via `get-config`, verifying the data survives a full write/read cycle
    through a reference NETCONF implementation.
-4. **Config-only serialization** — `WriteConfigXMLAsync` correctly excludes
-   `config false` state data (e.g., `admin-status`, `oper-status`, `if-index`),
+4. **Config-only serialization** — `WriteXMLAsync(writer, configOnly: true)` correctly
+   excludes `config false` state data (e.g., `admin-status`, `oper-status`, `if-index`),
    producing XML suitable for `edit-config` operations.
 
 ### Interop issues caught by these tests
@@ -85,7 +85,7 @@ dotnet test IntegrationTests/ --filter "FullyQualifiedName~XmlInteropTests"
    and `yang-modules/` (for netopeer2 installation)
 2. Write a test that:
    - Creates instances using DotnetYang-generated types
-   - Serializes with `WriteConfigXMLAsync`
+   - Serializes with `WriteXMLAsync(writer, configOnly: true)`
    - Sends via `edit-config` to netopeer2
    - Reads back with `get-config`
    - Verifies the round-trip result

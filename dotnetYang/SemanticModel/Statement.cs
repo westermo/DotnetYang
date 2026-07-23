@@ -18,31 +18,29 @@ public abstract class Statement : IStatement
 
     protected string WriteFunction()
     {
-        var writeCalls = Children.OfType<IXMLSource>()
-            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer);");
-        var elementCalls = Children.OfType<IXMLWriteValue>()
-            .Select(t => t.WriteCall);
+        var stateSourceNames = new HashSet<string>(
+            Children.OfType<IXMLSource>()
+                .Where(t => t.Attributes.Contains("NotConfigurationData"))
+                .Select(t => t.TargetName!));
+        var stateElements = new HashSet<IXMLWriteValue>(
+            Children.OfType<IXMLWriteValue>()
+                .Where(t => t.Attributes.Contains("NotConfigurationData")));
 
-        var configWriteCalls = Children.OfType<IXMLSource>()
-            .Where(t => !t.Attributes.Contains("NotConfigurationData"))
-            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteConfigXMLAsync(writer);");
-        var configElementCalls = Children.OfType<IXMLWriteValue>()
-            .Where(t => !t.Attributes.Contains("NotConfigurationData"))
-            .Select(t => t is List ? ((List)t).ConfigWriteCall : t.WriteCall);
+        var guardedWriteCalls = Children.OfType<IXMLSource>()
+            .Select(t => stateSourceNames.Contains(t.TargetName!)
+                ? $"if(!configOnly) {{ if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer, configOnly); }}"
+                : $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer, configOnly);");
+        var guardedElementCalls = Children.OfType<IXMLWriteValue>()
+            .Select(t => stateElements.Contains(t)
+                ? $"if(!configOnly) {{\n{t.WriteCall}\n}}"
+                : t.WriteCall);
 
         return $$"""
-                 public async Task WriteXMLAsync(XmlWriter writer)
+                 public async Task WriteXMLAsync(XmlWriter writer, bool configOnly = false)
                  {
                      await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
-                     {{Indent(string.Join("\n", elementCalls))}}
-                     {{Indent(string.Join("\n", writeCalls))}}
-                     await writer.WriteEndElementAsync();
-                 }
-                 public async Task WriteConfigXMLAsync(XmlWriter writer)
-                 {
-                     await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
-                     {{Indent(string.Join("\n", configElementCalls))}}
-                     {{Indent(string.Join("\n", configWriteCalls))}}
+                     {{Indent(string.Join("\n", guardedElementCalls))}}
+                     {{Indent(string.Join("\n", guardedWriteCalls))}}
                      await writer.WriteEndElementAsync();
                  }
                  """;
@@ -334,42 +332,41 @@ public abstract class Statement : IStatement
 
     protected string WriteFunctionInvisibleSelf()
     {
-        var writeCalls = Children.OfType<IXMLSource>()
-            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer);").ToArray();
-        var elementCalls = Children.OfType<IXMLWriteValue>()
-            .Select(t => t.WriteCall).ToArray();
-
-        var configWriteCalls = Children.OfType<IXMLSource>()
-            .Where(t => !t.Attributes.Contains("NotConfigurationData"))
-            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteConfigXMLAsync(writer);").ToArray();
-        var configElementCalls = Children.OfType<IXMLWriteValue>()
-            .Where(t => !t.Attributes.Contains("NotConfigurationData"))
-            .Select(t => t is List ? ((List)t).ConfigWriteCall : t.WriteCall).ToArray();
+        var writeCalls = Children.OfType<IXMLSource>().ToArray();
+        var elementCalls = Children.OfType<IXMLWriteValue>().ToArray();
 
         if (elementCalls.Length == 0 && writeCalls.Length == 0)
         {
             return """
-                   public async Task WriteXMLAsync(XmlWriter writer)
-                   {
-                       await writer.FlushAsync();
-                   }
-                   public async Task WriteConfigXMLAsync(XmlWriter writer)
+                   public async Task WriteXMLAsync(XmlWriter writer, bool configOnly = false)
                    {
                        await writer.FlushAsync();
                    }
                    """;
         }
 
+        var stateSourceNames = new HashSet<string>(
+            writeCalls
+                .Where(t => t.Attributes.Contains("NotConfigurationData"))
+                .Select(t => t.TargetName!));
+        var stateElements = new HashSet<IXMLWriteValue>(
+            elementCalls
+                .Where(t => t.Attributes.Contains("NotConfigurationData")));
+
+        var guardedWriteLines = writeCalls
+            .Select(t => stateSourceNames.Contains(t.TargetName!)
+                ? $"if(!configOnly) {{ if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer, configOnly); }}"
+                : $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer, configOnly);").ToArray();
+        var guardedElementLines = elementCalls
+            .Select(t => stateElements.Contains(t)
+                ? $"if(!configOnly) {{\n{t.WriteCall}\n}}"
+                : t.WriteCall).ToArray();
+
         return $$"""
-                 public async Task WriteXMLAsync(XmlWriter writer)
+                 public async Task WriteXMLAsync(XmlWriter writer, bool configOnly = false)
                  {
-                     {{Indent(string.Join("\n", elementCalls))}}
-                     {{Indent(string.Join("\n", writeCalls))}}
-                 }
-                 public async Task WriteConfigXMLAsync(XmlWriter writer)
-                 {
-                     {{Indent(string.Join("\n", configElementCalls))}}
-                     {{Indent(string.Join("\n", configWriteCalls))}}
+                     {{Indent(string.Join("\n", guardedElementLines))}}
+                     {{Indent(string.Join("\n", guardedWriteLines))}}
                  }
                  """;
     }
