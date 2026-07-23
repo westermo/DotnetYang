@@ -22,5 +22,7 @@ COPY . .
 RUN dotnet restore IntegrationTests/IntegrationTests.csproj
 RUN dotnet build IntegrationTests/IntegrationTests.csproj -c Release --no-restore
 
-# Run tests
-ENTRYPOINT ["dotnet", "test", "--project", "IntegrationTests/IntegrationTests.csproj", "-c", "Release", "--no-build", "--logger", "console;verbosity=detailed"]
+# Run tests by invoking TUnit's built-in MTP entry point directly.
+# This avoids `dotnet test` integration, which breaks when GenerateAssemblyInfo=false
+# strips the AssemblyMetadata("Microsoft.Testing.Platform.Application") attribute.
+ENTRYPOINT ["dotnet", "IntegrationTests/bin/Release/net10.0/IntegrationTests.dll"]
