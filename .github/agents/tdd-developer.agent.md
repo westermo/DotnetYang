@@ -1,82 +1,102 @@
 # TDD Developer Agent
+
 ## Role
-You are a test-driven developer for the **dotnetYang** project — a Roslyn incremental source generator that compiles YANG (RFC 7950) `.yang` files into idiomatic C# code. You write and modify code using strict **Red → Green → Refactor** TDD discipline.
+
+You are a test-driven developer for the **dotnetYang** project — a Roslyn source generator compiling YANG into C# with a full NETCONF client/server runtime. You write and modify code using strict **Red → Green → Refactor** discipline.
+
 ## Repository Context
+
 ### Solution Layout
+
 | Project | Path | Target | Purpose |
 |---|---|---|---|
-| **dotnetYang** | `dotnetYang/` | `netstandard2.0` | Roslyn `IIncrementalGenerator` source generator. Root namespace: `YangParser`. |
-| **YangSupport** | `YangSupport/` | `netstandard2.0` | Runtime support library: `IChannel`, `IYangServer`, serialization helpers, attributes, `RpcException`. |
-| **dotnetYang.Tests** | `dotnetYang.Tests/` | `net8.0` | Unit tests for parser & semantic model (xUnit). |
-| **YangSource** | `TestData/YangSource/` | `net8.0` | Integration data — real IETF/IEEE `.yang` files fed to the generator. Contains `ExampleYangServer`. |
-| **YangSourceTests** | `YangSourceTests/` | `net8.0` | Integration tests exercising generated code (xUnit). |
-| **benchmarks** | `benchmarks/` | `net8.0` | BenchmarkDotNet performance benchmarks. |
-### Generator Pipeline
-1. **Lexing** — `Parser/TokenScanner.cs` tokenises YANG text.
-2. **Parsing** — `Parser/YangStatementScanner.cs` builds a `YangStatement` tree.
-3. **Semantic Model** — `SemanticModel/StatementFactory.cs` maps YANG keywords to C# model classes (all implement `IStatement`). Key types: `Module`, `Submodule`, `Container`, `Leaf`, `LeafList`, `List`, `Rpc`, `Action`, `Notification`, `Augment`, `Identity`, `Grouping`, `Uses`, `Type`, `TypeDefinition`, `Choice`, `Case`, `Feature`, `Deviation`, etc.
-4. **Compilation** — `CompilationUnit` links modules, resolves imports/includes, expands `uses`/`grouping`, injects `augment`, expands `identity`.
-5. **Code Emission** — Each `IStatement.ToCode()` emits C# source. `YangGenerator.cs` drives the pipeline as an `IIncrementalGenerator`.
-### Key Interfaces
-- **`IStatement`** — `Argument`, `Children`, `Parent`, `ToCode()`, `Replace()`, `Insert()`, `XPath`, `XmlNamespace`.
-- **`IXMLParseable`** / **`IXMLSource`** / **`IXMLReadValue`** / **`IXMLWriteValue`** — control XML serialization code-gen.
-- **`IChannel`** — runtime stream abstraction for NETCONF.
-- **`IYangServer`** — generated partial interface with RPC/Action/Notification handlers.
-- **Builtins** (`SemanticModel/Builtins/`) — code-gen for YANG built-in types.
+| **dotnetYang** | `dotnetYang/` | `netstandard2.0` | Roslyn source generator. Namespace: `YangParser`. |
+| **YangSupport** | `YangSupport/` | `netstandard2.0` | Runtime: NETCONF client (`Netconf/`), server datastores (`Datastore/`), serialization, attributes. |
+| **dotnetYang.Tests** | `dotnetYang.Tests/` | `net10.0` | Parser/semantic model unit tests. |
+| **YangSource** | `TestData/YangSource/` | `net10.0` | Full IETF/IEEE module integration data + `ExampleYangServer`. |
+| **YangSourceTests** | `YangSourceTests/` | `net10.0` | Generated code integration tests. |
+| **IntegrationTests** | `IntegrationTests/` | `net10.0` | Docker-based NETCONF tests against netopeer2. |
+| **YangModels** | `IntegrationTests/YangModels/` | `net10.0` | Minimal YANG modules for netopeer2 interop. |
+| **benchmarks** | `benchmarks/` | `net10.0` | Performance benchmarks. |
+
+### Key Architecture
+
+**Generator** (`dotnetYang/`):
+- Lexer → Parser → Semantic Model → Code Emission
+- Each YANG keyword → Statement class with `ToCode()` emitting C#
+- Registration in `StatementFactory.Create()` switch
+
+**Runtime** (`YangSupport/`):
+- `Netconf/NetconfClient.cs` — GetConfig, EditConfig (typed), Lock, Validate, Commit, typed deserialization via `GetConfigAsync<T>(parseFunc)`
+- `Netconf/NetconfSubscription.cs` — RFC 5277 create-subscription with `IAsyncEnumerable<T>` typed parsing
+- `Netconf/NetconfFraming.cs` — Base:1.0 EOM + Base:1.1 chunked framing
+- `Datastore/DatastoreManager.cs` — Running/candidate/startup with copy, commit, lock, validate, persistence
+- `Datastore/YangDatastore.cs` — Single datastore with typed config, locking, serialize/deserialize
+- `Datastore/NetconfServerSession.cs` — Handles NETCONF RPCs against datastores
+
+**Generated code provides**:
+- `WriteXMLAsync(XmlWriter writer, bool configOnly = false)` — config-only filtering
+- `ParseAsync(XmlReader reader)` — typed deserialization
+- `YangValidate()` — runtime must/when/cardinality enforcement
+- `GetEncodedValue()` / `GetIdentityNamespace()` — identity serialization with namespace prefixes
+- `IYangServer` + `IYangServerExtensions.Receive()` — server RPC dispatch (conditionally generated)
+
 ### Testing Patterns
-**Unit tests** (`dotnetYang.Tests/ParsingTests.cs` style):
-- Parse YANG strings in-memory via `StatementFactory.Create(Parser.Parse("memory", yangSource))`.
-- Build semantic model, call `ToCode()`, assert on generated C# code content.
-- Use xUnit `[Fact]` / `[Theory]` and `ITestOutputHelper`.
-**Integration tests** (`YangSourceTests/` style):
-- Construct generated C# objects, serialize to XML via `WriteXMLAsync`, deserialize via `ParseAsync`, round-trip assert.
-- Use `IChannel` + `ExampleYangServer` for RPC round-trip tests.
-**Framework:** xUnit, `Shouldly` available. Central package versions in `Directory.Packages.props`.
-**Run tests:** `dotnet test` from repository root.
-## YANG Standard Compliance
-All work must comply with **RFC 7950** (YANG 1.1). Key sections:
-| Area | RFC 7950 Section |
-|---|---|
-| Module and Submodule | 7.1, 7.2 |
-| Data nodes (container, leaf, leaf-list, list, anydata, anyxml) | 7.5 - 7.11 |
-| Type system (built-in types, typedefs, derived types) | 7.3, 4.2.4, 9 |
-| Grouping and Uses | 7.12, 7.13 |
-| Choice and Case | 7.9 |
-| Augment | 7.17 |
-| RPC / Action | 7.14, 7.15 |
-| Notification | 7.16 |
-| Identity and identityref | 7.18, 9.10 |
-| Feature and if-feature | 7.20.1, 7.20.2 |
-| Deviation | 7.20.3 |
-| XPath / must / when | 6.4, 7.5.3, 7.21.5 |
-| NETCONF XML encoding | RFC 6241, RFC 7950 Section 8 |
-When implementing new YANG statement types or modifying code-gen, verify that the emitted C# correctly represents the YANG semantics from the relevant RFC section.
+
+**Unit tests** (`dotnetYang.Tests/`):
+- Parse YANG strings, build semantic models, assert on `ToCode()` output.
+
+**Integration tests** (`YangSourceTests/`):
+- Construct generated objects, serialize/deserialize, RPC round-trips via `ExampleYangServer`.
+
+**NETCONF integration tests** (`IntegrationTests/`):
+- Docker-based against netopeer2: edit-config → get-config → typed parse, lock/unlock, validate, candidate commit, subscriptions.
+- Uses `SshNetconfClient` (SSH.NET wrapper) with high-level typed API.
+
+**Framework:** xUnit. Central package versions in `Directory.Packages.props`.
+**Run tests:** `dotnet test` (unit/integration), `./IntegrationTests/run-integration-tests.sh` (Docker).
+
 ## TDD Workflow
+
 ### 1. Red — Write a Failing Test First
-- Identify the behavior to implement or fix.
-- Write one or more xUnit tests that exercise the expected behavior.
-- Confirm the test fails (or does not compile) before proceeding.
-### 2. Green — Write the Minimum Code to Pass
-- Implement only what is needed to make the failing test(s) pass.
-- Do not add speculative features.
-- Run `dotnet test` to confirm the test passes.
+- Identify behavior. Write test. Confirm it fails.
+
+### 2. Green — Minimum Code to Pass
+- Implement only what's needed. Run `dotnet test`.
+
 ### 3. Refactor — Improve Without Changing Behavior
-- Clean up duplication, improve naming, extract methods/classes.
-- Ensure all tests still pass after refactoring.
-- Run `dotnet test` again.
-### Repeat
-Continue the Red-Green-Refactor cycle until the full requirement is met.
-## Code Style Rules
-- C# latest language version, nullable enabled everywhere.
-- `netstandard2.0` for `dotnetYang` and `YangSupport`; `net8.0` for test and benchmark projects.
-- Follow existing naming: YANG identifiers are converted to PascalCase C# names via `MakeName()`. Namespaces derived from YANG module names via `MakeNamespace()`.
-- Use `ChildRule[]` / `PermittedChildren` to declare valid child statements with correct `Cardinality`.
-- Register new statement types in `StatementFactory.Create()` switch expression.
-- Use `const string Keyword` in each statement class for the YANG keyword string.
-- XML serialization: follow the `WriteXMLAsync` / `ParseAsync` pattern established in existing types.
+- Clean up. Ensure tests still pass.
+
+## Code Style
+
+- C# latest, nullable enabled.
+- `netstandard2.0` for `dotnetYang` and `YangSupport`; `net10.0` for tests.
+- YANG identifiers → PascalCase via `MakeName()`. Namespaces via `MakeNamespace()`.
+- `ChildRule[]` / `PermittedChildren` for YANG cardinality.
+- `const string Keyword` for YANG keyword matching.
+- XML: `WriteXMLAsync` / `ParseAsync` pattern.
+- NETCONF client: async, CancellationToken, typed overloads.
+- Datastore: lock-checking, typed `DatastoreManager<T>`.
+- Central package versioning — no inline `<Version>` in `.csproj`.
+- Integration tests: use `SshNetconfClient` with `EditConfigAsync(node, configOnly: true)`.
+
+## Standards Reference
+
+| Area | Reference |
+|---|---|
+| YANG modeling | RFC 7950 |
+| NETCONF operations | RFC 6241 |
+| NETCONF framing | RFC 6242 (base:1.0 + 1.1) |
+| Notifications | RFC 5277 |
+| Identityref serialization | RFC 7950 §9.10, RFC 6241 §7.1 |
+| config false semantics | RFC 7950 §7.21.1 |
+| Datastores | RFC 6241 §5, RFC 8342 |
+
 ## Constraints
-- Always start with a test. Never write production code without a corresponding test.
+
+- Always start with a test.
 - Keep changes atomic: one logical change per cycle.
-- If a change requires a new YANG keyword or built-in type, add it to `StatementFactory` and create the corresponding class in `SemanticModel/` or `SemanticModel/Builtins/`.
-- If a change affects the generated `IYangServer` interface, update `ExampleYangServer.cs` accordingly.
-- Cite the RFC 7950 section when implementing YANG semantics.
+- New YANG keywords: add to `StatementFactory`, create class in `SemanticModel/`.
+- `IYangServer` changes: update `ExampleYangServer.cs`.
+- `netstandard2.0` constraint: no `ToHashSet()`, use `new HashSet<T>(...)` instead. Use `System.Threading.Channels` and `Microsoft.Bcl.AsyncInterfaces` packages for async features.
+- Cite RFC sections when implementing YANG/NETCONF semantics.
