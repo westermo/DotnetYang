@@ -22,7 +22,7 @@ public class LeafReference() : BuiltinType("leafref", (statement) =>
         IXMLParseable ps => ps.ClassName,
         _ => "string"
     };
-    if(target.TryGetChild<Type>(out var type))
+    if (target.TryGetChild<Type>(out var type))
     {
         if (bname.Contains(":") || bname.Contains("."))
         {
@@ -36,7 +36,7 @@ public class LeafReference() : BuiltinType("leafref", (statement) =>
         }
 
         if (bname == "string") return (bname, null);
-        if (type.Definition is null && !BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
+        if (type!.Definition is null && !BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
         {
             return (target.ModuleQualifiedClassName(), null);
         }

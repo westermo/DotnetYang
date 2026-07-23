@@ -1,0 +1,83 @@
+module rfc7950-compliance-test {
+    yang-version 1.1;
+    namespace "urn:dotnet:yang:rfc7950-compliance-test";
+    prefix rct;
+
+    // Gap 13: min-elements / max-elements
+    container constrained-lists {
+        list bounded-list {
+            key "name";
+            min-elements 1;
+            max-elements 5;
+            leaf name {
+                type string;
+            }
+            leaf value {
+                type uint32;
+            }
+        }
+
+        leaf-list bounded-tags {
+            type string;
+            min-elements 1;
+            max-elements 3;
+        }
+
+        list unbounded-list {
+            key "id";
+            leaf id {
+                type string;
+            }
+        }
+    }
+
+    // Gap 11: unique constraint
+    container unique-test {
+        list employees {
+            key "id";
+            unique "email";
+            unique "department badge-number";
+            leaf id {
+                type uint32;
+            }
+            leaf email {
+                type string;
+            }
+            leaf department {
+                type string;
+            }
+            leaf badge-number {
+                type uint32;
+            }
+        }
+    }
+
+    // Gap 10: ordered-by user
+    container ordered-test {
+        list user-ordered-list {
+            key "name";
+            ordered-by user;
+            leaf name {
+                type string;
+            }
+            leaf priority {
+                type uint32;
+            }
+        }
+    }
+
+    // Gap 15: instance-identifier
+    container refs {
+        leaf target-name {
+            type string;
+        }
+        leaf pointer {
+            type instance-identifier;
+        }
+        leaf optional-pointer {
+            type instance-identifier {
+                require-instance false;
+            }
+        }
+    }
+}

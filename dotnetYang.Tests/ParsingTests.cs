@@ -371,4 +371,751 @@ public class ParsingTests(ITestOutputHelper output)
             }
         }
     }
+
+    #region Deviation Tests
+
+    [Fact]
+    public void DeviateNotSupportedRemovesNode()
+    {
+        string[] sources =
+        [
+            """
+            module target-mod {
+                yang-version 1.1;
+                namespace "urn:ns:target";
+                prefix tm;
+                container config {
+                    leaf hostname {
+                        type string;
+                        mandatory true;
+                    }
+                    leaf deprecated-setting {
+                        type string;
+                    }
+                }
+            }
+            """,
+            """
+            module deviating-mod {
+                yang-version 1.1;
+                namespace "urn:ns:deviating";
+                prefix dm;
+                import target-mod {
+                    prefix tm;
+                }
+                deviation /tm:config/tm:deprecated-setting {
+                    deviate not-supported;
+                }
+            }
+            """
+        ];
+
+        var (compilation, modules) = BuildCompilation(sources);
+        ApplyDeviations(compilation, modules);
+
+        var targetModule = modules["target-mod"];
+        var code = targetModule.ToCode();
+        output.WriteLine(code);
+
+        Assert.Contains("Hostname", code);
+        Assert.DoesNotContain("DeprecatedSetting", code);
+    }
+
+    [Fact]
+    public void DeviateAddAppendsProperties()
+    {
+        string[] sources =
+        [
+            """
+            module target-mod {
+                yang-version 1.1;
+                namespace "urn:ns:target";
+                prefix tm;
+                container config {
+                    leaf port {
+                        type int32;
+                    }
+                }
+            }
+            """,
+            """
+            module deviating-mod {
+                yang-version 1.1;
+                namespace "urn:ns:deviating";
+                prefix dm;
+                import target-mod {
+                    prefix tm;
+                }
+                deviation /tm:config/tm:port {
+                    deviate add {
+                        default 8080;
+                    }
+                }
+            }
+            """
+        ];
+
+        var (compilation, modules) = BuildCompilation(sources);
+        ApplyDeviations(compilation, modules);
+
+        var targetModule = modules["target-mod"];
+        var configContainer = targetModule.Unwrap().First(c => c.Argument == "config");
+        var portLeaf = configContainer.Children.First(c => c.Argument == "port");
+        var hasDefault = portLeaf.Children.Any(c => c is DefaultValue);
+        Assert.True(hasDefault, "Default should have been added by deviate add");
+    }
+
+    [Fact]
+    public void DeviateReplaceReplacesProperty()
+    {
+        string[] sources =
+        [
+            """
+            module target-mod {
+                yang-version 1.1;
+                namespace "urn:ns:target";
+                prefix tm;
+                container config {
+                    leaf port {
+                        type int32;
+                        default 80;
+                    }
+                }
+            }
+            """,
+            """
+            module deviating-mod {
+                yang-version 1.1;
+                namespace "urn:ns:deviating";
+                prefix dm;
+                import target-mod {
+                    prefix tm;
+                }
+                deviation /tm:config/tm:port {
+                    deviate replace {
+                        default 443;
+                    }
+                }
+            }
+            """
+        ];
+
+        var (compilation, modules) = BuildCompilation(sources);
+        ApplyDeviations(compilation, modules);
+
+        var targetModule = modules["target-mod"];
+        var portLeaf = targetModule.Unwrap().First(c => c.Argument == "port");
+        var defaultValue = portLeaf.Children.OfType<DefaultValue>().FirstOrDefault();
+        Assert.NotNull(defaultValue);
+        Assert.Equal("443", defaultValue.Argument);
+    }
+
+    [Fact]
+    public void DeviateDeleteRemovesMatchingProperty()
+    {
+        string[] sources =
+        [
+            """
+            module target-mod {
+                yang-version 1.1;
+                namespace "urn:ns:target";
+                prefix tm;
+                container config {
+                    leaf port {
+                        type int32;
+                        must "../hostname";
+                    }
+                    leaf hostname {
+                        type string;
+                    }
+                }
+            }
+            """,
+            """
+            module deviating-mod {
+                yang-version 1.1;
+                namespace "urn:ns:deviating";
+                prefix dm;
+                import target-mod {
+                    prefix tm;
+                }
+                deviation /tm:config/tm:port {
+                    deviate delete {
+                        must "../hostname";
+                    }
+                }
+            }
+            """
+        ];
+
+        var (compilation, modules) = BuildCompilation(sources);
+        ApplyDeviations(compilation, modules);
+
+        var targetModule = modules["target-mod"];
+        var portLeaf = targetModule.Unwrap().First(c => c.Argument == "port");
+        var hasMust = portLeaf.Children.Any(c => c is Must);
+        Assert.False(hasMust, "Must should have been deleted by deviate delete");
+    }
+
+    #endregion
+
+    #region Refine Tests
+
+    [Fact]
+    public void RefineSingletonReplacesExistingDefault()
+    {
+        string[] sources =
+        [
+            """
+            module refine-mod {
+                yang-version 1.1;
+                namespace "urn:ns:refine";
+                prefix rm;
+                grouping server-config {
+                    leaf port {
+                        type int32;
+                        default 80;
+                    }
+                }
+                container servers {
+                    uses server-config {
+                        refine port {
+                            default 443;
+                        }
+                    }
+                }
+            }
+            """
+        ];
+
+        var (compilation, modules) = BuildCompilation(sources);
+
+        var mod = modules["refine-mod"];
+        Log.Clear();
+        var serversContainer = mod.Unwrap().First(c => c is Container && c.Argument == "servers");
+        var portLeaf = serversContainer.Children.First(c => c is Leaf && c.Argument == "port");
+        var defaults = portLeaf.Children.OfType<DefaultValue>().ToArray();
+        Assert.Single(defaults);
+        Assert.Equal("443", defaults[0].Argument);
+    }
+
+    [Fact]
+    public void RefineMandatoryReplacesExisting()
+    {
+        string[] sources =
+        [
+            """
+            module refine-mod {
+                yang-version 1.1;
+                namespace "urn:ns:refine";
+                prefix rm;
+                grouping server-config {
+                    leaf hostname {
+                        type string;
+                    }
+                }
+                container servers {
+                    uses server-config {
+                        refine hostname {
+                            mandatory true;
+                        }
+                    }
+                }
+            }
+            """
+        ];
+
+        var (compilation, modules) = BuildCompilation(sources);
+
+        var mod = modules["refine-mod"];
+        Log.Clear();
+        var serversContainer = mod.Unwrap().First(c => c is Container && c.Argument == "servers");
+        var hostnameLeaf = serversContainer.Children.First(c => c is Leaf && c.Argument == "hostname");
+        var mandatory = hostnameLeaf.Children.OfType<Mandatory>().FirstOrDefault();
+        Assert.NotNull(mandatory);
+        Assert.Equal("true", mandatory.Argument);
+    }
+
+    #endregion
+
+    #region AnyXml/AnyData Tests
+
+    [Fact]
+    public void AnyXmlGeneratesParseSupport()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module anyxml-mod {
+                yang-version 1.1;
+                namespace "urn:ns:anyxml";
+                prefix am;
+                container config {
+                    anyxml filter;
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            Assert.Contains("Filter", code);
+            Assert.Contains("string?", code);
+            Assert.Contains("ReadInnerXml", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void AnyDataGeneratesParseSupport()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module anydata-mod {
+                yang-version 1.1;
+                namespace "urn:ns:anydata";
+                prefix ad;
+                container state {
+                    anydata content;
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            Assert.Contains("Content", code);
+            Assert.Contains("string?", code);
+            Assert.Contains("ReadInnerXml", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    #endregion
+
+    #region Grouping with action/notification Tests
+
+    [Fact]
+    public void GroupingWithActionIsParsed()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module action-grouping-mod {
+                yang-version 1.1;
+                namespace "urn:ns:actgrp";
+                prefix ag;
+                grouping my-group {
+                    action reset {
+                        input {
+                            leaf reason {
+                                type string;
+                            }
+                        }
+                    }
+                }
+                container server {
+                    uses my-group;
+                }
+            }
+            """));
+
+        Assert.IsType<Module>(top);
+        if (top is Module module)
+        {
+            var grouping = module.Groupings.First();
+            Assert.Contains(grouping.Children, c => c is YangParser.SemanticModel.Action);
+        }
+    }
+
+    [Fact]
+    public void GroupingWithNotificationIsParsed()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module notif-grouping-mod {
+                yang-version 1.1;
+                namespace "urn:ns:notifgrp";
+                prefix ng;
+                grouping my-group {
+                    notification link-down {
+                        leaf interface {
+                            type string;
+                        }
+                    }
+                }
+                container interfaces {
+                    uses my-group;
+                }
+            }
+            """));
+
+        Assert.IsType<Module>(top);
+        if (top is Module module)
+        {
+            var grouping = module.Groupings.First();
+            Assert.Contains(grouping.Children, c => c is Notification);
+        }
+    }
+
+    #endregion
+
+    #region Must error-app-tag Test
+
+    [Fact]
+    public void MustIncludesErrorAppTagInAttribute()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module must-mod {
+                yang-version 1.1;
+                namespace "urn:ns:must";
+                prefix mm;
+                container config {
+                    leaf port {
+                        type int32;
+                        must ". > 0 and . < 65536" {
+                            error-app-tag "invalid-port";
+                            error-message "Port must be between 1 and 65535";
+                        }
+                    }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            // error-app-tag and error-message are now folded into the
+            // YangValidationException thrown by the generated Validate() body.
+            Assert.Contains("errorAppTag", code);
+            Assert.Contains("invalid-port", code);
+            Assert.Contains("Port must be between 1 and 65535", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void MinMaxElements_GeneratesValidationCode()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module minmax-mod {
+                yang-version 1.1;
+                namespace "urn:ns:minmax";
+                prefix mm;
+                container config {
+                    list servers {
+                        key "name";
+                        min-elements 1;
+                        max-elements 10;
+                        leaf name { type string; }
+                    }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            Assert.Contains("min-elements", code);
+            Assert.Contains("max-elements", code);
+            Assert.Contains("YangValidationException", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void UniqueConstraint_GeneratesValidationCode()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module unique-mod {
+                yang-version 1.1;
+                namespace "urn:ns:unique";
+                prefix um;
+                container data {
+                    list users {
+                        key "id";
+                        unique "email";
+                        leaf id { type uint32; }
+                        leaf email { type string; }
+                    }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            Assert.Contains("unique", code);
+            Assert.Contains("HashSet", code);
+            Assert.Contains("YangValidationException", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void IfFeature_PrunesNodesWhenFeatureNotEnabled()
+    {
+        string[] sources =
+        [
+            """
+            module feat-mod {
+                yang-version 1.1;
+                namespace "urn:ns:feat";
+                prefix fm;
+                feature advanced;
+                container config {
+                    leaf basic-setting {
+                        type string;
+                    }
+                    leaf advanced-setting {
+                        if-feature "advanced";
+                        type string;
+                    }
+                }
+            }
+            """
+        ];
+
+        var (compilation, modules) = BuildCompilation(sources);
+
+        // Prune without "advanced" feature enabled
+        var enabledFeatures = new HashSet<string> { "basic" }; // "advanced" not included
+        PruneUnsupportedFeatures(compilation, enabledFeatures);
+
+        var code = modules["feat-mod"].ToCode();
+        output.WriteLine(code);
+
+        Assert.Contains("BasicSetting", code);
+        Assert.DoesNotContain("AdvancedSetting", code);
+    }
+
+    [Fact]
+    public void IfFeature_KeepsNodesWhenFeatureEnabled()
+    {
+        string[] sources =
+        [
+            """
+            module feat-mod {
+                yang-version 1.1;
+                namespace "urn:ns:feat";
+                prefix fm;
+                feature advanced;
+                container config {
+                    leaf basic-setting {
+                        type string;
+                    }
+                    leaf advanced-setting {
+                        if-feature "advanced";
+                        type string;
+                    }
+                }
+            }
+            """
+        ];
+
+        var (compilation, modules) = BuildCompilation(sources);
+
+        // Enable "advanced" feature
+        var enabledFeatures = new HashSet<string> { "advanced" };
+        PruneUnsupportedFeatures(compilation, enabledFeatures);
+
+        var code = modules["feat-mod"].ToCode();
+        output.WriteLine(code);
+
+        Assert.Contains("BasicSetting", code);
+        Assert.Contains("AdvancedSetting", code);
+    }
+
+    [Fact]
+    public void MaxElements_UnboundedDoesNotGenerateValidation()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module unbound-mod {
+                yang-version 1.1;
+                namespace "urn:ns:unbound";
+                prefix ub;
+                container data {
+                    list items {
+                        key "id";
+                        max-elements unbounded;
+                        leaf id { type string; }
+                    }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            // "unbounded" should not generate a max-elements check
+            Assert.DoesNotContain("max-elements", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void GetChild_MethodIsGenerated()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module getchild-mod {
+                yang-version 1.1;
+                namespace "urn:ns:getchild";
+                prefix gc;
+                container settings {
+                    leaf name { type string; }
+                    leaf value { type uint32; }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            Assert.Contains("GetChild", code);
+            Assert.Contains("\"name\"", code);
+            Assert.Contains("\"value\"", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    [Fact]
+    public void OrderedByUser_GeneratesInsertAttribute()
+    {
+        var top = StatementFactory.Create(Parser.Parse("memory",
+            """
+            module ordered-mod {
+                yang-version 1.1;
+                namespace "urn:ns:ordered";
+                prefix om;
+                container data {
+                    list entries {
+                        key "name";
+                        ordered-by user;
+                        leaf name { type string; }
+                    }
+                }
+            }
+            """));
+
+        if (top is Module module)
+        {
+            var code = module.ToCode();
+            output.WriteLine(code);
+            // Should contain yang:insert parsing logic
+            Assert.Contains("insert", code);
+            Assert.Contains("urn:ietf:params:xml:ns:yang:1", code);
+        }
+        else
+        {
+            Assert.Fail("Expected Module");
+        }
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private (CompilationUnit compilation, Dictionary<string, Module> modules) BuildCompilation(string[] sources)
+    {
+        List<IStatement> statements = new();
+        foreach (var src in sources)
+        {
+            var result = Parser.Parse("memory", src);
+            statements.Add(StatementFactory.Create(result));
+        }
+
+        var modules = statements.OfType<Module>().ToDictionary(m => m.Argument);
+        var topLevels = statements.ToDictionary(s => s.Argument);
+        IncludeSubmodules(modules, topLevels);
+
+        var compilation = new CompilationUnit(modules.Values.ToArray());
+
+        foreach (var module in compilation.Children.OfType<Module>())
+        {
+            foreach (var use in module.Uses.Where(u => !u.IsUnderGrouping()))
+            {
+                use.Expand();
+            }
+
+            foreach (var identity in module.Identities)
+            {
+                identity.Expand();
+            }
+        }
+
+        return (compilation, modules);
+    }
+
+    private static void ApplyDeviations(CompilationUnit compilation, Dictionary<string, Module> modules)
+    {
+        foreach (var module in compilation.Children.OfType<Module>())
+        {
+            foreach (var deviation in module.Deviations)
+            {
+                deviation.Apply();
+            }
+        }
+    }
+
+    private static void PruneUnsupportedFeatures(IStatement root, HashSet<string> enabledFeatures)
+    {
+        var toPrune = new List<(IStatement parent, IStatement child)>();
+        CollectUnsupported(root, enabledFeatures, toPrune);
+        foreach (var (parent, child) in toPrune)
+        {
+            parent.Replace(child, Array.Empty<IStatement>());
+        }
+    }
+
+    private static void CollectUnsupported(IStatement node, HashSet<string> enabledFeatures,
+        List<(IStatement, IStatement)> toPrune)
+    {
+        foreach (var child in node.Children.ToArray())
+        {
+            var ifFeatures = child.Children.OfType<FeatureFlag>().ToArray();
+            if (ifFeatures.Length > 0)
+            {
+                var allSupported = ifFeatures.All(ff => enabledFeatures.Contains(ff.Argument.Trim()));
+                if (!allSupported)
+                {
+                    toPrune.Add((node, child));
+                    continue;
+                }
+            }
+            CollectUnsupported(child, enabledFeatures, toPrune);
+        }
+    }
+
+    #endregion
 }

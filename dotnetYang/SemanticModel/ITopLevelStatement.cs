@@ -17,6 +17,7 @@ public interface ITopLevelStatement : IStatement
     public List<Rpc> Rpcs { get; }
     public List<Action> Actions { get; } 
     public List<Notification> Notifications { get; } 
+    public List<Deviation> Deviations { get; }
     public List<TypeDefinition> HiddenDefinitions { get; } 
     public Dictionary<string, string> PrefixToNamespaceTable { get; }
     public Dictionary<string, string> ImportedModules { get; }

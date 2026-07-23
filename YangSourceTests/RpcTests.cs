@@ -108,13 +108,14 @@ public class RpcTests(ITestOutputHelper outputHelper)
     {
         AlarmList = new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer
         {
-            Alarm =
-            [
+            Alarm = new YangSupport.YangList<(Ietf.Alarms.YangNode.Resource, Ietf.Alarms.YangNode.AlarmTypeId, Ietf.Alarms.YangNode.AlarmTypeQualifier), Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry>(e => (e.Resource!, e.AlarmTypeId!, e.AlarmTypeQualifier!))
+            {
                 new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry
                 {
                     TimeCreated = "2015-01-23T12:23:34Z",
                     Resource = "something",
                     AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
+                    AlarmTypeQualifier = "q1",
                     IsCleared = false,
                     LastRaised = "2014-01-23T12:23:34Z",
                     LastChanged = "2014-01-22T12:23:34Z",
@@ -126,6 +127,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
                     TimeCreated = "2015-01-23T12:25:34Z",
                     Resource = "something",
                     AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
+                    AlarmTypeQualifier = "q2",
                     IsCleared = false,
                     LastRaised = "2014-01-23T12:28:34Z",
                     LastChanged = "2014-01-22T12:22:34Z",
@@ -141,7 +143,7 @@ public class RpcTests(ITestOutputHelper outputHelper)
                             Text = "Some fine message"
                         }
                 }
-            ]
+            }
         }
     };
 

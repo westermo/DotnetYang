@@ -17,6 +17,8 @@ public class Grouping : Statement
 
     public override ChildRule[] PermittedChildren { get; } =
     [
+        new ChildRule(Action.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(AnyXml.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Choice.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Container.Keyword, Cardinality.ZeroOrMore),
@@ -25,11 +27,11 @@ public class Grouping : Statement
         new ChildRule(Leaf.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(LeafList.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(List.Keyword, Cardinality.ZeroOrMore),
+        new ChildRule(Notification.Keyword, Cardinality.ZeroOrMore),
         new ChildRule(Reference.Keyword),
         new ChildRule(Status.Keyword),
         new ChildRule(TypeDefinition.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(AnyData.Keyword, Cardinality.ZeroOrMore)
+        new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore)
     ];
 
     public override string ToCode()
@@ -164,7 +166,7 @@ public class Grouping : Statement
                 }
             }
 
-            current?.Insert(refinement.Children);
+            current?.ApplyRefinement(refinement);
         }
 
         return copy.Children;

@@ -1,0 +1,58 @@
+module tree-test {
+    yang-version 1.1;
+    namespace "urn:dotnet:yang:tree-test";
+    prefix tt;
+
+    container root {
+        leaf name {
+            type string;
+        }
+        leaf threshold {
+            type uint32;
+        }
+        container nested {
+            leaf value {
+                type uint32;
+            }
+            // The nested container is only valid when 'name' is set on root.
+            when "../name";
+            // 'value' must not exceed 'threshold' on the parent root.
+            must "value <= ../threshold" {
+                error-message "value exceeds threshold";
+                error-app-tag "value-too-big";
+            }
+        }
+        list items {
+            key "id";
+            leaf id {
+                type string;
+            }
+            leaf description {
+                type string;
+            }
+            // Each item with id='admin' must have a description.
+            must "id != 'admin' or description";
+        }
+        leaf-list tags {
+            type string;
+        }
+        container counts {
+            must "count(../items) > 0";
+        }
+        container abs-test {
+            // Absolute path: /root/name must be set when this container exists.
+            must "/root/name" {
+                error-message "root name required for abs-test";
+                error-app-tag "abs-test-no-name";
+            }
+        }
+        container deep {
+            container inner {
+                leaf level {
+                    type uint32;
+                }
+            }
+        }
+    }
+}
+

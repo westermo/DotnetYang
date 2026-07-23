@@ -22,7 +22,9 @@ public class Must : Statement
 
     public override string ToCode()
     {
-        Parent?.Attributes.Add($"Must(\"{SingleLine(Argument).Replace("\"", "\\\"")}\")");
+        // The XPath itself is intentionally NOT persisted as a string in the
+        // generated code. error-app-tag / error-message are used by the
+        // validation emitter when building exception messages.
         return string.Empty;
     }
 }

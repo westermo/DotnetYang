@@ -38,16 +38,45 @@ public class Choice : Statement, IClassSource, IXMLParseable
     public override string ToCode()
     {
         var nodes = Children.Where(t => t is not DefaultValue).Select(child => child.ToCode()).ToArray();
-        string property = $"public{KeywordString}{MakeName(Argument)}Choice? {MakeName(Argument)} {{ get; set; }}";
+        var isMandatory = this.TryGetChild<Mandatory>(out var mandatory) && mandatory!.Value;
+        var nullable = isMandatory && !Children.Any(c => c is When) ? string.Empty : "?";
+        var parentName = ParentClassName;
+        string property;
+        if (parentName is null)
+        {
+            property =
+                $"public{KeywordString}{MakeName(Argument)}Choice{nullable} {MakeName(Argument)} {{ get; set; }}";
+        }
+        else
+        {
+            property = $$"""
+                         private {{MakeName(Argument)}}Choice{{nullable}} _{{MakeName(Argument)}};
+                         public{{KeywordString}}{{MakeName(Argument)}}Choice{{nullable}} {{MakeName(Argument)}}
+                         {
+                             get => _{{MakeName(Argument)}};
+                             set
+                             {
+                                 if (_{{MakeName(Argument)}} is not null) _{{MakeName(Argument)}}.YangParent = null;
+                                 _{{MakeName(Argument)}} = value;
+                                 if (value is not null) value.YangParent = this;
+                             }
+                         }
+                         """;
+        }
+        var parentDecl = ParentPropertyDeclaration();
+        var validate = global::YangParser.SemanticModel.XPath.ValidateEmitter.EmitValidateMethod(this);
 
         return $$"""
                  {{property}}
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{TargetName}}Choice
+                 public class {{TargetName}}Choice : YangSupport.IYangNode
                  {
+                     {{Indent(parentDecl)}}
                      {{string.Join("\n\t", nodes.Select(Indent))}}
                      {{Indent(WriteFunctionInvisibleSelf())}}
                      {{Indent(ReadFunctionWithInvisibleSelf())}}
+                     {{Indent(GetChildMethod())}}
+                     {{Indent(validate)}}
                  }
                  """;
     }

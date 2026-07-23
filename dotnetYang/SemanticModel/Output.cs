@@ -36,8 +36,10 @@ public class Output : Statement, IXMLParseable
     {
         Argument = "rpc-reply";
         return $$"""
-                 public class {{ClassName}}
+                 public class {{ClassName}} : YangSupport.IYangNode
                  {
+                     YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
+                     public object? GetChild(string yangName) => null;
                      {{string.Join("\n\t", Children.Select(child => Indent(child.ToCode())))}}
                      {{ReadFunction()}}
                      {{WriteFunctionInvisibleSelf()}}

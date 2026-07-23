@@ -2,7 +2,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class AnyData : Statement, IXMLWriteValue
+public class AnyData : Statement, IXMLWriteValue, IXMLReadValue
 {
     public AnyData(YangStatement statement) : base(statement)
     {
@@ -26,23 +26,32 @@ public class AnyData : Statement, IXMLWriteValue
 
     public override string ToCode()
     {
-        return $"public string? {TargetName} {{ get; set; }}";
+        foreach (var child in Children)
+        {
+            child.ToCode();
+        }
+
+        return $$"""
+                 {{DescriptionString}}{{AttributeString}}
+                 public string? {{TargetName}} { get; set; }
+                 """;
     }
 
     public string TargetName => MakeName(Argument);
+    public string ClassName => "string";
 
-    public string WriteCall
-    {
-        get
-        {
-            return $$"""
-                     if({{TargetName}} != null)
-                     {
-                         await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
-                         await writer.WriteStringAsync({{TargetName}});
-                         await writer.WriteEndElementAsync();
-                     }
-                     """;
-        }
-    }
+    public string WriteCall =>
+        $$"""
+          if({{TargetName}} != null)
+          {
+              await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+              await writer.WriteStringAsync({{TargetName}});
+              await writer.WriteEndElementAsync();
+          }
+          """;
+
+    public string ParseCall =>
+        $$"""
+          _{{TargetName}} = reader.ReadInnerXml();
+          """;
 }

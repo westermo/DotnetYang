@@ -29,7 +29,19 @@ public class CompilationUnit : Statement, IXMLParseable
         {
             var typeName = module.MyNamespace.Substring(0, module.MyNamespace.Length - 1);
             var memberName = MakeName(module.Argument);
-            members.Add($"public {typeName}? {memberName} {{ get; set; }}");
+            members.Add($$"""
+                          private {{typeName}}? _{{memberName}};
+                          public {{typeName}}? {{memberName}}
+                          {
+                              get => _{{memberName}};
+                              set
+                              {
+                                  if (_{{memberName}} is not null) _{{memberName}}.YangParent = null;
+                                  _{{memberName}} = value;
+                                  if (value is not null) value.YangParent = this;
+                              }
+                          }
+                          """);
         }
 
         Argument = "root";
@@ -77,20 +89,97 @@ public class CompilationUnit : Statement, IXMLParseable
             ["a"] = "b"
         };
 
+        // Generate GetChild for Configuration (maps module names to module properties)
+        var configGetChildCases = new List<string>();
+        foreach (var module in Children.OfType<Module>())
+        {
+            var memberName = MakeName(module.Argument);
+            configGetChildCases.Add($"\"{module.Argument}\" => {memberName},");
+        }
+        var configGetChild = configGetChildCases.Count > 0
+            ? $$"""
+                 public object? GetChild(string yangName) => yangName switch
+                 {
+                     {{Indent(string.Join("\n", configGetChildCases))}}
+                     _ => null
+                 };
+                 """
+            : "public object? GetChild(string yangName) => null;";
+
         return $$"""
                  using System;
                  using System.Xml;
+                 using System.Reflection;
                  using YangSupport;
                  namespace {{MyNamespace}};
                  ///<summary>
                  ///Configuration root object for {{MyNamespace}} based on provided .yang modules
                  ///</summary>{{AttributeString}}
-                 public class Configuration
+                 public class Configuration : YangSupport.IYangNode
                  {
+                     YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
                      {{Indent(string.Join("\n", members))}}
                      {{Indent(WriteFunction())}}
                      {{Indent(ReadFunction())}}
+                     {{Indent(configGetChild)}}
+                     /// <summary>
+                     /// Resolves an instance-identifier path to the target object in the data tree.
+                     /// Path format: /module-name:container/child/list[key='value']/leaf
+                     /// </summary>
+                     public object? ResolveInstanceIdentifier(string path)
+                     {
+                         if (string.IsNullOrEmpty(path) || path[0] != '/') return null;
+                         var segments = path.Substring(1).Split('/');
+                         object? current = this;
+                         foreach (var segment in segments)
+                         {
+                             if (current is not YangSupport.IYangNode yangNode) return null;
+                             // Parse key predicate if present: name[key='value']
+                             var bracketIdx = segment.IndexOf('[');
+                             var name = bracketIdx >= 0 ? segment.Substring(0, bracketIdx) : segment;
+                             // Strip module prefix (e.g., "ietf-interfaces:interfaces" → "interfaces" for child lookup,
+                             // but use full name for top-level module lookup)
+                             var colonIdx = name.IndexOf(':');
+                             var localName = colonIdx >= 0 ? name.Substring(colonIdx + 1) : name;
+                             // Navigate via IYangNode interface
+                             current = yangNode.GetChild(localName) ?? yangNode.GetChild(name);
+                             if (current is null) return null;
+                             // Handle key predicate for list access
+                             if (bracketIdx >= 0)
+                             {
+                                 var predicate = segment.Substring(bracketIdx);
+                                 // Extract key value from [key='value'] or [key="value"]
+                                 var eqIdx = predicate.IndexOf('=');
+                                 if (eqIdx > 0)
+                                 {
+                                     var keyValue = predicate.Substring(eqIdx + 1).Trim('[', ']', '\'', '"', ' ');
+                                     // Use indexer for list key lookup
+                                     var indexer = current.GetType().GetProperty("Item", new[] { typeof(string) });
+                                     if (indexer is not null)
+                                     {
+                                         try { current = indexer.GetValue(current, new object[] { keyValue }); }
+                                         catch { return null; }
+                                     }
+                                 }
+                             }
+                         }
+                         return current;
+                     }
                  }
+                 {{ServerExtensions(ActionCases, NotificationCases)}}
+                 """;
+    }
+
+    private string ServerExtensions(Dictionary<string, List<string>> ActionCases, Dictionary<string, List<string>> NotificationCases)
+    {
+        var hasRpcs = Children.OfType<Module>().Any(m => m.Rpcs.Count > 0);
+        var hasActions = Children.OfType<Module>().Any(m => m.Actions.Count > 0);
+        var hasNotifications = Children.OfType<Module>().Any(m => m.Notifications.Count > 0);
+
+        if (!hasRpcs && !hasActions && !hasNotifications)
+            return string.Empty;
+
+        return $$"""
                  public static class IYangServerExtensions
                  {
                     public static async Task Receive(this IYangServer server, global::System.IO.Stream input, global::System.IO.Stream output)

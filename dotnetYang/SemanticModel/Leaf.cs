@@ -25,25 +25,38 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
+    }
 
-        Type = Children.OfType<Type>().First();
+    private bool GetRequired() => IsRequired;
 
-        Default = Children.FirstOrDefault(child => child is DefaultValue) as DefaultValue;
-        Required = Children.FirstOrDefault(child => child is Mandatory)?.Argument == "true";
-        if (Required && Default is not null)
+    /// <summary>
+    /// True if this leaf is required (has 'mandatory true' or is part of the parent list's key).
+    /// </summary>
+    public bool IsRequired
+    {
+        get
         {
-            throw new SemanticError(
-                $"The '{DefaultValue.Keyword}' statement must not be present on nodes where '{Mandatory.Keyword}' is 'true'",
-                statement);
+            if (Children.FirstOrDefault(child => child is Mandatory)?.Argument == "true") return true;
+            return IsKeyLeaf();
         }
     }
 
-    private bool Required { get; }
+    /// <summary>
+    /// Returns true if this leaf is referenced by the parent list's key statement.
+    /// Per RFC 7950 §7.8.2, key leaves are implicitly mandatory.
+    /// </summary>
+    private bool IsKeyLeaf()
+    {
+        if (Parent is not List parentList) return false;
+        if (!parentList.TryGetChild<Key>(out var key) || key is null) return false;
+        var name = MakeName(Argument);
+        return key.KeyPropertyNames.Contains(name);
+    }
 
-    private DefaultValue? Default { get; }
+    private DefaultValue? GetDefault() => Children.FirstOrDefault(child => child is DefaultValue) as DefaultValue;
 
     public const string Keyword = "leaf";
-    private Type Type { get; }
+    private Type GetTypeChild() => Children.OfType<Type>().First();
 
     public override string ToCode()
     {
@@ -52,45 +65,73 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
             child.ToCode();
         }
 
-        var defaultValue = Default?.ToCode();
+        var currentDefault = GetDefault();
+        var currentRequired = GetRequired();
+        var currentType = GetTypeChild();
 
-        var defaulting = defaultValue is null ? string.Empty : $"= {defaultValue};";
-        var nullable = Required && !Children.Any(c => c is When) ? string.Empty : "?";
-        var name = MakeName(Argument);
-        var typeName = Type.Name;
-        var definition = Type.Definition;
-        if (typeName == name)
+        if (currentRequired && currentDefault is not null)
         {
-            name += "Value";
+            throw new SemanticError(
+                $"The '{DefaultValue.Keyword}' statement must not be present on nodes where '{Mandatory.Keyword}' is 'true'",
+                Source);
         }
 
-        TargetName = name;
+        var defaultValue = currentDefault?.ToCode();
+
+        var defaulting = defaultValue is null ? string.Empty : $"= {defaultValue};";
+        var nullable = currentRequired && !Children.Any(c => c is When) ? string.Empty : "?";
+        var name = TargetName;
+        var typeName = currentType.Name;
+        var definition = currentType.Definition;
 
         return $$"""
                  {{DescriptionString}}{{AttributeString}}
                  public{{KeywordString}}{{typeName}}{{nullable}} {{name}} { get; set; } {{defaulting}}
                  {{definition}}
-                 {{Default?.Addendum}}
+                 {{currentDefault?.Addendum}}
                  """;
     }
 
-    public string TargetName { get; private set; } = string.Empty;
+    private string? _targetName;
+
+    public string TargetName
+    {
+        get
+        {
+            if (_targetName is not null) return _targetName;
+            var name = MakeName(Argument);
+            // If the leaf name collides with its declared type name we suffix
+            // the property name with "Value". The check must be self-consistent
+            // with ToCode(), so it lives here on first access.
+            var type = Children.OfType<Type>().FirstOrDefault();
+            if (type is not null && type.Name == name)
+            {
+                name += "Value";
+            }
+            _targetName = name;
+            return name;
+        }
+    }
 
     public string WriteCall
     {
         get
         {
-            if (Type.GetBaseType(out var prefix, out _) is "enumeration" or "bits" or "identityref")
+            var type = GetTypeChild();
+            var baseTypeName = type.GetBaseType(out var prefix, out _);
+            if (baseTypeName is "enumeration" or "bits" or "identityref")
             {
                 if (string.IsNullOrEmpty(prefix))
                 {
-                    prefix = Type.Name!.Prefix(out _);
+                    prefix = type.Name!.Prefix(out _);
                 }
+
+                var isIdentityRef = baseTypeName == "identityref";
 
                 if (string.IsNullOrEmpty(prefix))
                 {
-                    if (BuiltinTypeReference.IsBuiltinKeyword(Type.Argument) &&
-                        Type.Argument != "identityref") //Is direct subtype, identitys are always on top-level
+                    if (BuiltinTypeReference.IsBuiltinKeyword(type.Argument) &&
+                        type.Argument != "identityref") //Is direct subtype, identitys are always on top-level
                     {
                         return $$"""
                                  if({{TargetName}} != default)
@@ -103,6 +144,27 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
                     }
 
                     //Is local reference.
+                    if (isIdentityRef)
+                    {
+                        return $$"""
+                                 if({{TargetName}} != default)
+                                 {
+                                     await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                                     var _{{TargetName}}Ns = YangNode.GetIdentityNamespace({{TargetName}}!);
+                                     if(!string.IsNullOrEmpty(_{{TargetName}}Ns) && _{{TargetName}}Ns != {{xmlNs}})
+                                     {
+                                         await writer.WriteAttributeStringAsync("xmlns","idr",null,_{{TargetName}}Ns);
+                                         await writer.WriteStringAsync("idr:" + YangNode.GetEncodedValue({{TargetName}}!));
+                                     }
+                                     else
+                                     {
+                                         await writer.WriteStringAsync(YangNode.GetEncodedValue({{TargetName}}!));
+                                     }
+                                     await writer.WriteEndElementAsync();
+                                 }
+                                 """;
+                    }
+
                     return $$"""
                              if({{TargetName}} != default)
                              {
@@ -115,6 +177,27 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
 
                 //Is imported reference
                 var p = prefix.Contains('.') ? prefix : prefix + ":";
+                if (isIdentityRef)
+                {
+                    return $$"""
+                             if({{TargetName}} != default)
+                             {
+                                 await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                                 var _{{TargetName}}Ns = {{p}}GetIdentityNamespace({{TargetName}}!);
+                                 if(!string.IsNullOrEmpty(_{{TargetName}}Ns) && _{{TargetName}}Ns != {{xmlNs}})
+                                 {
+                                     await writer.WriteAttributeStringAsync("xmlns","idr",null,_{{TargetName}}Ns);
+                                     await writer.WriteStringAsync("idr:" + {{p}}GetEncodedValue({{TargetName}}!));
+                                 }
+                                 else
+                                 {
+                                     await writer.WriteStringAsync({{p}}GetEncodedValue({{TargetName}}!));
+                                 }
+                                 await writer.WriteEndElementAsync();
+                             }
+                             """;
+                }
+
                 return $$"""
                          if({{TargetName}} != default)
                          {
@@ -125,12 +208,24 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
                          """;
             }
 
-            if (Type.GetBaseType(out _, out _) is "empty")
+            if (baseTypeName is "empty")
             {
                 return $$"""
                          if({{TargetName}} != default)
                          {
                              await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                             await writer.WriteEndElementAsync();
+                         }
+                         """;
+            }
+
+            if (baseTypeName is "boolean")
+            {
+                return $$"""
+                         if({{TargetName}} != default)
+                         {
+                             await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                             await writer.WriteStringAsync({{TargetName}} == true ? "true" : "false");
                              await writer.WriteEndElementAsync();
                          }
                          """;
@@ -147,7 +242,7 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
         }
     }
 
-    public string ClassName => Type.Name!;
+    public string ClassName => GetTypeChild().Name!;
 
-    public string ParseCall => BuiltinTypeReference.ValueTransformation(Type, ClassName, "_" + TargetName, Argument);
+    public string ParseCall => BuiltinTypeReference.ValueTransformation(GetTypeChild(), ClassName, "_" + TargetName, Argument);
 }

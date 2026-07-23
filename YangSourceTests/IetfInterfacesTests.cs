@@ -12,11 +12,15 @@ public class IetfInterfacesTests(ITestOutputHelper output)
     {
         Interfaces = new()
         {
-            Interface = new List<YangNode.InterfacesContainer.InterfaceEntry>
+            Interface = new YangSupport.YangList<string, YangNode.InterfacesContainer.InterfaceEntry>(e => e.Name)
             {
                 new()
                 {
+                    Name = "if0",
                     Type = YangNode.InterfaceTypeIdentity.Aal2,
+                    AdminStatusValue = YangNode.InterfacesContainer.InterfaceEntry.AdminStatus.Up,
+                    OperStatusValue = YangNode.InterfacesContainer.InterfaceEntry.OperStatus.Up,
+                    IfIndexValue = 1,
                     Mode = Ietf.Microwave.Types.YangNode.RltModeIdentity.RltMode,
                     ChannelSeparation = 0,
                     PowerMode = new YangNode.InterfacesContainer.InterfaceEntry.PowerModeChoice

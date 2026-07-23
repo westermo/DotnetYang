@@ -27,15 +27,12 @@ public class LeafList : Statement, IXMLWriteValue, IXMLReadValue
     {
         if (statement.Keyword != Keyword)
             throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-
-        Type = Children.OfType<Type>().First();
-        Default = Children.FirstOrDefault(child => child is DefaultValue) as DefaultValue;
     }
 
-    private DefaultValue? Default { get; }
+    private DefaultValue? GetDefault() => Children.FirstOrDefault(child => child is DefaultValue) as DefaultValue;
 
     public const string Keyword = "leaf-list";
-    private Type Type { get; }
+    private Type GetTypeChild() => Children.OfType<Type>().First();
 
     public override string ToCode()
     {
@@ -44,13 +41,15 @@ public class LeafList : Statement, IXMLWriteValue, IXMLReadValue
             child.ToCode();
         }
 
-        var defaultValue = Default?.ToCode();
+        var currentDefault = GetDefault();
+        var currentType = GetTypeChild();
+        var defaultValue = currentDefault?.ToCode();
 
         var defaulting = defaultValue is null ? string.Empty : $"= [ {defaultValue} ];";
         var name = MakeName(Argument);
         string addendum = string.Empty;
-        var typeName = Type.Name;
-        var definition = Type.Definition;
+        var typeName = currentType.Name;
+        var definition = currentType.Definition;
         if (typeName == name)
         {
             name += "Value";
@@ -59,12 +58,15 @@ public class LeafList : Statement, IXMLWriteValue, IXMLReadValue
         TargetName = name + "List";
         ClassName = typeName + "[]";
 
+        var hasMinElements = this.TryGetChild<MinElements>(out var minEl) && minEl!.Value > 0;
+        var nullable = hasMinElements && !Children.Any(c => c is When) ? string.Empty : "?";
+
         return $$"""
                  {{addendum}}
                  {{DescriptionString}}{{AttributeString}}
-                 public{{KeywordString}}{{typeName}}[]? {{name}}List { get; set; } {{defaulting}}
+                 public{{KeywordString}}{{typeName}}[]{{nullable}} {{name}}List { get; set; } {{defaulting}}
                  {{definition}}
-                 {{Default?.Addendum}}
+                 {{currentDefault?.Addendum}}
                  """;
     }
 
@@ -85,13 +87,19 @@ public class LeafList : Statement, IXMLWriteValue, IXMLReadValue
 
     public string ClassName { get; private set; } = string.Empty;
 
-    public string ParseCall =>
-        $$"""
-          _{{TargetName}} ??= new {{Type.Name}}[0];
-          {
-             {{Type.Name}} element = default!;
-             {{Indent(BuiltinTypeReference.ValueTransformation(Type, ClassName.Replace("[]", ""), "element", Argument))}}
-             _{{TargetName}} = [.._{{TargetName}}, element];
-          }
-          """;
+    public string ParseCall
+    {
+        get
+        {
+            var currentType = GetTypeChild();
+            return $$"""
+                     _{{TargetName}} ??= new {{currentType.Name}}[0];
+                     {
+                        {{currentType.Name}} element = default!;
+                        {{Indent(BuiltinTypeReference.ValueTransformation(currentType, ClassName.Replace("[]", ""), "element", Argument))}}
+                        _{{TargetName}} = [.._{{TargetName}}, element];
+                     }
+                     """;
+        }
+    }
 }

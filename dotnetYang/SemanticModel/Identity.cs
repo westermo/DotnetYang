@@ -68,6 +68,7 @@ public class Identity : Statement
 
         HashSet<string> conversionSet = [];
         HashSet<string> backConversionSet = [];
+        Dictionary<string, string> namespaceMap = [];
         HashSet<string> declarationSet = [];
         var className = ClassName;
         foreach (var validValue in GetInheritanceList(this).ToArray())
@@ -75,6 +76,12 @@ public class Identity : Statement
             var argName = MakeName(validValue.Argument);
             conversionSet.Add($"case {className}.{argName}: return \"{validValue.Argument}\";");
             backConversionSet.Add($"case \"{validValue.Argument}\": return {className}.{argName};");
+            if (!namespaceMap.ContainsKey(argName))
+            {
+                var identityModule = validValue.GetModule() as Module;
+                var identityNs = identityModule?.XmlNamespace?.Namespace ?? string.Empty;
+                namespaceMap[argName] = $"case {className}.{argName}: return \"{identityNs}\";";
+            }
             declarationSet.Add(argName);
         }
 
@@ -88,8 +95,20 @@ public class Identity : Statement
                      }
                  }
                  public static string GetEncodedValue({{className}}? value) => GetEncodedValue(value!.Value!);
+                 public static string GetIdentityNamespace({{className}} value)
+                 {
+                     switch(value)
+                     {
+                         {{Indent(Indent(string.Join("\n", namespaceMap.Values)))}}
+                         default: return string.Empty;
+                     }
+                 }
+                 public static string GetIdentityNamespace({{className}}? value) => GetIdentityNamespace(value!.Value!);
                  public static {{className}} Get{{className}}Value(string value)
                  {
+                     // Strip any namespace prefix (e.g., "ianaift:ethernetCsmacd" -> "ethernetCsmacd")
+                     var colonIndex = value.IndexOf(':');
+                     if(colonIndex >= 0) value = value.Substring(colonIndex + 1);
                      switch(value)
                      {
                          {{Indent(Indent(string.Join("\n", backConversionSet)))}}

@@ -1,0 +1,25 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+
+WORKDIR /src
+
+# Copy solution and project files first for layer caching
+COPY yang-compiler.sln .
+COPY Directory.Build.Props .
+COPY Directory.Packages.props .
+COPY dotnetYang/dotnetYang.csproj dotnetYang/
+COPY YangSupport/YangSupport.csproj YangSupport/
+COPY IntegrationTests/IntegrationTests.csproj IntegrationTests/
+COPY IntegrationTests/YangModels/YangModels.csproj IntegrationTests/YangModels/
+
+# Restore
+RUN dotnet restore IntegrationTests/IntegrationTests.csproj
+
+# Copy everything
+COPY . .
+
+# Restore and build
+RUN dotnet restore IntegrationTests/IntegrationTests.csproj
+RUN dotnet build IntegrationTests/IntegrationTests.csproj -c Release --no-restore
+
+# Run tests
+ENTRYPOINT ["dotnet", "test", "IntegrationTests/IntegrationTests.csproj", "-c", "Release", "--no-build", "--logger", "console;verbosity=detailed"]

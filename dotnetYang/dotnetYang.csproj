@@ -35,6 +35,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="dotnetYang.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
         <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
         <None Include="$(OutputPath)\YangSupport.dll" Pack="true" PackagePath="lib/netstandard2.0" Visible="false"/>
         <None Include="../README_NUGET.md" Link="README_NUGET.md" Pack="true" PackagePath="/" Condition="Exists('../README_NUGET.md')"/>

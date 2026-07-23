@@ -53,17 +53,17 @@ public class Action : NodeDataStatement, IXMLParseable
         var inputField = Ingoing is null ? string.Empty : "public " + InputType + "? Input;";
         var writeFunction = Ingoing is null
             ? $$"""
-                public async Task WriteXMLAsync(XmlWriter writer)
+                public async Task WriteXMLAsync(XmlWriter writer, bool configOnly = false)
                 {
                     await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
                     await writer.WriteEndElementAsync();
                 }
                 """
             : $$"""
-                public async Task WriteXMLAsync(XmlWriter writer)
+                public async Task WriteXMLAsync(XmlWriter writer, bool configOnly = false)
                 {
                     await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
-                    await Input!.WriteXMLAsync(writer);
+                    await Input!.WriteXMLAsync(writer, configOnly);
                     await writer.WriteEndElementAsync();
                 }
                 """;

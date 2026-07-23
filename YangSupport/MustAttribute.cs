@@ -4,4 +4,6 @@ namespace YangSupport;
 public class MustAttribute(string xPath) : Attribute
 {
     public string XPath { get; } = xPath;
+    public string? ErrorTag { get; set; }
+    public string? ErrorMessage { get; set; }
 }

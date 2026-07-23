@@ -52,25 +52,19 @@ public class Augment : Statement, IUnexpandable
         var sourceNS = this.GetInheritedPrefix();
         this.GetModule()?.Expand();
         var components = Argument.Split('/');
-        foreach (var child in Children.ToArray())
-        {
-            if (child is When when)
-            {
-                Replace(when, []);
-                foreach (var other in Children)
-                {
-                    other.Insert([when]);
-                }
-            }
 
-            if (child is FeatureFlag flag)
-            {
-                Replace(flag, []);
-                foreach (var other in Children)
-                {
-                    other.Insert([flag]);
-                }
-            }
+        // Collect when/feature-flags before processing, but defer distribution
+        // until we've resolved the target so we can record OriginalContext.
+        var whenStatements = Children.OfType<When>().ToArray();
+        var featureFlags = Children.OfType<FeatureFlag>().ToArray();
+
+        foreach (var when in whenStatements)
+        {
+            Replace(when, []);
+        }
+        foreach (var flag in featureFlags)
+        {
+            Replace(flag, []);
         }
 
         var top = Argument.StartsWith("/") ? GetModule(components) : Parent!;
@@ -78,6 +72,24 @@ public class Augment : Statement, IUnexpandable
         Parent?.Replace(this, []);
 
         var target = GetTarget(top, components, sourceNS);
+
+        // Now distribute when/feature-flags to the augmented children,
+        // recording the target as the XPath evaluation context.
+        foreach (var when in whenStatements)
+        {
+            when.OriginalContext = target;
+            foreach (var other in Children)
+            {
+                other.Insert([when]);
+            }
+        }
+        foreach (var flag in featureFlags)
+        {
+            foreach (var other in Children)
+            {
+                other.Insert([flag]);
+            }
+        }
 
         target.Insert(Children);
         Expanded = true;
