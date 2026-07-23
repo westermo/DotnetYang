@@ -1,0 +1,36 @@
+services:
+  netopeer2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.netopeer2
+    container_name: dotnetyang-netopeer2
+    ports:
+      - "830:830"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/830' || exit 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - netconf-net
+
+  integration-tests:
+    build:
+      context: ../..
+      dockerfile: IntegrationTests/docker/Dockerfile.tests
+    container_name: dotnetyang-integration-tests
+    depends_on:
+      netopeer2:
+        condition: service_healthy
+    environment:
+      - NETCONF_HOST=netopeer2
+      - NETCONF_PORT=830
+      - NETCONF_USER=netconf
+      - NETCONF_PASSWORD=netconf
+    networks:
+      - netconf-net
+
+networks:
+  netconf-net:
+    driver: bridge

@@ -22,12 +22,27 @@ public abstract class Statement : IStatement
             .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer);");
         var elementCalls = Children.OfType<IXMLWriteValue>()
             .Select(t => t.WriteCall);
+
+        var configWriteCalls = Children.OfType<IXMLSource>()
+            .Where(t => !t.Attributes.Contains("NotConfigurationData"))
+            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteConfigXMLAsync(writer);");
+        var configElementCalls = Children.OfType<IXMLWriteValue>()
+            .Where(t => !t.Attributes.Contains("NotConfigurationData"))
+            .Select(t => t is List ? ((List)t).ConfigWriteCall : t.WriteCall);
+
         return $$"""
                  public async Task WriteXMLAsync(XmlWriter writer)
                  {
                      await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
                      {{Indent(string.Join("\n", elementCalls))}}
                      {{Indent(string.Join("\n", writeCalls))}}
+                     await writer.WriteEndElementAsync();
+                 }
+                 public async Task WriteConfigXMLAsync(XmlWriter writer)
+                 {
+                     await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                     {{Indent(string.Join("\n", configElementCalls))}}
+                     {{Indent(string.Join("\n", configWriteCalls))}}
                      await writer.WriteEndElementAsync();
                  }
                  """;
@@ -323,10 +338,22 @@ public abstract class Statement : IStatement
             .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer);").ToArray();
         var elementCalls = Children.OfType<IXMLWriteValue>()
             .Select(t => t.WriteCall).ToArray();
+
+        var configWriteCalls = Children.OfType<IXMLSource>()
+            .Where(t => !t.Attributes.Contains("NotConfigurationData"))
+            .Select(t => $"if({t.TargetName} is not null) await {t.TargetName}.WriteConfigXMLAsync(writer);").ToArray();
+        var configElementCalls = Children.OfType<IXMLWriteValue>()
+            .Where(t => !t.Attributes.Contains("NotConfigurationData"))
+            .Select(t => t is List ? ((List)t).ConfigWriteCall : t.WriteCall).ToArray();
+
         if (elementCalls.Length == 0 && writeCalls.Length == 0)
         {
             return """
                    public async Task WriteXMLAsync(XmlWriter writer)
+                   {
+                       await writer.FlushAsync();
+                   }
+                   public async Task WriteConfigXMLAsync(XmlWriter writer)
                    {
                        await writer.FlushAsync();
                    }
@@ -338,6 +365,11 @@ public abstract class Statement : IStatement
                  {
                      {{Indent(string.Join("\n", elementCalls))}}
                      {{Indent(string.Join("\n", writeCalls))}}
+                 }
+                 public async Task WriteConfigXMLAsync(XmlWriter writer)
+                 {
+                     {{Indent(string.Join("\n", configElementCalls))}}
+                     {{Indent(string.Join("\n", configWriteCalls))}}
                  }
                  """;
     }

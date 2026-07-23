@@ -58,6 +58,7 @@ public class Action : NodeDataStatement, IXMLParseable
                     await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
                     await writer.WriteEndElementAsync();
                 }
+                public Task WriteConfigXMLAsync(XmlWriter writer) => WriteXMLAsync(writer);
                 """
             : $$"""
                 public async Task WriteXMLAsync(XmlWriter writer)
@@ -66,6 +67,7 @@ public class Action : NodeDataStatement, IXMLParseable
                     await Input!.WriteXMLAsync(writer);
                     await writer.WriteEndElementAsync();
                 }
+                public Task WriteConfigXMLAsync(XmlWriter writer) => WriteXMLAsync(writer);
                 """;
         var readFunction = Ingoing is null
                 ? $$"""

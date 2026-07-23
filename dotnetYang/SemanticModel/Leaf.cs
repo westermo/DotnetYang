@@ -118,12 +118,15 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
         get
         {
             var type = GetTypeChild();
-            if (type.GetBaseType(out var prefix, out _) is "enumeration" or "bits" or "identityref")
+            var baseTypeName = type.GetBaseType(out var prefix, out _);
+            if (baseTypeName is "enumeration" or "bits" or "identityref")
             {
                 if (string.IsNullOrEmpty(prefix))
                 {
                     prefix = type.Name!.Prefix(out _);
                 }
+
+                var isIdentityRef = baseTypeName == "identityref";
 
                 if (string.IsNullOrEmpty(prefix))
                 {
@@ -141,6 +144,27 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
                     }
 
                     //Is local reference.
+                    if (isIdentityRef)
+                    {
+                        return $$"""
+                                 if({{TargetName}} != default)
+                                 {
+                                     await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                                     var _{{TargetName}}Ns = YangNode.GetIdentityNamespace({{TargetName}}!);
+                                     if(!string.IsNullOrEmpty(_{{TargetName}}Ns) && _{{TargetName}}Ns != {{xmlNs}})
+                                     {
+                                         await writer.WriteAttributeStringAsync("xmlns","idr",null,_{{TargetName}}Ns);
+                                         await writer.WriteStringAsync("idr:" + YangNode.GetEncodedValue({{TargetName}}!));
+                                     }
+                                     else
+                                     {
+                                         await writer.WriteStringAsync(YangNode.GetEncodedValue({{TargetName}}!));
+                                     }
+                                     await writer.WriteEndElementAsync();
+                                 }
+                                 """;
+                    }
+
                     return $$"""
                              if({{TargetName}} != default)
                              {
@@ -153,6 +177,27 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
 
                 //Is imported reference
                 var p = prefix.Contains('.') ? prefix : prefix + ":";
+                if (isIdentityRef)
+                {
+                    return $$"""
+                             if({{TargetName}} != default)
+                             {
+                                 await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                                 var _{{TargetName}}Ns = {{p}}GetIdentityNamespace({{TargetName}}!);
+                                 if(!string.IsNullOrEmpty(_{{TargetName}}Ns) && _{{TargetName}}Ns != {{xmlNs}})
+                                 {
+                                     await writer.WriteAttributeStringAsync("xmlns","idr",null,_{{TargetName}}Ns);
+                                     await writer.WriteStringAsync("idr:" + {{p}}GetEncodedValue({{TargetName}}!));
+                                 }
+                                 else
+                                 {
+                                     await writer.WriteStringAsync({{p}}GetEncodedValue({{TargetName}}!));
+                                 }
+                                 await writer.WriteEndElementAsync();
+                             }
+                             """;
+                }
+
                 return $$"""
                          if({{TargetName}} != default)
                          {
@@ -163,12 +208,24 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
                          """;
             }
 
-            if (type.GetBaseType(out _, out _) is "empty")
+            if (baseTypeName is "empty")
             {
                 return $$"""
                          if({{TargetName}} != default)
                          {
                              await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                             await writer.WriteEndElementAsync();
+                         }
+                         """;
+            }
+
+            if (baseTypeName is "boolean")
+            {
+                return $$"""
+                         if({{TargetName}} != default)
+                         {
+                             await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
+                             await writer.WriteStringAsync({{TargetName}} == true ? "true" : "false");
                              await writer.WriteEndElementAsync();
                          }
                          """;

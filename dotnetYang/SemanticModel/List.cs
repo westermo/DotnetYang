@@ -261,6 +261,17 @@ public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
           }
           """;
 
+    public string ConfigWriteCall =>
+        $$"""
+          if({{TargetName}} != null)
+          {
+              foreach(var element in {{TargetName}})
+              {
+                  await element!.WriteConfigXMLAsync(writer);
+              }
+          }
+          """;
+
     public string ParseCall
     {
         get

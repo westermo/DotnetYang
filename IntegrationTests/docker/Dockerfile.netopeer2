@@ -1,0 +1,18 @@
+FROM sysrepo/sysrepo-netopeer2:latest
+
+# Copy YANG module installer and modules
+COPY docker/install-yang-modules.sh /opt/install-yang-modules.sh
+RUN chmod +x /opt/install-yang-modules.sh
+
+# Copy YANG modules needed for integration tests and install at build time
+COPY yang-modules/ /opt/yang-modules/
+RUN if ls /opt/yang-modules/*.yang 1>/dev/null 2>&1; then \
+        /opt/install-yang-modules.sh /opt/yang-modules; \
+    fi
+
+EXPOSE 830
+
+# Override entrypoint to load any runtime volume modules before starting the server
+COPY docker/entrypoint.sh /opt/entrypoint.sh
+RUN chmod +x /opt/entrypoint.sh
+ENTRYPOINT ["/opt/entrypoint.sh"]

@@ -166,6 +166,20 @@ public class CompilationUnit : Statement, IXMLParseable
                          return current;
                      }
                  }
+                 {{ServerExtensions(ActionCases, NotificationCases)}}
+                 """;
+    }
+
+    private string ServerExtensions(Dictionary<string, List<string>> ActionCases, Dictionary<string, List<string>> NotificationCases)
+    {
+        var hasRpcs = Children.OfType<Module>().Any(m => m.Rpcs.Count > 0);
+        var hasActions = Children.OfType<Module>().Any(m => m.Actions.Count > 0);
+        var hasNotifications = Children.OfType<Module>().Any(m => m.Notifications.Count > 0);
+
+        if (!hasRpcs && !hasActions && !hasNotifications)
+            return string.Empty;
+
+        return $$"""
                  public static class IYangServerExtensions
                  {
                     public static async Task Receive(this IYangServer server, global::System.IO.Stream input, global::System.IO.Stream output)
