@@ -1,3 +1,4 @@
+using TUnit.Assertions.Enums;
 using YangSupport;
 
 namespace YangSourceTests;
@@ -41,7 +42,8 @@ public class YangListTests
             new Entry("a", 2),
             new Entry("b", 3),
         };
-        await Assert.That(list.Select(e => e.Name).ToArray()).IsEquivalentTo(new[] { "c", "a", "b" });
+        await Assert.That(list.Select(e => e.Name).ToArray())
+            .IsEquivalentTo(new[] { "c", "a", "b" }, CollectionOrdering.Matching);
         await Assert.That(list[0].Name).IsEqualTo("c");
         await Assert.That(list[1].Name).IsEqualTo("a");
     }

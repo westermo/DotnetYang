@@ -1,4 +1,5 @@
 using Rfc7950.Compliance.Test;
+using TUnit.Assertions.Enums;
 using YangSupport;
 
 namespace YangSourceTests;
@@ -198,7 +199,8 @@ public class Rfc7950ComplianceTests
             new() { Name = "b", Priority = 2 },
         };
 
-        await Assert.That(list.Select(e => e.Name).ToArray()).IsEquivalentTo(new[] { "c", "a", "b" });
+        await Assert.That(list.Select(e => e.Name).ToArray())
+            .IsEquivalentTo(new[] { "c", "a", "b" }, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -213,7 +215,8 @@ public class Rfc7950ComplianceTests
 
         list.InsertBefore("last", new() { Name = "middle", Priority = 2 });
 
-        await Assert.That(list.Select(e => e.Name).ToArray()).IsEquivalentTo(new[] { "first", "middle", "last" });
+        await Assert.That(list.Select(e => e.Name).ToArray())
+            .IsEquivalentTo(new[] { "first", "middle", "last" }, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -228,7 +231,8 @@ public class Rfc7950ComplianceTests
 
         list.InsertAfter("first", new() { Name = "second", Priority = 2 });
 
-        await Assert.That(list.Select(e => e.Name).ToArray()).IsEquivalentTo(new[] { "first", "second", "last" });
+        await Assert.That(list.Select(e => e.Name).ToArray())
+            .IsEquivalentTo(new[] { "first", "second", "last" }, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -244,7 +248,8 @@ public class Rfc7950ComplianceTests
 
         // Move "c" before "a"
         list.Move("c", "a", before: true);
-        await Assert.That(list.Select(e => e.Name).ToArray()).IsEquivalentTo(new[] { "c", "a", "b" });
+        await Assert.That(list.Select(e => e.Name).ToArray())
+            .IsEquivalentTo(new[] { "c", "a", "b" }, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -259,7 +264,8 @@ public class Rfc7950ComplianceTests
         };
 
         list.Move("c", first: true);
-        await Assert.That(list.Select(e => e.Name).ToArray()).IsEquivalentTo(new[] { "c", "a", "b" });
+        await Assert.That(list.Select(e => e.Name).ToArray())
+            .IsEquivalentTo(new[] { "c", "a", "b" }, CollectionOrdering.Matching);
     }
 
     [Test]
@@ -274,7 +280,8 @@ public class Rfc7950ComplianceTests
         };
 
         list.Move("a", first: false);
-        await Assert.That(list.Select(e => e.Name).ToArray()).IsEquivalentTo(new[] { "b", "c", "a" });
+        await Assert.That(list.Select(e => e.Name).ToArray())
+            .IsEquivalentTo(new[] { "b", "c", "a" }, CollectionOrdering.Matching);
     }
 
     [Test]
