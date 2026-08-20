@@ -36,11 +36,15 @@ jobs:
           dotnet-version: "10.0.x"
 
       # Run the offline XML interop tests (no Docker dependency)
+      # NOTE: `--project` breaks TUnit's Microsoft.Testing.Platform argument
+      # forwarding, so the project path must be passed positionally. Args
+      # after `--` go to the test host itself; `--logger` is a VSTest-only
+      # option that TUnit doesn't understand, so use `--output Detailed`.
       - name: Run XML interop tests
         run: |
-          dotnet test --project IntegrationTests/IntegrationTests.csproj \
-            --treenode-filter "/*/*/XmlInteropTests/*|/*/*/NotificationSubscriptionTests/*" \
-            --logger "console;verbosity=detailed"
+          dotnet test IntegrationTests/IntegrationTests.csproj \
+            -- --treenode-filter "/*/*/XmlInteropTests/*|/*/*/NotificationSubscriptionTests/*" \
+            --output Detailed
 
       # Run the full integration tests against netopeer2
       # These connect to the netopeer2 service container
@@ -51,8 +55,8 @@ jobs:
           NETCONF_USER: netconf
           NETCONF_PASSWORD: netconf
         run: |
-          dotnet test --project IntegrationTests/IntegrationTests.csproj \
-            --treenode-filter "/*/*/NetconfRoundtripTests/*" \
-            --logger "console;verbosity=detailed" || true
+          dotnet test IntegrationTests/IntegrationTests.csproj \
+            -- --treenode-filter "/*/*/NetconfRoundtripTests/*" \
+            --output Detailed || true
         # `|| true` because netopeer2 service container may need custom setup;
         # these tests are best-effort in CI until the container is fully configured.
