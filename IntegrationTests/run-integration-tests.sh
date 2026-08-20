@@ -22,7 +22,7 @@ case "${1:-}" in
         echo -e "${YELLOW}Starting netopeer2 only (for local dev)...${NC}"
         docker compose -f "$COMPOSE_FILE" up -d netopeer2
         echo -e "${GREEN}netopeer2 is running on localhost:830${NC}"
-        echo "Run tests locally with: dotnet test IntegrationTests/"
+        echo "Run tests locally with: dotnet test --project IntegrationTests/IntegrationTests.csproj"
         exit 0
         ;;
     --build-only)

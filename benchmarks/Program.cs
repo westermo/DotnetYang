@@ -6,6 +6,7 @@ using YangSupport;
 using YangParser.Parser;
 using YangParser.SemanticModel;
 using YangSource;
+using Path = System.IO.Path;
 
 namespace Benchmarks;
 
@@ -117,7 +118,7 @@ public class ParsingBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        source = File.ReadAllText("../../../../lin.yang");
+        source = File.ReadAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "lin.yang"));
         statement = Parser.Parse("lin.yang", source);
         model = StatementFactory.Create(statement);
         notification = new Ietf.Bfd.Ip.Mh.YangNode.MultihopNotification

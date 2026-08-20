@@ -1,3 +1,4 @@
+using TUnit.Assertions.Enums;
 using YangSupport;
 
 namespace YangSourceTests;
@@ -6,8 +7,8 @@ public class YangListTests
 {
     private record Entry(string Name, int Age);
 
-    [Fact]
-    public void AddAndLookupByKey()
+    [Test]
+    public async Task AddAndLookupByKey()
     {
         var list = new YangList<string, Entry>(e => e.Name)
         {
@@ -15,25 +16,25 @@ public class YangListTests
             new Entry("bob", 25),
         };
 
-        Assert.Equal(2, list.Count);
-        Assert.Equal(30, list["alice"].Age);
-        Assert.Equal(25, list["bob"].Age);
-        Assert.True(list.ContainsKey("alice"));
-        Assert.False(list.ContainsKey("carol"));
+        await Assert.That(list.Count).IsEqualTo(2);
+        await Assert.That(list["alice"].Age).IsEqualTo(30);
+        await Assert.That(list["bob"].Age).IsEqualTo(25);
+        await Assert.That(list.ContainsKey("alice")).IsTrue();
+        await Assert.That(list.ContainsKey("carol")).IsFalse();
     }
 
-    [Fact]
-    public void DuplicateKeyThrows()
+    [Test]
+    public async Task DuplicateKeyThrows()
     {
         var list = new YangList<string, Entry>(e => e.Name)
         {
             new Entry("alice", 30)
         };
-        Assert.Throws<ArgumentException>(() => list.Add(new Entry("alice", 99)));
+        await Assert.That(() => list.Add(new Entry("alice", 99))).ThrowsExactly<ArgumentException>();
     }
 
-    [Fact]
-    public void PreservesInsertionOrder()
+    [Test]
+    public async Task PreservesInsertionOrder()
     {
         var list = new YangList<string, Entry>(e => e.Name)
         {
@@ -41,60 +42,61 @@ public class YangListTests
             new Entry("a", 2),
             new Entry("b", 3),
         };
-        Assert.Equal(new[] { "c", "a", "b" }, list.Select(e => e.Name).ToArray());
-        Assert.Equal("c", list[0].Name);
-        Assert.Equal("a", list[1].Name);
+        await Assert.That(list.Select(e => e.Name).ToArray())
+            .IsEquivalentTo(new[] { "c", "a", "b" }, CollectionOrdering.Matching);
+        await Assert.That(list[0].Name).IsEqualTo("c");
+        await Assert.That(list[1].Name).IsEqualTo("a");
     }
 
-    [Fact]
-    public void RemoveByKey()
+    [Test]
+    public async Task RemoveByKey()
     {
         var list = new YangList<string, Entry>(e => e.Name)
         {
             new Entry("a", 1),
             new Entry("b", 2),
         };
-        Assert.True(list.RemoveByKey("a"));
-        Assert.Single(list);
-        Assert.False(list.ContainsKey("a"));
-        Assert.True(list.ContainsKey("b"));
-        Assert.False(list.RemoveByKey("a"));
+        await Assert.That(list.RemoveByKey("a")).IsTrue();
+        await Assert.That(list.Count).IsEqualTo(1);
+        await Assert.That(list.ContainsKey("a")).IsFalse();
+        await Assert.That(list.ContainsKey("b")).IsTrue();
+        await Assert.That(list.RemoveByKey("a")).IsFalse();
     }
 
-    [Fact]
-    public void AddOrReplaceUpdatesExisting()
+    [Test]
+    public async Task AddOrReplaceUpdatesExisting()
     {
         var list = new YangList<string, Entry>(e => e.Name)
         {
             new Entry("a", 1)
         };
         list.AddOrReplace(new Entry("a", 42));
-        Assert.Single(list);
-        Assert.Equal(42, list["a"].Age);
+        await Assert.That(list.Count).IsEqualTo(1);
+        await Assert.That(list["a"].Age).IsEqualTo(42);
     }
 
-    [Fact]
-    public void CompositeKeyViaValueTuple()
+    [Test]
+    public async Task CompositeKeyViaValueTuple()
     {
         var list = new YangList<(string, int), Entry>(e => (e.Name, e.Age))
         {
             new Entry("a", 1),
             new Entry("a", 2),
         };
-        Assert.Equal(2, list.Count);
-        Assert.Equal(1, list[("a", 1)].Age);
-        Assert.Equal(2, list[("a", 2)].Age);
+        await Assert.That(list.Count).IsEqualTo(2);
+        await Assert.That(list[("a", 1)].Age).IsEqualTo(1);
+        await Assert.That(list[("a", 2)].Age).IsEqualTo(2);
     }
 
-    [Fact]
-    public void TryGetValueWorks()
+    [Test]
+    public async Task TryGetValueWorks()
     {
         var list = new YangList<string, Entry>(e => e.Name)
         {
             new Entry("a", 1)
         };
-        Assert.True(list.TryGetValue("a", out var entry));
-        Assert.Equal(1, entry.Age);
-        Assert.False(list.TryGetValue("missing", out _));
+        await Assert.That(list.TryGetValue("a", out var entry)).IsTrue();
+        await Assert.That(entry!.Age).IsEqualTo(1);
+        await Assert.That(list.TryGetValue("missing", out _)).IsFalse();
     }
 }

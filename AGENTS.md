@@ -20,7 +20,8 @@ DotnetYang/
 │   └── (root)              ← IChannel, IYangNode, SerializationHelper, attributes
 ├── IntegrationTests/        ← Docker-based tests against netopeer2/sysrepo
 │   ├── docker/              ← Compose + Dockerfiles
-│   └── YangModels/          ← Minimal YANG set matching netopeer2
+│   ├── yang-modules/        ← Raw YANG files loaded by netopeer2 inside Docker
+│   └── YangModels/          ← Minimal YANG set matching netopeer2 (AdditionalFiles for generator)
 ├── TestData/YangSource/     ← Full IETF/IEEE/IANA module test set
 ├── YangSourceTests/         ← Integration tests for generated code
 ├── dotnetYang.Tests/        ← Unit tests for parser/semantic model
@@ -61,7 +62,14 @@ DotnetYang/
 var client = new SshNetconfClient(...);           // Connect
 var interfaces = new InterfacesContainer { ... }; // Build typed config
 await client.EditConfigAsync(interfaces, configOnly: true);  // Send (state excluded)
-var config = await client.GetConfigAsync<T>(T.ParseAsync);   // Read back typed
+await client.EditConfigValidatedAsync(interfaces, configOnly: true); // Same + client-side YangValidate()
+var config = await client.GetConfigAsync<T>(T.ParseAsync);   // Read back typed (config only)
+var oper  = await client.GetAsync<T>(T.ParseAsync);          // Read operational + config data
+
+// NetconfSessionInfo captures negotiated capabilities after hello exchange
+// Enums: Datastore { Running, Candidate, Startup }
+//        DefaultOperation { Merge, Replace, None }
+//        ErrorOption { StopOnError, ContinueOnError, RollbackOnError }
 ```
 
 ### Server Side
@@ -76,7 +84,7 @@ await session.HandleRpcAsync(input, output);  // Dispatches get/edit/lock/commit
 Every container/list-entry class gets:
 - `WriteXMLAsync(XmlWriter writer, bool configOnly = false)` — serializes to NETCONF XML; when `configOnly: true`, skips `[NotConfigurationData]` nodes
 - `ParseAsync(XmlReader reader)` — deserializes from XML into typed object
-- `YangValidate()` — evaluates must/when constraints, min/max-elements, unique
+- `YangValidate()` — evaluates must/when constraints, min/max-elements, unique; throws `YangValidationException` (single failure) or `YangValidationAggregateException` (multiple failures); both carry `SchemaPath`, `Expression`, `ErrorAppTag`, `ErrorMessage`
 
 Identity enums get:
 - `GetEncodedValue(EnumType)` → YANG identity string
@@ -117,6 +125,10 @@ Run NETCONF tests: `cd IntegrationTests && ./run-integration-tests.sh`
 6. **Diamond identity inheritance** — `GetInheritanceList()` can yield duplicates. Use `Dictionary<argName, value>` for namespace mapping to avoid duplicate switch cases.
 
 7. **XmlWriter ConformanceLevel** — When writing XML fragments (not full documents), use `ConformanceLevel.Fragment` in settings.
+
+8. **EditConfigValidatedAsync uses reflection** — It calls `node.GetType().GetMethod("YangValidate")` then `Invoke()`. If you rename the generated `YangValidate()` method, this client-side validation will silently stop working.
+
+9. **NetconfSubscription** — RFC 5277 notification subscriptions live in `YangSupport/Netconf/NetconfSubscription.cs`. Use `CreateSubscriptionAsync(stream, filter, startTime, stopTime)` then `ReadNotificationsAsync<T>(parseFunc)` to get a typed `IAsyncEnumerable<T>` stream. The subscription must be disposed to release the underlying channel.
 
 ## What's Implemented vs. What's Not
 

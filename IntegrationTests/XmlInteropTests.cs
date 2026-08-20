@@ -1,6 +1,5 @@
 using System.Text;
 using System.Xml;
-using Xunit.Abstractions;
 using YangSupport;
 
 namespace IntegrationTests;
@@ -11,21 +10,17 @@ namespace IntegrationTests;
 /// NETCONF server - they verify that DotnetYang produces correct XML
 /// that other implementations would accept.
 /// </summary>
-[Trait("Category", "Integration")]
+[Category("Integration")]
 public class XmlInteropTests
 {
-    private readonly ITestOutputHelper _output;
-
-    public XmlInteropTests(ITestOutputHelper output) => _output = output;
-
-    [Fact]
+    [Test]
     public async Task IetfInterfaces_ProducesCorrectNamespaces()
     {
         var node = CreateTestNode("eth0", "Test interface");
         var xml = await SerializeToString(node);
-        _output.WriteLine(xml);
+        Console.WriteLine(xml);
 
-        Assert.Contains("urn:ietf:params:xml:ns:yang:ietf-interfaces", xml);
+        await Assert.That(xml).Contains("urn:ietf:params:xml:ns:yang:ietf-interfaces");
 
         var doc = new XmlDocument();
         doc.LoadXml(xml);
@@ -33,11 +28,11 @@ public class XmlInteropTests
         var nsMgr = new XmlNamespaceManager(doc.NameTable);
         nsMgr.AddNamespace("if", "urn:ietf:params:xml:ns:yang:ietf-interfaces");
         var nameNode = doc.SelectSingleNode("//if:interface/if:name", nsMgr);
-        Assert.NotNull(nameNode);
-        Assert.Equal("eth0", nameNode!.InnerText);
+        await Assert.That(nameNode).IsNotNull();
+        await Assert.That(nameNode!.InnerText).IsEqualTo("eth0");
     }
 
-    [Fact]
+    [Test]
     public async Task IetfInterfaces_SerializationRoundTrip()
     {
         var original = new Ietf.Interfaces.YangNode
@@ -54,8 +49,8 @@ public class XmlInteropTests
         };
 
         var firstXml = await SerializeToString(original);
-        _output.WriteLine("First serialization:");
-        _output.WriteLine(firstXml);
+        Console.WriteLine("First serialization:");
+        Console.WriteLine(firstXml);
 
         using var ms = new MemoryStream(Encoding.UTF8.GetBytes(firstXml));
         using var reader = XmlReader.Create(ms, SerializationHelper.GetStandardReaderSettings());
@@ -63,29 +58,29 @@ public class XmlInteropTests
         var deserialized = await Ietf.Interfaces.YangNode.ParseAsync(reader);
 
         var secondXml = await SerializeToString(deserialized);
-        _output.WriteLine("Second serialization:");
-        _output.WriteLine(secondXml);
+        Console.WriteLine("Second serialization:");
+        Console.WriteLine(secondXml);
 
-        Assert.Equal(firstXml, secondXml);
+        await Assert.That(secondXml).IsEqualTo(firstXml);
     }
 
-    [Fact]
+    [Test]
     public async Task ConfigPayload_HasCorrectIdentityAndBooleanSerialization()
     {
         var node = CreateTestNode("mgmt0", "Management interface");
         var xml = await SerializeToString(node);
-        _output.WriteLine(xml);
+        Console.WriteLine(xml);
 
         // Identity from iana-if-type must be namespace-prefixed
-        Assert.Contains("urn:ietf:params:xml:ns:yang:iana-if-type", xml);
-        Assert.Contains("ethernetCsmacd", xml);
+        await Assert.That(xml).Contains("urn:ietf:params:xml:ns:yang:iana-if-type");
+        await Assert.That(xml).Contains("ethernetCsmacd");
 
         // Booleans must be lowercase per YANG/XML spec
-        Assert.DoesNotContain(">True<", xml);
-        Assert.DoesNotContain(">False<", xml);
+        await Assert.That(xml).DoesNotContain(">True<");
+        await Assert.That(xml).DoesNotContain(">False<");
     }
 
-    [Fact]
+    [Test]
     public async Task WriteXMLAsync_ConfigOnly_ExcludesStateData()
     {
         var node = CreateTestNode("test0", "Config filter test");
@@ -95,15 +90,15 @@ public class XmlInteropTests
         await writer.FlushAsync();
 
         var xml = sb.ToString();
-        _output.WriteLine(xml);
+        Console.WriteLine(xml);
 
         // Config leaves should be present
-        Assert.Contains("test0", xml);
-        Assert.Contains("type", xml);
+        await Assert.That(xml).Contains("test0");
+        await Assert.That(xml).Contains("type");
 
         // State-only leaves (oper-status, if-index, etc.) should be excluded
-        Assert.DoesNotContain("oper-status", xml);
-        Assert.DoesNotContain("if-index", xml);
+        await Assert.That(xml).DoesNotContain("oper-status");
+        await Assert.That(xml).DoesNotContain("if-index");
     }
 
     private static Ietf.Interfaces.YangNode CreateTestNode(string name, string description)
