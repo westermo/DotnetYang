@@ -39,7 +39,7 @@ jobs:
       - name: Run XML interop tests
         run: |
           dotnet test --project IntegrationTests/IntegrationTests.csproj \
-            --treenode-filter "/*/XmlInteropTests/*|/*/NotificationSubscriptionTests/*" \
+            --treenode-filter "/*/*/XmlInteropTests/*|/*/*/NotificationSubscriptionTests/*" \
             --logger "console;verbosity=detailed"
 
       # Run the full integration tests against netopeer2
@@ -52,7 +52,7 @@ jobs:
           NETCONF_PASSWORD: netconf
         run: |
           dotnet test --project IntegrationTests/IntegrationTests.csproj \
-            --treenode-filter "/*/NetconfRoundtripTests/*" \
+            --treenode-filter "/*/*/NetconfRoundtripTests/*" \
             --logger "console;verbosity=detailed" || true
         # `|| true` because netopeer2 service container may need custom setup;
         # these tests are best-effort in CI until the container is fully configured.
