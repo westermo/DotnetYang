@@ -24,10 +24,7 @@ public static class Log
 
     public static void Clear()
     {
-        // m_stream?.Dispose();
-        // m_writer?.Dispose();
-        // m_stream = null;
-        // m_writer = null;
+        LogMessages.Clear();
     }
 
     private static List<string> LogMessages = [];
