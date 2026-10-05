@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace YangSupport;
 
 /// <summary>
@@ -23,16 +21,11 @@ public class InstanceIdentifier(string path)
 
     /// <summary>
     /// Resolves this instance-identifier against a root object (e.g. Configuration).
-    /// Falls back to reflection if the root doesn't implement IYangNode.
     /// </summary>
-    public object? Resolve(object root)
+    public object? Resolve(object root) => root switch
     {
-        if (root is IYangNode yangNode)
-        {
-            return yangNode.ResolveInstanceIdentifier(Path);
-        }
-        var method = root.GetType().GetMethod("ResolveInstanceIdentifier", new[] { typeof(string) });
-        if (method is null) return null;
-        return method.Invoke(root, new object[] { Path });
-    }
+        IYangInstanceIdentifierRoot resolver => resolver.ResolveInstanceIdentifier(Path),
+        IYangNode yangNode => yangNode.ResolveInstanceIdentifier(Path),
+        _ => null
+    };
 }

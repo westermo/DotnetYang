@@ -521,7 +521,7 @@ internal sealed class XPathTranslator
         string code = _enclosingThis;
         for (int i = 0; i < hops; i++)
         {
-            code = $"(({code}).YangParent)";
+            code = i == 0 ? $"(({code}).YangParent)" : $"(({code})!.YangParent)";
         }
         // Final cast to the module type.
         code = $"(({moduleType})({code})!)";
@@ -579,23 +579,33 @@ internal sealed class XPathTranslator
                         throw new UntranslatableXPathException(
                             "'..' from a top-level node has no addressable parent.");
                     }
-                    if (schema is Leaf or LeafList)
-                    {
-                        if (step.Predicates.Count > 0)
-                        {
-                            throw new UntranslatableXPathException(
-                                "Predicates on a '..' step are not supported.");
-                        }
-                        return (_enclosingThis, parentSchema, CSharpKind.Node);
-                    }
-                    var parentTypeName = Statement.ResolveQualifiedClassName(parentSchema)
-                        ?? throw new UntranslatableXPathException("Parent has no generated class to navigate to.");
-                    var nextCode = $"(({code}).YangParent)";
-                    nextCode = $"(({parentTypeName})({nextCode})!)";
                     if (step.Predicates.Count > 0)
                     {
                         throw new UntranslatableXPathException(
                             "Predicates on a '..' step are not supported.");
+                    }
+                    string nextCode;
+                    if (schema is Leaf or LeafList)
+                    {
+                        nextCode = _enclosingThis;
+                    }
+                    else
+                    {
+                        var parentTypeName = Statement.ResolveQualifiedClassName(parentSchema)
+                            ?? throw new UntranslatableXPathException("Parent has no generated class to navigate to.");
+                        nextCode = $"(({parentTypeName})(({code}).YangParent)!)";
+                    }
+                    // Choice and case are not data nodes (RFC 7950 §6.4.1): '..' continues
+                    // up to the nearest data-node ancestor via the runtime YangParent chain.
+                    while (parentSchema is Choice or Case)
+                    {
+                        var above = SkipNonAddressable(parentSchema.Parent)
+                            ?? throw new UntranslatableXPathException(
+                                "'..' from a top-level choice has no addressable parent.");
+                        var aboveType = Statement.ResolveQualifiedClassName(above)
+                            ?? throw new UntranslatableXPathException("Parent has no generated class to navigate to.");
+                        nextCode = $"(({aboveType})(({nextCode}).YangParent)!)";
+                        parentSchema = above;
                     }
                     return (nextCode, parentSchema, CSharpKind.Node);
                 }
@@ -669,14 +679,19 @@ internal sealed class XPathTranslator
 
         // If the found node lives inside a choice/case, prepend the path through
         // the choice and case properties so the C# navigation is correct.
+        // Nested choices (choice → case → choice → case …) are walked fully.
         string navCode = code;
-        if (named.Parent is Case cs2 && cs2.Parent is Choice ch2 && ch2.Parent == schema)
+        if (TryGetChoiceCasePath(schema, named, out var choiceCasePath))
         {
-            navCode = $"(({code})?.{MakeNameSafe(ch2.Argument)})?.{cs2.TargetName}";
-        }
-        else if (named.Parent is Choice ch3 && ch3.Parent == schema)
-        {
-            navCode = $"(({code})?.{MakeNameSafe(ch3.Argument)})";
+            foreach (var hop in choiceCasePath)
+            {
+                navCode = hop switch
+                {
+                    Choice ch => $"(({navCode})?.{MakeNameSafe(ch.Argument)})",
+                    Case cs => $"(({navCode})?.{cs.TargetName})",
+                    _ => navCode
+                };
+            }
         }
         else if (schema is List && named.Parent == schema.Parent)
         {
@@ -1105,6 +1120,28 @@ internal sealed class XPathTranslator
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// When <paramref name="named"/> is reached from <paramref name="schema"/> through one or more
+    /// choice/case layers (XPath treats them as transparent), returns those layers outermost-first.
+    /// </summary>
+    private static bool TryGetChoiceCasePath(IStatement schema, IStatement named, out List<IStatement> path)
+    {
+        path = new List<IStatement>();
+        var cur = named.Parent;
+        while (cur is Choice or Case && cur != schema)
+        {
+            path.Add(cur);
+            cur = cur.Parent;
+        }
+        if (path.Count == 0 || cur != schema)
+        {
+            path.Clear();
+            return false;
+        }
+        path.Reverse();
+        return true;
     }
 
     private static IStatement? FindNamedChildLocal(IStatement schema, string yangName)

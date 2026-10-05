@@ -46,7 +46,7 @@ The dotnetYang project has **solid coverage** of the core YANG data modeling fea
 **Phase 6 (done)** — compiled `when` / `must` evaluation:
 - ✅ XPath 1.0 lexer + recursive-descent parser covering the full W3C grammar.
 - ✅ XPath-to-C# translator with broad coverage: literals, comparisons, boolean/arithmetic ops, `derived-from`/`derived-from-or-self`, `count`/`not`/`string-length`/`current`, absolute paths, wildcard (`*`), descendant axis (`//`), LINQ-based list traversal, cross-module navigation via `Configuration` shared root, choice-transparent lookup, and list-sibling access.
-- ✅ `YangValidate()` method on every container, list entry, choice, case, and module `YangNode` class. Augment-distributed `when` expressions are evaluated relative to the correct context via `When.OriginalContext`.
+- ✅ `YangValidate()` method on every container, list entry, choice, case, and module `YangNode` class, exposed through the `IYangValidatable` runtime interface. Augment-distributed `when` expressions are evaluated relative to the correct context via `When.OriginalContext`. `when` on `choice`/`case` is evaluated against the nearest ancestor data node (RFC 7950 §7.21.5), and XPath paths transparently step through choice/case wrapper classes.
 - ✅ ~91% of all `when`/`must` in the full IETF/IEEE YANG corpus are compiled to native C#. The remaining 276 of ~3000+ degrade gracefully (comment + build diagnostic).
 - ✅ `[Must]`/`[When]` attributes no longer emitted; XPath appears only as `// must:`/`// when:` source comments.
 
@@ -536,7 +536,7 @@ XPath 1.0 expressions are translated **at build time** into native C# tree navig
 **Implemented:**
 1. **`GetChild(string yangName)` method** generated on every Container, List entry, and Module `YangNode` class. Maps YANG element names to C# property values at runtime.
 2. **`ResolveInstanceIdentifier(string path)` method** generated on `Configuration`. Parses the path into segments, walks the tree via `GetChild()` calls, handles key predicates on lists via reflection-based indexer access.
-3. **`InstanceIdentifier.Resolve(object root)`** — convenience method that delegates to the Configuration's resolver.
+3. **`InstanceIdentifier.Resolve(object root)`** — convenience method that delegates to the Configuration's resolver via the `IYangInstanceIdentifierRoot` interface (no reflection).
 4. **`require-instance true` validation** in `YangValidate()` — for leaves typed as `instance-identifier` with `require-instance true` (the default), the emitter generates a check that walks up to the Configuration root via `YangParent` and calls `Resolve()`, throwing `YangValidationException` if the target doesn't exist.
 
 ---

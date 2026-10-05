@@ -32,10 +32,13 @@ public class When : Statement, IUnexpandable
     /// data children, the XPath was authored with the augment <b>target</b> as
     /// the context node — not the leaf/container it ends up attached to. This
     /// property records that original target so the translator evaluates the XPath
-    /// in the correct schema context.
+    /// in the correct schema context. The validation emitter evaluates it at the
+    /// closest data-node ancestor of this statement (skipping choice/case/uses),
+    /// per RFC 7950 §7.21.5.
     /// <para>
     /// If <c>null</c>, the context is the node the <c>when</c> is attached to
-    /// (normal case for <c>when</c> authored directly on a data node).
+    /// (normal case for <c>when</c> authored directly on a data node), or its
+    /// closest data-node ancestor when attached to a choice or case.
     /// </para>
     /// </summary>
     public IStatement? OriginalContext { get; set; }

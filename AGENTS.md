@@ -126,7 +126,7 @@ Run NETCONF tests: `cd IntegrationTests && ./run-integration-tests.sh`
 
 7. **XmlWriter ConformanceLevel** — When writing XML fragments (not full documents), use `ConformanceLevel.Fragment` in settings.
 
-8. **EditConfigValidatedAsync uses reflection** — It calls `node.GetType().GetMethod("YangValidate")` then `Invoke()`. If you rename the generated `YangValidate()` method, this client-side validation will silently stop working.
+8. **Validation goes through generated interfaces** — Generated containers, lists, choices, cases, module roots and `Configuration` implement `IYangValidatable`; `Configuration` also implements `IYangInstanceIdentifierRoot`. `EditConfigValidatedAsync`, `DatastoreManager` and instance-identifier resolution use these interfaces (no reflection), so `YangValidationException` propagates unwrapped. Renaming `YangValidate()`/`ResolveInstanceIdentifier()` in the emitters is now a compile-time break.
 
 9. **NetconfSubscription** — RFC 5277 notification subscriptions live in `YangSupport/Netconf/NetconfSubscription.cs`. Use `CreateSubscriptionAsync(stream, filter, startTime, stopTime)` then `ReadNotificationsAsync<T>(parseFunc)` to get a typed `IAsyncEnumerable<T>` stream. The subscription must be disposed to release the underlying channel.
 

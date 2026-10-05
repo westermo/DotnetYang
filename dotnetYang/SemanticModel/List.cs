@@ -134,8 +134,8 @@ public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
         var key = GetKey();
         var parentName = ParentClassName;
         var classInterfaces = keyType != null
-            ? $" : global::System.IEquatable<{ClassName}>, YangSupport.IYangNode, YangSupport.IYangXmlSerializable"
-            : " : YangSupport.IYangNode, YangSupport.IYangXmlSerializable";
+            ? $" : global::System.IEquatable<{ClassName}>, YangSupport.IYangNode, YangSupport.IYangXmlSerializable, global::YangSupport.IYangValidatable"
+            : " : YangSupport.IYangNode, YangSupport.IYangXmlSerializable, global::YangSupport.IYangValidatable";
         var equalityMembers = (key != null && keyType != null) ? GenerateEqualityMembers(key) : string.Empty;
 
         string property;

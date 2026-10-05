@@ -53,6 +53,35 @@ module tree-test {
                 }
             }
         }
+        container shape {
+            leaf kind {
+                type string;
+            }
+            // Child steps must navigate through the choice/case layers.
+            must "not(radius) or radius < 100" {
+                error-message "radius too large";
+                error-app-tag "radius-too-large";
+            }
+            choice form {
+                case circle {
+                    // Context node is the nearest data ancestor ('shape').
+                    when "kind = 'round'";
+                    leaf radius {
+                        type uint32;
+                    }
+                    leaf label {
+                        // '..' skips the case/choice layers to reach 'shape'.
+                        when "../kind = 'round'";
+                        type string;
+                    }
+                }
+                case square {
+                    leaf side {
+                        type uint32;
+                    }
+                }
+            }
+        }
     }
 }
 

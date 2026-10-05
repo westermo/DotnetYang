@@ -214,8 +214,8 @@ public sealed class SshNetconfClient : IDisposable
         ErrorOption errorOption = ErrorOption.StopOnError,
         bool configOnly = true)
     {
-        var validateMethod = node.GetType().GetMethod("YangValidate");
-        validateMethod?.Invoke(node, null);
+        if (node is IYangValidatable validatable)
+            validatable.YangValidate();
 
         await EditConfigAsync(node, target, defaultOp, errorOption, configOnly);
     }

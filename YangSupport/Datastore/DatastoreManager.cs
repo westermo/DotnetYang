@@ -101,11 +101,9 @@ public class DatastoreManager<T> where T : class, IYangNode, IYangXmlSerializabl
     public void Validate(Netconf.Datastore datastore)
     {
         var ds = GetDatastore(datastore);
-        var data = ds.Data;
-        var validateMethod = data.GetType().GetMethod("YangValidate");
-        if (validateMethod != null)
+        if (ds.Data is IYangValidatable validatable)
         {
-            validateMethod.Invoke(data, null);
+            validatable.YangValidate();
         }
     }
 

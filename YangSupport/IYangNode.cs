@@ -43,17 +43,14 @@ public static class YangNodeExtensions
     public static object? ResolveInstanceIdentifier(this IYangNode node, string path)
     {
         var root = node.GetRoot();
-        if (root is not IYangNode rootNode) return null;
 
-        // Delegate to the root's ResolveInstanceIdentifier if it has one (Configuration class)
-        var method = root.GetType().GetMethod("ResolveInstanceIdentifier", new[] { typeof(string) });
-        if (method is not null)
+        if (root is IYangInstanceIdentifierRoot resolver)
         {
-            return method.Invoke(root, new object[] { path });
+            return resolver.ResolveInstanceIdentifier(path);
         }
 
         // Fallback: walk the tree via GetChild
-        return ResolveFromNode(rootNode, path);
+        return ResolveFromNode(root, path);
     }
 
     private static object? ResolveFromNode(IYangNode root, string path)

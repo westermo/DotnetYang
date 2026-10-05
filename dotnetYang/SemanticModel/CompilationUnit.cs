@@ -106,6 +106,40 @@ public class CompilationUnit : Statement, IXMLParseable
                  """
             : "public object? GetChild(string yangName) => null;";
 
+        var moduleValidations = Children.OfType<Module>()
+            .Select(module => $"ValidateModule({MakeName(module.Argument)}, failures);");
+        var configValidate = $$"""
+                               /// <summary>
+                               /// Validates every module subtree present in this configuration.
+                               /// Throws <see cref="global::YangSupport.YangValidationException"/> for a single violation or
+                               /// <see cref="global::YangSupport.YangValidationAggregateException"/> when several modules fail.
+                               /// </summary>
+                               public void YangValidate()
+                               {
+                                   var failures = new global::System.Collections.Generic.List<global::YangSupport.YangValidationException>();
+                                   {{Indent(string.Join("\n", moduleValidations))}}
+                                   if (failures.Count == 1) throw failures[0];
+                                   if (failures.Count > 1) throw new global::YangSupport.YangValidationAggregateException(failures);
+                               }
+
+                               private static void ValidateModule(global::YangSupport.IYangValidatable? module, global::System.Collections.Generic.List<global::YangSupport.YangValidationException> failures)
+                               {
+                                   if (module is null) return;
+                                   try
+                                   {
+                                       module.YangValidate();
+                                   }
+                                   catch (global::YangSupport.YangValidationException ex)
+                                   {
+                                       failures.Add(ex);
+                                   }
+                                   catch (global::YangSupport.YangValidationAggregateException ex)
+                                   {
+                                       failures.AddRange(ex.Failures);
+                                   }
+                               }
+                               """;
+
         return $$"""
                  using System;
                  using System.Xml;
@@ -115,13 +149,14 @@ public class CompilationUnit : Statement, IXMLParseable
                  ///<summary>
                  ///Configuration root object for {{MyNamespace}} based on provided .yang modules
                  ///</summary>{{AttributeString}}
-                 public class Configuration : YangSupport.IYangNode
+                 public class Configuration : YangSupport.IYangNode, global::YangSupport.IYangValidatable, global::YangSupport.IYangInstanceIdentifierRoot
                  {
                      YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
                      {{Indent(string.Join("\n", members))}}
                      {{Indent(WriteFunction())}}
                      {{Indent(ReadFunction())}}
                      {{Indent(configGetChild)}}
+                     {{Indent(configValidate)}}
                      /// <summary>
                      /// Resolves an instance-identifier path to the target object in the data tree.
                      /// Path format: /module-name:container/child/list[key='value']/leaf
