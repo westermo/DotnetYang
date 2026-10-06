@@ -28,17 +28,19 @@ public class When : Statement, IUnexpandable
     public string XPathExpression => SingleLine(Argument).Replace("\"", "\\\"");
 
     /// <summary>
-    /// When a <c>when</c> is distributed from an <c>augment</c> to the augment's
-    /// data children, the XPath was authored with the augment <b>target</b> as
-    /// the context node — not the leaf/container it ends up attached to. This
-    /// property records that original target so the translator evaluates the XPath
-    /// in the correct schema context.
+    /// Set when this <c>when</c> was distributed from an <c>augment</c> or <c>uses</c>
+    /// onto the nodes they contribute. Per RFC 7950 §7.21.5 the XPath context is then
+    /// the augment target / the parent of the <c>uses</c> (or the closest data-node
+    /// ancestor if that is a choice or case) — i.e. the closest data-node ancestor of
+    /// the node it ends up attached to, resolved after all grouping/augment expansion
+    /// has placed the node in its final position.
     /// <para>
-    /// If <c>null</c>, the context is the node the <c>when</c> is attached to
-    /// (normal case for <c>when</c> authored directly on a data node).
+    /// If <c>false</c>, the context is the node the <c>when</c> is attached to
+    /// (normal case for <c>when</c> authored directly on a data node), or its
+    /// closest data-node ancestor when attached to a choice or case.
     /// </para>
     /// </summary>
-    public IStatement? OriginalContext { get; set; }
+    public bool ContextIsParent { get; set; }
 
     public override string ToCode()
     {

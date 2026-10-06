@@ -316,7 +316,50 @@ public static class StatementExtensions
         if (use.Parent?.Children.Contains(use) != true) return;
         var grouping = use.GetGrouping();
         var parent = use.Parent;
-        parent!.Replace(use, grouping.WithUse(use));
+        var whens = use.Children.OfType<When>().ToArray();
+        var flags = use.Children.OfType<FeatureFlag>().ToArray();
+        var expanded = grouping.WithUse(use).ToArray();
+
+        // RFC 7950 §7.13: 'when'/'if-feature' on a 'uses' apply to every node the
+        // grouping contributes. The 'when' context is the uses' parent (§7.21.5),
+        // which the validation emitter resolves to the nearest data-node ancestor.
+        if (whens.Length > 0 || flags.Length > 0)
+        {
+            foreach (var child in expanded)
+            {
+                var permitted = child.PermittedChildren;
+                var takesWhen = permitted.Any(r => r.Keyword == When.Keyword);
+                var takesFlag = permitted.Any(r => r.Keyword == FeatureFlag.Keyword);
+                var additions = new List<IStatement>();
+                if (takesWhen)
+                {
+                    foreach (var when in whens)
+                    {
+                        var clone = (When)StatementFactory.Create(when.Source);
+                        clone.Argument = when.Argument;
+                        clone.ContextIsParent = true;
+                        additions.Add(clone);
+                    }
+                }
+
+                if (takesFlag)
+                {
+                    foreach (var flag in flags)
+                    {
+                        var clone = StatementFactory.Create(flag.Source);
+                        clone.Argument = flag.Argument;
+                        additions.Add(clone);
+                    }
+                }
+
+                if (additions.Count > 0)
+                {
+                    child.Children = child.Children.Concat(additions).ToArray();
+                }
+            }
+        }
+
+        parent!.Replace(use, expanded);
     }
 
     public static string Prefix(this string argument, out string name)

@@ -32,24 +32,50 @@ public class YangGenerator : IIncrementalGenerator
         public readonly T? Result;
     }
 
+    /// <summary>Tracking names for incremental pipeline steps (used by caching tests).</summary>
+    internal static class TrackingNames
+    {
+        public const string YangFiles = nameof(YangFiles);
+        public const string AllYangFiles = nameof(AllYangFiles);
+        public const string AssemblyName = nameof(AssemblyName);
+        public const string Features = nameof(Features);
+        public const string GeneratorInput = nameof(GeneratorInput);
+    }
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var yangFiles = context.AdditionalTextsProvider.Where(text => text.Path.EndsWith(".yang"));
-        var parsed = yangFiles.Select((p, _) => Parse(p));
-        var model = parsed.Select((p, _) => MakeSemanticModel(p));
+        // Only value-equatable data (file path + text, assembly name, feature string) flows through the
+        // pipeline, so unrelated C# edits leave every step cached and code generation is skipped.
+        // Parsing and linking happen inside the output step because linking mutates the statement trees,
+        // which therefore must never be cached and reused between runs.
+        var yangFiles = context.AdditionalTextsProvider
+            .Where(text => text.Path.EndsWith(".yang", StringComparison.OrdinalIgnoreCase))
+            .Select((text, ct) => new YangSourceFile(text.Path, text.GetText(ct)?.ToString()))
+            .WithTrackingName(TrackingNames.YangFiles);
+        var allYangFiles = yangFiles.Collect()
+            .Select((files, _) => new EquatableArray<YangSourceFile>(files))
+            .WithTrackingName(TrackingNames.AllYangFiles);
+        var assemblyName = context.CompilationProvider
+            .Select((compilation, _) => compilation.AssemblyName ?? string.Empty)
+            .WithTrackingName(TrackingNames.AssemblyName);
         var features = context.AnalyzerConfigOptionsProvider.Select((provider, _) =>
         {
             provider.GlobalOptions.TryGetValue("build_property.YangFeatures", out var featuresValue);
             return featuresValue ?? string.Empty;
+        }).WithTrackingName(TrackingNames.Features);
+        var combined = allYangFiles
+            .Combine(assemblyName)
+            .Combine(features)
+            .WithTrackingName(TrackingNames.GeneratorInput);
+        context.RegisterSourceOutput(combined, (ctx, data) =>
+        {
+            var models = data.Left.Left.Select(file => MakeSemanticModel(Parse(file))).ToImmutableArray();
+            MakeClasses(ctx, data.Left.Right, models, data.Right);
         });
-        var combined = context.CompilationProvider
-            .Combine(model.Collect())
-            .Combine(features);
-        context.RegisterSourceOutput(combined, (ctx, data) => MakeClasses(ctx, data.Left.Left, data.Left.Right, data.Right));
     }
 
     private void MakeClasses(SourceProductionContext context,
-        Compilation compilation, ImmutableArray<ResultOrException<IStatement>> models, string enabledFeaturesRaw)
+        string assemblyName, ImmutableArray<ResultOrException<IStatement>> models, string enabledFeaturesRaw)
     {
         // Parse enabled features from MSBuild property (semicolon-separated, e.g. "feature1;feature2")
         var enabledFeatures = string.IsNullOrWhiteSpace(enabledFeaturesRaw)
@@ -121,7 +147,7 @@ public class YangGenerator : IIncrementalGenerator
 
             //Replace Includes with their respective submodules
             IncludeSubmodules(context, modules, topLevels);
-            var compilationUnit = new CompilationUnit(modules.Values.ToArray(), compilation.AssemblyName!);
+            var compilationUnit = new CompilationUnit(modules.Values.ToArray(), assemblyName);
             //Replace Uses by their respective groupings
             UnwrapUses(context, compilationUnit);
             InjectAugments(context, compilationUnit);
@@ -376,11 +402,11 @@ public class YangGenerator : IIncrementalGenerator
                 {
                     try
                     {
-                        var textFile = model.Exception!.Data["textFile"] as AdditionalText;
+                        var path = (string)model.Exception!.Data["path"]!;
                         context.ReportDiagnostic(
                             Diagnostic.Create(
                                 ParsingError,
-                                Location.Create(textFile!.Path, new TextSpan(), new LinePositionSpan()),
+                                Location.Create(path, new TextSpan(), new LinePositionSpan()),
                                 model.Exception.Message + model.Exception.StackTrace
                             )
                         );
@@ -437,21 +463,26 @@ public class YangGenerator : IIncrementalGenerator
         }
     }
 
-    private static ResultOrException<YangStatement> Parse(AdditionalText text)
+    private static ResultOrException<YangStatement> Parse(YangSourceFile file)
     {
         var ts = Stopwatch.GetTimestamp();
         try
         {
-            return new ResultOrException<YangStatement>(Parser.Parser.Parse(text.Path, text.GetText()!.ToString()));
+            if (file.Content is null)
+            {
+                throw new InvalidOperationException("Could not read the contents of " + file.Path);
+            }
+
+            return new ResultOrException<YangStatement>(Parser.Parser.Parse(file.Path, file.Content));
         }
         catch (Exception ex)
         {
-            ex.Data["textFile"] = text;
+            ex.Data["path"] = file.Path;
             return new ResultOrException<YangStatement>(ex);
         }
         finally
         {
-            Log.Write("Parsed file " + text.Path + " in " +
+            Log.Write("Parsed file " + file.Path + " in " +
                       ((Stopwatch.GetTimestamp() - ts) / (double)Stopwatch.Frequency * 1000).ToString("F2") + "ms");
         }
     }

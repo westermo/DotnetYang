@@ -46,8 +46,8 @@ The dotnetYang project has **solid coverage** of the core YANG data modeling fea
 **Phase 6 (done)** — compiled `when` / `must` evaluation:
 - ✅ XPath 1.0 lexer + recursive-descent parser covering the full W3C grammar.
 - ✅ XPath-to-C# translator with broad coverage: literals, comparisons, boolean/arithmetic ops, `derived-from`/`derived-from-or-self`, `count`/`not`/`string-length`/`current`, absolute paths, wildcard (`*`), descendant axis (`//`), LINQ-based list traversal, cross-module navigation via `Configuration` shared root, choice-transparent lookup, and list-sibling access.
-- ✅ `YangValidate()` method on every container, list entry, choice, case, and module `YangNode` class. Augment-distributed `when` expressions are evaluated relative to the correct context via `When.OriginalContext`.
-- ✅ ~91% of all `when`/`must` in the full IETF/IEEE YANG corpus are compiled to native C#. The remaining 276 of ~3000+ degrade gracefully (comment + build diagnostic).
+- ✅ `YangValidate()` method on every container, list entry, choice, case, and module `YangNode` class, exposed through the `IYangValidatable` runtime interface. Augment-distributed `when` expressions are evaluated relative to the augment target (the injected node's final parent) via `When.ContextIsParent`. `when` on `choice`/`case` is evaluated against the nearest ancestor data node (RFC 7950 §7.21.5), and XPath paths transparently step through choice/case wrapper classes.
+- ✅ ~99% of all `when`/`must` in the full IETF/IEEE YANG corpus are compiled to native C#. The remaining 26 of ~3000+ degrade gracefully (comment + build diagnostic).
 - ✅ `[Must]`/`[When]` attributes no longer emitted; XPath appears only as `// must:`/`// when:` source comments.
 
 ---
@@ -61,7 +61,7 @@ The dotnetYang project has **solid coverage** of the core YANG data modeling fea
 | 3 | `refine` uses insert instead of replace for singleton statements | P1 High | M | §7.13.2 | ✅ Done |
 | 4 | `anyxml` has no XML parsing (read) support | P2 Medium | M | §7.10 | ✅ Done |
 | 5 | `anydata` has no XML parsing (read) support | P2 Medium | M | §7.11 | ✅ Done |
-| 6 | `when` XPath expression not evaluated at runtime | P3 Low | L | §7.21.5 | ✅ Compiled (~91% coverage); 276 of ~3000+ degrade gracefully |
+| 6 | `when` XPath expression not evaluated at runtime | P3 Low | L | §7.21.5 | ✅ Compiled (~99% coverage); 26 of ~3000+ degrade gracefully |
 | 7 | `must` XPath expression not evaluated at runtime | P3 Low | L | §7.5.3 | ✅ Compiled (~91% coverage); see #6 |
 | 8 | `if-feature` not used for conditional code generation | P3 Low | M | §7.20.2 | ✅ Done |
 | 9 | Submodule `belongs-to` prefix/namespace propagation incomplete | P3 Low | S | §7.2.2 | ✅ Done |
@@ -88,7 +88,7 @@ The dotnetYang project has **solid coverage** of the core YANG data modeling fea
 3. **Translator** (`XPath/XPathTranslator.cs`): walks the AST with two pieces of context:
    - The YANG **schema** the XPath was authored on (so name steps resolve to typed properties).
    - The C# **self-expression** representing `.` at runtime. For container/list/choice/case origins this is `this`; for leaf origins it is `(this.LeafProperty)` and `..` short-circuits to the enclosing-class `this` (leaf values do not expose `YangParent`).
-4. **Emitter** (`XPath/ValidateEmitter.cs`): assembles `YangValidate()` from translated constraints + recursion into class-producing children. Uses `When.OriginalContext` to correctly evaluate augment-distributed `when` expressions relative to the augment's target node.
+4. **Emitter** (`XPath/ValidateEmitter.cs`): assembles `YangValidate()` from translated constraints + recursion into class-producing children. Honors `When.ContextIsParent` (set for `when` copied from `augment` and `uses`) to evaluate those expressions relative to the nearest data-node ancestor of the node's parent.
 
 ### Translator coverage
 
@@ -105,20 +105,25 @@ Currently translates:
 - Cross-module navigation via the `Configuration` shared root (`YangNode.YangParent` → `Configuration` → other module)
 - List-sibling access (accessing a container/leaf that's a sibling of a list from within a list entry)
 - Choice-transparent child lookup (XPath treats choice/case as invisible)
-- LINQ-based list traversal (`.Select()` / `.SelectMany()` for list steps without key predicates)
-- A single string-key equality predicate on a `YangList` (`list[key = value]`), translated to `YangList[key]` indexer access
+- LINQ-based list traversal (`.Select()` / `.SelectMany()`); absent leaf values are filtered out of projections, so a node-set contains only existing nodes
+- Paths whose filter primary is `current()` (`current()/../foo`), walked as ordinary relative paths from the context node
+- Predicates on list steps (`list[key = current()/../ref]`, `list[weight > 10]`, multiple/chained predicates), translated to `Enumerable.Where` over the list entries with the predicate evaluated relative to each entry. Key and non-key leaves are handled the same way.
+- Existential comparisons between a node-set and a value (`/a/list[...]/leaf != 'x'` is true when *some* selected node satisfies it; an empty node-set compares false), including identityref values compared with `'prefix:identity'` literals
+- Predicates on a leaf step (`../leaf[. = 'a' or . = 'b']`), where `.` is bound to the leaf value and the step yields the leaf when the predicate holds
+- Comparing an enumeration leaf with a string literal (`emode = 'pre-shared'`), resolved at codegen time to the generated enum member
 - `derived-from(path, 'identity')` / `derived-from-or-self(path, 'identity')`: resolves the identity hierarchy at codegen time and emits OR-chain equality checks against all valid enum values
+- `bit-is-set(path, 'bit')`: tests the first node of the node-set (RFC 7950 10.6.1) by splitting its value into its set bits and matching either the generated flag member or the YANG bit name; an empty node-set yields false
+- Absolute paths inside RFC 8791 `sx:structure` definitions (`ietf-dots-signal-channel`, `ietf-dots-telemetry`): the first step names the structure, so the path is rooted at the generated structure class instead of the module root
+- Choice/case wrappers inside LINQ projections and parent walks, so `max-config-values/telemetry-notify-interval` reaches through choice and case classes
+- Numeric coercion of any operand (typedef wrappers, strings, `IConvertible` values); a missing value becomes NaN, so the comparison is false
 
-### Remaining untranslatable expressions (276 out of ~3000+ total when/must in the IETF/IEEE corpus)
+### Remaining untranslatable expressions (1 unique out of ~3000+ total when/must in the IETF/IEEE corpus)
+
+Augment and `uses` `when` expressions are now evaluated relative to the final parent position (see "`when` on `augment`" above), which eliminated the former `Cannot compute YangParent navigation` failures and almost all `Could not resolve child` failures.
 
 | Count | Reason | Description |
 |-------|--------|-------------|
-| 214 | `Could not resolve child` | Deep multi-hop augment distribution where `When.OriginalContext` lands at a depth that doesn't match the XPath's expected `..` chain. Typically 4+ levels of `../` through nested augments. |
-| 22 | `Predicates on LINQ-projected child steps` | Cross-module absolute paths that traverse a list with a key predicate via LINQ (e.g., `/bridges/bridge[name=current()/../bridge-ref]/...`). The predicate operates on the LINQ IEnumerable; would need `.Where()` + key comparison. |
-| 18 | `Cannot compute YangParent navigation` | Augment target not reachable as an ancestor of the enclosing class (typically cross-module augments whose target sits in a sibling branch). |
-| 4 | `Predicates on a non-list child step` | XPath uses `container[leaf='value']` syntax on a container (filters on a child leaf). Unusual in YANG. |
-| 4 | `Path with filter primary` | XPath like `current()/../../foo` — the `current()` function followed by path steps. Would need to implement FilterExpr path resolution. |
-| 2 | `bit-is-set()` function | YANG-specific function checking if a bits leaf has a particular bit set. |
+| 1 | `Unterminated string literal` | An upstream typo in the IEEE `ieee802-ethernet-interface` `mpcp-maximum-queue-count-per-report` constraint. The XPath is malformed, so it cannot be fixed in the translator. |
 
 All untranslatable expressions degrade gracefully:
 - A `// when: <original xpath>` or `// must: <original xpath>` comment is emitted in the generated code.
@@ -130,12 +135,16 @@ All untranslatable expressions degrade gracefully:
 
 A user calls `YangValidate()` on the root container (or any sub-tree). The method:
 1. Evaluates each `must` translated as `if (!compiledExpr) throw new YangValidationException(...)`. The exception carries the YANG schema path and any `error-app-tag` / `error-message` declared in the YANG source.
-2. Evaluates each `when` the same way — `when` constraints on a node are checked only when the node is actually present in the tree (because `YangValidate()` is only invoked on non-null children).
+2. Evaluates each `when` the same way — `when` constraints on a node are checked only when the node is actually present in the tree (because `YangValidate()` is only invoked on non-null children, and leaf/leaf-list constraints are wrapped in a presence guard).
 3. Walks into class-producing children and `YangList` entries.
 
-### Augment pipeline fix
+### `when` / `if-feature` on `uses`
 
-`Augment.Inject()` now records `When.OriginalContext = augmentTarget` before distributing `when` statements to the augment's data children. `ValidateEmitter.BuildContextExpressions()` computes a `.YangParent` hop chain from the current Validate body (`this`) up to the OriginalContext, so the translator evaluates the XPath relative to the correct schema node.
+Per RFC 7950 §7.13 and §7.21.5, a `when` or `if-feature` placed on a `uses` statement applies to every data node the grouping contributes. `StatementExtensions.Expand(Uses)` copies those sub-statements onto each expanded child that permits them. The copied `when` has `ContextIsParent = true`, so it is evaluated against the parent of the expanded node (the node that contains the `uses`), not the node itself. Boolean leaf values are coerced to the YANG lexical form (`"true"`/`"false"`) when compared as strings.
+
+### `when` on `augment`
+
+Per RFC 7950 §7.21.5, the context node of a `when` on an `augment` is the augment's target node, or the target's nearest data-node ancestor if the target is a `choice` or `case`. `Augment.Inject()` copies the `when` onto each injected data child and sets `ContextIsParent = true`. `ValidateEmitter` then evaluates the expression against the nearest data-node ancestor of the injected node's final parent (skipping `choice`/`case`/`uses`/`augment`/`grouping` wrappers), which is exactly the augment target's data node. Because the context is derived from the node's *final* position, this also works when the augment target lives inside a grouping that is expanded later (each expanded copy evaluates against its own instantiation), and when an augment targets a node that is itself an augment of another module.
 
 ### Cross-module shared root
 
@@ -514,7 +523,7 @@ This is defined in RFC 7950 §7.13.2 Table.
 Keep `string?` as the C# type for both. Using `XElement` or `XmlDocument` would be more type-safe but would add a dependency and break backward compatibility. The raw XML string approach is consistent with the project's existing streaming-XML philosophy.
 
 ### When/Must: Compiled, Not Interpreted
-XPath 1.0 expressions are translated **at build time** into native C# tree navigation. No XPath engine ships at runtime. ~91% of the IETF/IEEE YANG corpus compiles successfully; the remaining 276 expressions degrade gracefully with comments and build diagnostics.
+XPath 1.0 expressions are translated **at build time** into native C# tree navigation. No XPath engine ships at runtime. ~99% of the IETF/IEEE YANG corpus compiles successfully; the remaining 26 expressions degrade gracefully with comments and build diagnostics.
 
 ---
 
@@ -535,8 +544,8 @@ XPath 1.0 expressions are translated **at build time** into native C# tree navig
 
 **Implemented:**
 1. **`GetChild(string yangName)` method** generated on every Container, List entry, and Module `YangNode` class. Maps YANG element names to C# property values at runtime.
-2. **`ResolveInstanceIdentifier(string path)` method** generated on `Configuration`. Parses the path into segments, walks the tree via `GetChild()` calls, handles key predicates on lists via reflection-based indexer access.
-3. **`InstanceIdentifier.Resolve(object root)`** — convenience method that delegates to the Configuration's resolver.
+2. **`ResolveInstanceIdentifier(string path)` method** generated on `Configuration`. Delegates to `YangSupport.InstanceIdentifierResolver`, which parses the path into segments (quote/bracket aware), walks the tree via `GetChild()` calls, and matches key predicates through the generated `IYangListEntry.YangMatchesKeys()` on keyed list entries (multi-key and identityref keys supported, no reflection). Positional `[n]` and leaf-list `[.='v']` predicates are also supported.
+3. **`InstanceIdentifier.Resolve(object root)`** — convenience method that delegates to the Configuration's resolver via the `IYangInstanceIdentifierRoot` interface (no reflection).
 4. **`require-instance true` validation** in `YangValidate()` — for leaves typed as `instance-identifier` with `require-instance true` (the default), the emitter generates a check that walks up to the Configuration root via `YangParent` and calls `Resolve()`, throwing `YangValidationException` if the target doesn't exist.
 
 ---

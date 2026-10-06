@@ -58,6 +58,28 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
     public const string Keyword = "leaf";
     private Type GetTypeChild() => Children.OfType<Type>().First();
 
+    /// <summary>True if this leaf's (resolved) base type is identityref.</summary>
+    public bool IsIdentityRef => GetTypeChild().GetBaseType(out _, out _) == "identityref";
+
+    /// <summary>
+    /// True if this leaf's (resolved) base type is enumeration, i.e. its generated
+    /// property is a C# enum whose members are <see cref="Statement.MakeName"/> of the YANG names.
+    /// </summary>
+    public bool IsEnumeration
+    {
+        get
+        {
+            try
+            {
+                return GetTypeChild().GetBaseType(out _, out _) == "enumeration";
+            }
+            catch (SemanticError)
+            {
+                return false;
+            }
+        }
+    }
+
     public override string ToCode()
     {
         foreach (var child in Children)
@@ -243,6 +265,43 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
     }
 
     public string ClassName => GetTypeChild().Name!;
+
+    /// <summary>
+    /// Returns a C# expression producing the YANG lexical (canonical string) form of
+    /// <paramref name="expr"/>, mirroring the encoding used by <see cref="WriteCall"/>.
+    /// </summary>
+    public string LexicalValueExpression(string expr)
+    {
+        var type = GetTypeChild();
+        var baseTypeName = type.GetBaseType(out var prefix, out _);
+        if (baseTypeName is "enumeration" or "bits" or "identityref")
+        {
+            if (string.IsNullOrEmpty(prefix))
+            {
+                prefix = type.Name!.Prefix(out _);
+            }
+
+            if (string.IsNullOrEmpty(prefix))
+            {
+                if (BuiltinTypeReference.IsBuiltinKeyword(type.Argument) && type.Argument != "identityref")
+                {
+                    return $"GetEncodedValue({expr})";
+                }
+
+                return $"YangNode.GetEncodedValue({expr})";
+            }
+
+            var p = prefix.Contains('.') ? prefix : prefix + ":";
+            return $"{p}GetEncodedValue({expr})";
+        }
+
+        return baseTypeName switch
+        {
+            "boolean" => $"(({expr}) == true ? \"true\" : \"false\")",
+            "empty" => "\"\"",
+            _ => $"global::System.Convert.ToString((object?)({expr}), global::System.Globalization.CultureInfo.InvariantCulture)"
+        };
+    }
 
     public string ParseCall => BuiltinTypeReference.ValueTransformation(GetTypeChild(), ClassName, "_" + TargetName, Argument);
 }

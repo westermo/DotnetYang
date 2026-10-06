@@ -54,7 +54,7 @@ public class Augment : Statement, IUnexpandable
         var components = Argument.Split('/');
 
         // Collect when/feature-flags before processing, but defer distribution
-        // until we've resolved the target so we can record OriginalContext.
+        // until we've resolved the target.
         var whenStatements = Children.OfType<When>().ToArray();
         var featureFlags = Children.OfType<FeatureFlag>().ToArray();
 
@@ -73,11 +73,13 @@ public class Augment : Statement, IUnexpandable
 
         var target = GetTarget(top, components, sourceNS);
 
-        // Now distribute when/feature-flags to the augmented children,
-        // recording the target as the XPath evaluation context.
+        // Now distribute when/feature-flags to the augmented children. The XPath
+        // context is the augment target, which becomes each child's parent once
+        // inserted; resolving it from the final position (rather than holding a
+        // reference to the target) stays correct when the target is later copied.
         foreach (var when in whenStatements)
         {
-            when.OriginalContext = target;
+            when.ContextIsParent = true;
             foreach (var other in Children)
             {
                 other.Insert([when]);

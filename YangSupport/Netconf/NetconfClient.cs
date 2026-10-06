@@ -373,11 +373,9 @@ public class NetconfClient : IDisposable
         bool configOnly = true,
         CancellationToken ct = default)
     {
-        // Invoke generated YangValidate() via reflection (the method is generated on each node)
-        var validateMethod = node.GetType().GetMethod("YangValidate");
-        if (validateMethod != null)
+        if (node is IYangValidatable validatable)
         {
-            validateMethod.Invoke(node, null);
+            validatable.YangValidate();
         }
 
         await EditConfigAsync(node, target, defaultOp, errorOption, configOnly, ct).ConfigureAwait(false);

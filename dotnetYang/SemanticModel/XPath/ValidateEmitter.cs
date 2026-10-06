@@ -32,12 +32,12 @@ internal static class ValidateEmitter
         {
             if (child is Leaf leaf)
             {
-                EmitNodeConstraints(body, schema, leaf);
+                EmitLeafConstraints(body, schema, leaf, $"{leaf.TargetName} != default");
                 EmitInstanceIdentifierCheck(body, leaf);
             }
             else if (child is LeafList ll)
             {
-                EmitNodeConstraints(body, schema, ll);
+                EmitLeafConstraints(body, schema, ll, $"{ll.TargetName} is not null");
             }
         }
 
@@ -57,6 +57,24 @@ internal static class ValidateEmitter
     }
 
     /// <summary>
+    /// Emit when/must constraints for a leaf or leaf-list. Per RFC 7950 §7.21.5 and
+    /// §7.5.3 the constraints only apply when the node exists in the data tree, so the
+    /// checks are wrapped in a presence guard.
+    /// </summary>
+    private static void EmitLeafConstraints(StringBuilder body, IStatement enclosingClass, IStatement leaf, string presence)
+    {
+        var inner = new StringBuilder();
+        EmitNodeConstraints(inner, enclosingClass, leaf);
+        if (inner.Length == 0) return;
+        body.AppendLine($$"""
+                          if ({{presence}})
+                          {
+                              {{Statement.Indent(inner.ToString())}}
+                          }
+                          """);
+    }
+
+    /// <summary>
     /// Emit when/must constraints for a given schema node. The <paramref name="enclosingClass"/>
     /// is the container/list that owns the Validate() body (determines `this` in the
     /// generated code).
@@ -65,30 +83,34 @@ internal static class ValidateEmitter
     {
         foreach (var when in schema.Children.OfType<When>())
         {
-            // Determine correct XPath context:
-            IStatement context;
-            if (when.OriginalContext is not null)
+            // XPath context per RFC 7950 §7.21.5:
+            //  * augment: the target node, or its closest data-node ancestor if the
+            //    target is a choice/case;
+            //  * choice/case (and uses, expanded into them): the closest data-node ancestor;
+            //  * otherwise: the node carrying the 'when'.
+            IStatement? context;
+            if (when.ContextIsParent || schema is Choice or Case)
             {
-                // From an augment — use the recorded target.
-                context = when.OriginalContext;
+                context = NearestDataNode(schema.Parent);
             }
             else
             {
-                // when authored directly on the node: context IS the node.
                 context = schema;
             }
 
-            var (selfExpr, enclosing) = BuildContextExpressions(enclosingClass, context);
+            var (selfExpr, enclosing) = context is null
+                ? (null, null)
+                : BuildContextExpressions(enclosingClass, context);
             if (selfExpr is null)
             {
                 Generator.Log.Write(
                     $"Untranslatable when XPath at {schema.XPath}: " +
-                    "Cannot compute YangParent navigation to augment's original context.");
+                    "Cannot compute YangParent navigation to the when context node.");
                 body.AppendLine($"// when: {OneLine(when.Argument)}");
                 body.AppendLine("// (Context navigation not possible; constraint not enforced.)");
                 continue;
             }
-            var translator = new XPathTranslator(context, selfExpr, enclosing);
+            var translator = new XPathTranslator(context!, selfExpr, enclosing!);
             EmitConstraint(body, translator, schema, when.Argument, "when", null, null);
         }
         foreach (var must in schema.Children.OfType<Must>())
@@ -177,10 +199,21 @@ internal static class ValidateEmitter
         string expr = "this";
         for (int i = 0; i < hops; i++)
         {
-            expr = $"(({expr}).YangParent)";
+            // Intermediate parents are nullable; the hierarchy is guaranteed
+            // to exist while validating from the root, so null-forgive them.
+            expr = i == 0 ? $"(({expr}).YangParent)" : $"(({expr})!.YangParent)";
         }
         expr = $"(({contextType})({expr})!)";
         return (expr, expr);
+    }
+
+    private static IStatement? NearestDataNode(IStatement? node)
+    {
+        while (node is Choice or Case or Uses or Augment or Grouping)
+        {
+            node = node.Parent;
+        }
+        return node;
     }
 
     private static bool IsChildOf(IStatement node, IStatement potentialParent)

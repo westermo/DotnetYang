@@ -63,7 +63,7 @@ public class Case : Statement, IClassSource, IXMLParseable
         return $$"""
                  {{property}}
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{ClassName}} : YangSupport.IYangNode
+                 public class {{ClassName}} : YangSupport.IYangNode, global::YangSupport.IYangValidatable
                  {
                     {{Indent(parentDecl)}}
                     {{Indent(string.Join("\n", nodes))}}

@@ -95,7 +95,7 @@ public class Module : TopLevelStatement, IXMLParseable
                     {{interfaceDefinition}}
                     namespace {{ns}}{
                     {{DescriptionString}}{{AttributeString}}
-                    public class YangNode : YangSupport.IYangNode, YangSupport.IYangXmlSerializable
+                    public class YangNode : YangSupport.IYangNode, YangSupport.IYangXmlSerializable, global::YangSupport.IYangValidatable
                     {
                         {{yangParentDecl}}
                         public const string ModuleName = "{{Argument}}";

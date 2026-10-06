@@ -36,6 +36,18 @@ module tree-test {
         leaf-list tags {
             type string;
         }
+        list pairs {
+            key "a b";
+            leaf a {
+                type string;
+            }
+            leaf b {
+                type uint32;
+            }
+            leaf note {
+                type string;
+            }
+        }
         container counts {
             must "count(../items) > 0";
         }
@@ -51,6 +63,210 @@ module tree-test {
                 leaf level {
                     type uint32;
                 }
+            }
+        }
+        container shape {
+            leaf kind {
+                type string;
+            }
+            // Child steps must navigate through the choice/case layers.
+            must "not(radius) or radius < 100" {
+                error-message "radius too large";
+                error-app-tag "radius-too-large";
+            }
+            choice form {
+                case circle {
+                    // Context node is the nearest data ancestor ('shape').
+                    when "kind = 'round'";
+                    leaf radius {
+                        type uint32;
+                    }
+                    leaf label {
+                        // '..' skips the case/choice layers to reach 'shape'.
+                        when "../kind = 'round'";
+                        type string;
+                    }
+                }
+                case square {
+                    leaf side {
+                        type uint32;
+                    }
+                }
+            }
+        }
+        container gated {
+            leaf flag {
+                type boolean;
+            }
+            // RFC 7950 7.13: the 'when' on 'uses' applies to every node the
+            // grouping contributes, with 'gated' as the context node.
+            uses extra {
+                when "flag = 'true'";
+            }
+        }
+        container wrapped {
+            uses toggle-group;
+        }
+        container xp {
+            leaf kind {
+                type string;
+            }
+            leaf cur-ref {
+                // Path whose filter primary is current().
+                when "current()/../kind = 'on'";
+                type string;
+            }
+        }
+        container lp {
+            leaf mode {
+                type string;
+            }
+            leaf gated {
+                // Predicate on a leaf step: '.' is the leaf value.
+                when "../mode[. = 'a' or . = 'b']";
+                type string;
+            }
+            leaf emode {
+                type enumeration {
+                    enum pre-shared;
+                    enum eap;
+                    enum other;
+                }
+            }
+            leaf egated {
+                // Enumeration literals compare by YANG name, not C# member name.
+                when "../emode[. = 'pre-shared' or . = 'eap']";
+                type string;
+            }
+        }
+        container lk {
+            list bridge {
+                key "name";
+                leaf name {
+                    type tt:bridge-name;
+                }
+                list component {
+                    key "name";
+                    leaf name {
+                        type string;
+                    }
+                    leaf type {
+                        type identityref {
+                            base tt:component-kind;
+                        }
+                    }
+                    leaf weight {
+                        type uint32;
+                    }
+                }
+            }
+            leaf bridge-name {
+                type tt:bridge-name;
+            }
+            leaf component-name {
+                type string;
+            }
+            leaf vlan-only {
+                // Key predicates on list steps (mirrors ieee802-dot1q-bridge).
+                when "/tt:root/tt:lk/tt:bridge[tt:name = current()/../tt:bridge-name]"
+                   + "/tt:component[name = current()/../tt:component-name]/tt:type"
+                   + " != 'tt:d-bridge'";
+                type string;
+            }
+            leaf heavy-limit {
+                // Non-key predicate on a list step reached through another list.
+                must "count(../bridge/component[weight > 10]) < 2" {
+                    error-message "too many heavy components";
+                }
+                type string;
+            }
+        }
+        container bt {
+            list server {
+                key "name";
+                leaf name {
+                    type string;
+                }
+                leaf server-type {
+                    type tt:server-kind;
+                }
+            }
+            leaf auth-required {
+                // Mirrors ietf-system-tacacs-plus: bit-is-set on the first list entry.
+                must "bit-is-set(../server/server-type, 'auth-n')" {
+                    error-message "first server must do authentication";
+                }
+                type string;
+            }
+            leaf flags {
+                type bits {
+                    bit low-bit;
+                    bit high-bit;
+                }
+            }
+            leaf high-only {
+                when "bit-is-set(../flags, 'high-bit')";
+                type string;
+            }
+        }
+    }
+
+    typedef server-kind {
+        type bits {
+            bit auth-n;
+            bit auth-z;
+            bit accounting;
+        }
+    }
+
+    typedef bridge-name {
+        type string;
+    }
+
+    identity component-kind;
+
+    identity c-vlan {
+        base component-kind;
+    }
+
+    identity d-bridge {
+        base component-kind;
+    }
+
+    // RFC 7950 7.21.5: the 'when' on an augment is evaluated with the augment
+    // target as the context node, even when the target came from a grouping.
+    augment "/tt:root/tt:wrapped/tt:settings" {
+        when "../enabled = 'true'";
+        leaf boost {
+            type uint32;
+        }
+    }
+
+    augment "/tt:root/tt:deep/tt:inner" {
+        when "level > 5";
+        leaf bonus {
+            type string;
+        }
+    }
+
+    grouping toggle-group {
+        leaf enabled {
+            type boolean;
+        }
+        container settings {
+            leaf mode {
+                type string;
+            }
+        }
+    }
+
+    grouping extra {
+        leaf extra-val {
+            type string;
+        }
+        container extra-c {
+            leaf v {
+                type string;
             }
         }
     }

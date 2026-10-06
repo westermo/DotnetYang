@@ -134,9 +134,11 @@ public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
         var key = GetKey();
         var parentName = ParentClassName;
         var classInterfaces = keyType != null
-            ? $" : global::System.IEquatable<{ClassName}>, YangSupport.IYangNode, YangSupport.IYangXmlSerializable"
-            : " : YangSupport.IYangNode, YangSupport.IYangXmlSerializable";
-        var equalityMembers = (key != null && keyType != null) ? GenerateEqualityMembers(key) : string.Empty;
+            ? $" : global::System.IEquatable<{ClassName}>, YangSupport.IYangNode, YangSupport.IYangXmlSerializable, global::YangSupport.IYangValidatable, global::YangSupport.IYangListEntry"
+            : " : YangSupport.IYangNode, YangSupport.IYangXmlSerializable, global::YangSupport.IYangValidatable";
+        var equalityMembers = (key != null && keyType != null)
+            ? GenerateEqualityMembers(key) + "\n" + GenerateKeyMatchMember(key)
+            : string.Empty;
 
         string property;
         if (parentName is null)
@@ -242,6 +244,45 @@ public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
                      var hash = new global::System.HashCode();
                      {{hashAdds}}
                      return hash.ToHashCode();
+                 }
+                 """;
+    }
+
+    /// <summary>
+    /// Generates the <c>IYangListEntry.YangMatchesKeys</c> implementation used by
+    /// reflection-free instance-identifier resolution. Each key leaf is compared using its
+    /// YANG lexical form; identityref keys also match on the unprefixed identity name.
+    /// </summary>
+    private string GenerateKeyMatchMember(Key key)
+    {
+        var fieldNames = key.KeyFieldNames;
+        var propNames = key.KeyPropertyNames;
+        var checks = new List<string>();
+        for (var i = 0; i < fieldNames.Length; i++)
+        {
+            var fieldName = fieldNames[i];
+            var localField = fieldName.Contains(':') ? fieldName.Substring(fieldName.IndexOf(':') + 1) : fieldName;
+            var propName = propNames[i];
+            var leaf = Children.OfType<Leaf>().First(l => l.TargetName == propName);
+            var isIdentityRef = leaf.IsIdentityRef;
+            var lexical = leaf.LexicalValueExpression($"{propName}!");
+            var compare = isIdentityRef
+                ? $"if (!string.Equals(__s{i}, __k{i}, global::System.StringComparison.Ordinal) && !string.Equals(__s{i}, __k{i}.Substring(__k{i}.LastIndexOf(':') + 1), global::System.StringComparison.Ordinal)) return false;"
+                : $"if (!string.Equals(__s{i}, __k{i}, global::System.StringComparison.Ordinal)) return false;";
+            checks.Add($$"""
+                         if (!keys.TryGetValue("{{localField}}", out var __k{{i}})) return false;
+                         object? __v{{i}} = {{propName}};
+                         if (__v{{i}} is null) return false;
+                         var __s{{i}} = {{lexical}};
+                         {{compare}}
+                         """);
+        }
+
+        return $$"""
+                 public bool YangMatchesKeys(global::System.Collections.Generic.IReadOnlyDictionary<string, string> keys)
+                 {
+                     {{Indent(string.Join("\n", checks))}}
+                     return true;
                  }
                  """;
     }
