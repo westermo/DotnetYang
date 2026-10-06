@@ -168,98 +168,12 @@ public class Augment : Statement, IUnexpandable
 
     private void PrepareTransitionTo(IStatement top)
     {
-        foreach (var child in this.Unwrap())
-        {
-            if (child is Rpc rpc)
-            {
-                top.GetModule()?.Rpcs.Add(rpc);
-            }
-
-            if (child is Notification notification)
-            {
-                top.GetModule()?.Notifications.Add(notification);
-            }
-
-            if (child is Action action)
-            {
-                top.GetModule()?.Actions.Add(action);
-            }
-
-            if (child is not Type type) continue;
-            if (type.Argument.Contains("identityref"))
-            {
-                foreach (var baseType in type.Children.OfType<Base>())
-                {
-                    if (baseType.Argument.Contains(':') ||
-                        baseType.Argument.Contains('.')) //Is prefixed already, leave be
-                    {
-                        continue;
-                    }
-
-                    baseType.Argument = this.GetInheritedPrefix() + ":" + baseType.Argument;
-                }
-
-                continue;
-            }
-            if(type.Argument.Contains("leafref")){
-                var path = type.GetChild<Path>();
-                var value = path.Argument;
-                var components = value.Split('/');
-                var index = value.StartsWith("/") ? 1 : 0;
-                var prefix = components[index].Prefix(out var component);
-                if (string.IsNullOrWhiteSpace(prefix))
-                {
-                    components[index] = this.GetInheritedPrefix() + ":" + components[index];
-                }
-
-                path.Argument = string.Join("/", components);
-            }
-
-            if (BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
-            {
-                continue;
-            }
-
-            if (type.Argument.Contains(':') || type.Argument.Contains('.')) //Is prefixed already, leave be
-            {
-                continue;
-            }
-
-            type.Argument = this.GetInheritedPrefix() + ":" + type.Argument;
-        }
+        StatementExtensions.PrepareForRelocation(this, top, this, expandUses: false);
 
         //Propagate usings upwards
-        if (this.GetModule() is Module source)
+        if (this.GetModule() is Module source && top is Module target)
         {
-            if (top is Module target)
-            {
-                if (source != top)
-                {
-                    foreach (var pair in source.Usings)
-                    {
-                        if (!target.Usings.ContainsKey(pair.Key))
-                        {
-                            target.Usings[pair.Key] = pair.Value;
-                        }
-                    }
-
-                    foreach (var pair in source.ImportedModules)
-                    {
-                        if (!target.ImportedModules.ContainsKey(pair.Key))
-                        {
-                            target.ImportedModules[pair.Key] = pair.Value;
-                        }
-                    }
-
-                    foreach (var pair in source.PrefixToNamespaceTable)
-                    {
-                        if (!target.PrefixToNamespaceTable.ContainsKey(pair.Key))
-                        {
-                            target.PrefixToNamespaceTable[pair.Key] = pair.Value;
-                        }
-                    }
-                }
-            }
+            StatementExtensions.PropagateImports(source, target, includePrefixTable: true);
         }
     }
 

@@ -256,7 +256,7 @@ internal static class ValidateEmitter
     /// </summary>
     private static void EmitMinMaxElementsCheck(StringBuilder body, IStatement schema, string targetName)
     {
-        var schemaPath = EscapeForString(schema.XPath);
+        var schemaPath = CSharpLiteral.Escape(schema.XPath);
 
         if (schema.TryGetChild<MinElements>(out var minEl) && minEl!.Value > 0)
         {
@@ -295,7 +295,7 @@ internal static class ValidateEmitter
         var uniqueStatements = list.Children.OfType<Unique>().ToArray();
         if (uniqueStatements.Length == 0) return;
 
-        var schemaPath = EscapeForString(list.XPath);
+        var schemaPath = CSharpLiteral.Escape(list.XPath);
 
         foreach (var unique in uniqueStatements)
         {
@@ -319,7 +319,7 @@ internal static class ValidateEmitter
                                       if (!__seen.Add(__uniqueKey))
                                       {
                                           throw new global::YangSupport.YangValidationException(
-                                              "unique constraint violated: duplicate values for '{{EscapeForString(uniqueFieldsStr)}}' in list '{{list.TargetName}}'",
+                                              "unique constraint violated: duplicate values for '{{CSharpLiteral.Escape(uniqueFieldsStr)}}' in list '{{list.TargetName}}'",
                                               schemaPath: "{{schemaPath}}");
                                       }
                                   }
@@ -351,7 +351,7 @@ internal static class ValidateEmitter
 
         if (!requireInstance) return;
 
-        var schemaPath = EscapeForString(leaf.XPath);
+        var schemaPath = CSharpLiteral.Escape(leaf.XPath);
         body.AppendLine($$"""
                           // require-instance true for instance-identifier leaf '{{leaf.TargetName}}'
                           if ({{leaf.TargetName}} is not null)
@@ -392,11 +392,11 @@ internal static class ValidateEmitter
             return;
         }
 
-        var schemaPath = EscapeForString(schema.XPath);
+        var schemaPath = CSharpLiteral.Escape(schema.XPath);
         var msgArg = message is null
             ? $"\"YANG '{kind}' constraint violated at {schemaPath}\""
-            : $"\"{EscapeForString(message)}\"";
-        var appTagArg = appTag is null ? "null" : $"\"{EscapeForString(appTag)}\"";
+            : $"\"{CSharpLiteral.Escape(message)}\"";
+        var appTagArg = appTag is null ? "null" : $"\"{CSharpLiteral.Escape(appTag)}\"";
 
         body.AppendLine($"// {kind}: {OneLine(xpathSource)}");
         body.AppendLine($$"""
@@ -413,23 +413,5 @@ internal static class ValidateEmitter
     private static string OneLine(string s)
     {
         return s.Replace("\r", " ").Replace("\n", " ").Trim();
-    }
-
-    private static string EscapeForString(string s)
-    {
-        var sb = new StringBuilder(s.Length + 4);
-        foreach (var c in s)
-        {
-            switch (c)
-            {
-                case '\\': sb.Append("\\\\"); break;
-                case '"': sb.Append("\\\""); break;
-                case '\n': sb.Append("\\n"); break;
-                case '\r': sb.Append("\\r"); break;
-                case '\t': sb.Append("\\t"); break;
-                default: sb.Append(c); break;
-            }
-        }
-        return sb.ToString();
     }
 }

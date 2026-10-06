@@ -62,9 +62,7 @@ public class NetconfSubscription : IDisposable
               </capabilities>
             </hello>
             """;
-        var encoded = NetconfFraming.EncodeEom(clientHello);
-        await output.WriteAsync(encoded, 0, encoded.Length).ConfigureAwait(false);
-        await output.FlushAsync().ConfigureAwait(false);
+        await NetconfFraming.WriteMessageAsync(output, clientHello, base11: false).ConfigureAwait(false);
 
         return new NetconfSubscription(input, output, base11);
     }
@@ -79,7 +77,7 @@ public class NetconfSubscription : IDisposable
         CancellationToken ct = default)
     {
         var streamXml = stream != null ? $"<stream>{stream}</stream>" : "";
-        var filterXml = filter != null ? $"<filter type=\"subtree\">{filter}</filter>" : "";
+        var filterXml = NetconfXml.SubtreeFilter(filter);
         var startXml = startTime != null ? $"<startTime>{startTime}</startTime>" : "";
         var stopXml = stopTime != null ? $"<stopTime>{stopTime}</stopTime>" : "";
 
@@ -92,18 +90,11 @@ public class NetconfSubscription : IDisposable
             </rpc>
             """;
 
-        // Send the RPC
-        byte[] data;
-        if (_base11)
-            data = NetconfFraming.EncodeChunked(rpc);
-        else
-            data = NetconfFraming.EncodeEom(rpc);
-
         // Set up reply expectation before starting read loop
         _pendingReply = new TaskCompletionSource<XmlDocument>();
 
-        await _output.WriteAsync(data, 0, data.Length).ConfigureAwait(false);
-        await _output.FlushAsync().ConfigureAwait(false);
+        // Send the RPC
+        await NetconfFraming.WriteMessageAsync(_output, rpc, _base11).ConfigureAwait(false);
 
         // Start the read loop
         _readLoop = Task.Run(() => ReadLoopAsync(_cts.Token));
@@ -113,8 +104,7 @@ public class NetconfSubscription : IDisposable
         _pendingReply = null;
 
         // Check for error
-        var nsMgr = new XmlNamespaceManager(reply.NameTable);
-        nsMgr.AddNamespace("nc", "urn:ietf:params:xml:ns:netconf:base:1.0");
+        var nsMgr = NetconfXml.CreateNamespaceManager(reply);
         var errorNode = reply.SelectSingleNode("//nc:rpc-error", nsMgr);
         if (errorNode != null)
         {
@@ -160,10 +150,7 @@ public class NetconfSubscription : IDisposable
     {
         await foreach (var (eventTime, xml) in ReadNotificationsAsync(ct).ConfigureAwait(false))
         {
-            using var stringReader = new StringReader(xml);
-            using var reader = XmlReader.Create(stringReader, SerializationHelper.GetStandardReaderSettings());
-            await reader.ReadAsync().ConfigureAwait(false);
-            var notification = await parseFunc(reader).ConfigureAwait(false);
+            var notification = await NetconfXml.ParseFragmentAsync(xml, parseFunc).ConfigureAwait(false);
             yield return (eventTime, notification);
         }
     }
@@ -174,11 +161,7 @@ public class NetconfSubscription : IDisposable
         {
             while (!ct.IsCancellationRequested)
             {
-                string message;
-                if (_base11)
-                    message = await NetconfFraming.ReadChunkedMessageAsync(_input, ct).ConfigureAwait(false);
-                else
-                    message = await NetconfFraming.ReadEomMessageAsync(_input, ct).ConfigureAwait(false);
+                var message = await NetconfFraming.ReadMessageAsync(_input, _base11, ct).ConfigureAwait(false);
 
                 if (string.IsNullOrWhiteSpace(message)) continue;
 

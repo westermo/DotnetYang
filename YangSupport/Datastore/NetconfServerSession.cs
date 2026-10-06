@@ -175,17 +175,8 @@ public class NetconfServerSession<T> where T : class, IYangNode, IYangXmlSeriali
         var ds = _datastores.GetDatastore(datastore);
         var xml = await ds.SerializeAsync(configOnly: true).ConfigureAwait(false);
 
-        using var writer = XmlWriter.Create(output, SerializationHelper.GetStandardWriterSettings());
-        await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0")
+        await WriteReplyAsync(output, messageId, "data", writer => writer.WriteRawAsync(xml))
             .ConfigureAwait(false);
-        if (messageId != null)
-            await writer.WriteAttributeStringAsync(null, "message-id", null, messageId).ConfigureAwait(false);
-        await writer.WriteStartElementAsync(null, "data", "urn:ietf:params:xml:ns:netconf:base:1.0")
-            .ConfigureAwait(false);
-        await writer.WriteRawAsync(xml).ConfigureAwait(false);
-        await writer.WriteEndElementAsync().ConfigureAwait(false); // data
-        await writer.WriteEndElementAsync().ConfigureAwait(false); // rpc-reply
-        await writer.FlushAsync().ConfigureAwait(false);
     }
 
     private async Task HandleEditConfigAsync(XmlReader reader, Stream output, string? messageId)
@@ -254,72 +245,32 @@ public class NetconfServerSession<T> where T : class, IYangNode, IYangXmlSeriali
 
     private async Task HandleDeleteConfigAsync(XmlReader reader, Stream output, string? messageId)
     {
-        var target = Netconf.Datastore.Startup;
-
-        while (await reader.ReadAsync().ConfigureAwait(false))
-        {
-            if (reader.NodeType == XmlNodeType.Element && reader.Name == "target")
-            {
-                await reader.ReadAsync().ConfigureAwait(false);
-                target = ParseDatastoreElement(reader);
-                break;
-            }
-        }
-
+        var target = await ReadDatastoreArgumentAsync(reader, "target", Netconf.Datastore.Startup)
+            .ConfigureAwait(false);
         _datastores.DeleteConfig(target);
         await WriteOkReplyAsync(output, messageId).ConfigureAwait(false);
     }
 
     private async Task HandleLockAsync(XmlReader reader, Stream output, string? messageId)
     {
-        var target = Netconf.Datastore.Running;
-
-        while (await reader.ReadAsync().ConfigureAwait(false))
-        {
-            if (reader.NodeType == XmlNodeType.Element && reader.Name == "target")
-            {
-                await reader.ReadAsync().ConfigureAwait(false);
-                target = ParseDatastoreElement(reader);
-                break;
-            }
-        }
-
+        var target = await ReadDatastoreArgumentAsync(reader, "target", Netconf.Datastore.Running)
+            .ConfigureAwait(false);
         _datastores.Lock(target, _sessionId);
         await WriteOkReplyAsync(output, messageId).ConfigureAwait(false);
     }
 
     private async Task HandleUnlockAsync(XmlReader reader, Stream output, string? messageId)
     {
-        var target = Netconf.Datastore.Running;
-
-        while (await reader.ReadAsync().ConfigureAwait(false))
-        {
-            if (reader.NodeType == XmlNodeType.Element && reader.Name == "target")
-            {
-                await reader.ReadAsync().ConfigureAwait(false);
-                target = ParseDatastoreElement(reader);
-                break;
-            }
-        }
-
+        var target = await ReadDatastoreArgumentAsync(reader, "target", Netconf.Datastore.Running)
+            .ConfigureAwait(false);
         _datastores.Unlock(target, _sessionId);
         await WriteOkReplyAsync(output, messageId).ConfigureAwait(false);
     }
 
     private async Task HandleValidateAsync(XmlReader reader, Stream output, string? messageId)
     {
-        var source = Netconf.Datastore.Candidate;
-
-        while (await reader.ReadAsync().ConfigureAwait(false))
-        {
-            if (reader.NodeType == XmlNodeType.Element && reader.Name == "source")
-            {
-                await reader.ReadAsync().ConfigureAwait(false);
-                source = ParseDatastoreElement(reader);
-                break;
-            }
-        }
-
+        var source = await ReadDatastoreArgumentAsync(reader, "source", Netconf.Datastore.Candidate)
+            .ConfigureAwait(false);
         _datastores.Validate(source);
         await WriteOkReplyAsync(output, messageId).ConfigureAwait(false);
     }
@@ -353,17 +304,47 @@ public class NetconfServerSession<T> where T : class, IYangNode, IYangXmlSeriali
         };
     }
 
-    private static async Task WriteOkReplyAsync(Stream output, string? messageId)
+    /// <summary>
+    /// Reads forward to the first <paramref name="elementName"/> element (e.g. &lt;target&gt;) and
+    /// returns the datastore it names, or <paramref name="defaultDatastore"/> if it is absent.
+    /// </summary>
+    private static async Task<Netconf.Datastore> ReadDatastoreArgumentAsync(XmlReader reader, string elementName,
+        Netconf.Datastore defaultDatastore)
+    {
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.Name == elementName)
+            {
+                await reader.ReadAsync().ConfigureAwait(false);
+                return ParseDatastoreElement(reader);
+            }
+        }
+
+        return defaultDatastore;
+    }
+
+    private static Task WriteOkReplyAsync(Stream output, string? messageId)
+    {
+        return WriteReplyAsync(output, messageId, "ok", _ => Task.CompletedTask);
+    }
+
+    /// <summary>
+    /// Writes &lt;rpc-reply message-id="..."&gt;&lt;{bodyElement}&gt;...&lt;/{bodyElement}&gt;&lt;/rpc-reply&gt;,
+    /// with <paramref name="writeBody"/> producing the body element's content.
+    /// </summary>
+    private static async Task WriteReplyAsync(Stream output, string? messageId, string bodyElement,
+        Func<XmlWriter, Task> writeBody)
     {
         using var writer = XmlWriter.Create(output, SerializationHelper.GetStandardWriterSettings());
         await writer.WriteStartElementAsync(null, "rpc-reply", "urn:ietf:params:xml:ns:netconf:base:1.0")
             .ConfigureAwait(false);
         if (messageId != null)
             await writer.WriteAttributeStringAsync(null, "message-id", null, messageId).ConfigureAwait(false);
-        await writer.WriteStartElementAsync(null, "ok", "urn:ietf:params:xml:ns:netconf:base:1.0")
+        await writer.WriteStartElementAsync(null, bodyElement, "urn:ietf:params:xml:ns:netconf:base:1.0")
             .ConfigureAwait(false);
-        await writer.WriteEndElementAsync().ConfigureAwait(false);
-        await writer.WriteEndElementAsync().ConfigureAwait(false);
+        await writeBody(writer).ConfigureAwait(false);
+        await writer.WriteEndElementAsync().ConfigureAwait(false); // body
+        await writer.WriteEndElementAsync().ConfigureAwait(false); // rpc-reply
         await writer.FlushAsync().ConfigureAwait(false);
     }
 }

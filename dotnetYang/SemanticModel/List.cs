@@ -146,39 +146,17 @@ public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
             property =
                 $"\n{DescriptionString}\npublic{KeywordString}{collectionType}{nullable} {TargetName} {{ get; set; }}";
         }
-        else if (keyType != null)
-        {
-            // YangList with OnAdded/OnRemoved hooks to wire Parent on entries
-            property = $$"""
-
-                         {{DescriptionString}}
-                         private {{collectionType}}{{nullable}} _{{TargetName}};
-                         public{{KeywordString}}{{collectionType}}{{nullable}} {{TargetName}}
-                         {
-                             get => _{{TargetName}};
-                             set
-                             {
-                                 if (_{{TargetName}} is not null)
-                                 {
-                                     foreach (var __item in _{{TargetName}}) __item.YangParent = null;
-                                     _{{TargetName}}.OnAdded = null;
-                                     _{{TargetName}}.OnRemoved = null;
-                                 }
-                                 _{{TargetName}} = value;
-                                 if (value is not null)
-                                 {
-                                     foreach (var __item in value) __item.YangParent = this;
-                                     value.OnAdded = __item => __item.YangParent = this;
-                                     value.OnRemoved = __item => __item.YangParent = null;
-                                 }
-                             }
-                         }
-                         """;
-        }
         else
         {
-            // Plain List<T> without key: emit setter that wires YangParent on existing items
-            // (no add/remove hook available, callers must reassign or set YangParent manually).
+            // Setter wires YangParent on existing items. Keyed lists (YangList<T>) also get
+            // OnAdded/OnRemoved hooks; plain List<T> has none, so callers must reassign or
+            // set YangParent manually.
+            var detachHooks = keyType != null
+                ? $"\n            _{TargetName}.OnAdded = null;\n            _{TargetName}.OnRemoved = null;"
+                : string.Empty;
+            var attachHooks = keyType != null
+                ? "\n            value.OnAdded = __item => __item.YangParent = this;\n            value.OnRemoved = __item => __item.YangParent = null;"
+                : string.Empty;
             property = $$"""
 
                          {{DescriptionString}}
@@ -190,12 +168,12 @@ public class List : Statement, IClassSource, IXMLWriteValue, IXMLReadValue
                              {
                                  if (_{{TargetName}} is not null)
                                  {
-                                     foreach (var __item in _{{TargetName}}) __item.YangParent = null;
+                                     foreach (var __item in _{{TargetName}}) __item.YangParent = null;{{detachHooks}}
                                  }
                                  _{{TargetName}} = value;
                                  if (value is not null)
                                  {
-                                     foreach (var __item in value) __item.YangParent = this;
+                                     foreach (var __item in value) __item.YangParent = this;{{attachHooks}}
                                  }
                              }
                          }

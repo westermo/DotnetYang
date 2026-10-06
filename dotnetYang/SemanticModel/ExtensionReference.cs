@@ -20,7 +20,7 @@ public class ExtensionReference : Statement
     {
         get
         {
-            var classNameSource = Argument.Contains('/') ? ExtensionName + Argument.GetHashCode() : Argument;
+            var classNameSource = Argument.Contains('/') ? ExtensionName + StableHash.Compute(Argument) : Argument;
             return MakeName(classNameSource) + "Extension";
         }
     }
@@ -40,32 +40,23 @@ public class ExtensionReference : Statement
         var inheritance = string.IsNullOrWhiteSpace(SourceModulePrefix)
             ? MakeName(ExtensionName)
             : SourceModulePrefix + ':' + MakeName(ExtensionName);
-        var classNameSource = Argument.Contains('/') ? ExtensionName + Argument.GetHashCode() : Argument;
-        if (source.TryGetChild<Argument>(out _))
-        {
-            return $$"""
-                     public {{MakeName(classNameSource)}}Extension? {{MakeName(classNameSource)}}ExtensionValue { get; }
-                     {{DescriptionString}}{{AttributeString}}
-                     public class {{MakeName(classNameSource)}}Extension : {{inheritance}}, YangSupport.IYangNode
-                     {
-                         YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
-                         public object? GetChild(string yangName) => null;
-                         public {{MakeName(classNameSource)}}Extension() : base("{{SingleLine(Argument).Replace("\n", "\\\n")}}")
-                         {
-                         }
-                         {{Indent(string.Join("\n", children))}}
-                     }
-                     """;
-        }
+        var constructor = source.TryGetChild<Argument>(out _)
+            ? $$"""
+                public {{ClassName}}() : base("{{SingleLine(Argument).Replace("\n", "\\\n")}}")
+                    {
+                    }
+                    
+                """
+            : string.Empty;
 
         return $$"""
-                 public {{MakeName(classNameSource)}}Extension? {{MakeName(classNameSource)}}ExtensionValue { get; }
+                 public {{ClassName}}? {{ClassName}}Value { get; }
                  {{DescriptionString}}{{AttributeString}}
-                 public class {{MakeName(classNameSource)}}Extension : {{inheritance}}, YangSupport.IYangNode
+                 public class {{ClassName}} : {{inheritance}}, YangSupport.IYangNode
                  {
                      YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
                      public object? GetChild(string yangName) => null;
-                     {{Indent(string.Join("\n", children))}}
+                     {{constructor}}{{Indent(string.Join("\n", children))}}
                  }
                  """;
     }

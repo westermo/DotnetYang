@@ -44,98 +44,12 @@ public class Grouping : Statement
         var copy = StatementFactory.Create(Source);
         Parent!.Insert([copy]);
         copy.Parent = Parent;
-        foreach (var child in copy.Unwrap())
+        StatementExtensions.PrepareForRelocation(copy, use, copy, expandUses: true);
+
+        //Propagate usings upwards
+        if (use.GetModule() is Module target && copy.GetModule() is Module source)
         {
-            if (child is Uses inner)
-            {
-                inner.Expand();
-            }
-
-            if (child is Rpc rpc)
-            {
-                use.GetModule()?.Rpcs.Add(rpc);
-            }
-
-            if (child is Notification notification)
-            {
-                use.GetModule()?.Notifications.Add(notification);
-            }
-
-            if (child is Action action)
-            {
-                use.GetModule()?.Actions.Add(action);
-            }
-
-            if (child is not Type type) continue;
-            if (type.Argument.Contains("identityref"))
-            {
-                foreach (var baseType in type.Children.OfType<Base>())
-                {
-                    if (baseType.Argument.Contains(':') ||
-                        baseType.Argument.Contains('.')) //Is prefixed already, leave be
-                    {
-                        continue;
-                    }
-
-                    baseType.Argument = copy.GetInheritedPrefix() + ":" + baseType.Argument;
-                }
-
-                continue;
-            }
-
-            if (type.Argument.Contains("leafref"))
-            {
-                var path = type.GetChild<Path>();
-                var value = path.Argument;
-                var components = value.Split('/');
-                var index = value.StartsWith("/") ? 1 : 0;
-                var prefix = components[index].Prefix(out var component);
-                if (string.IsNullOrWhiteSpace(prefix))
-                {
-                    components[index] = this.GetInheritedPrefix() + ":" + components[index];
-                }
-
-                path.Argument = string.Join("/", components);
-            }
-
-
-            if (BuiltinTypeReference.IsBuiltinKeyword(type.Argument))
-            {
-                continue;
-            }
-
-            if (type.Argument.Contains(':') || type.Argument.Contains('.')) //Is prefixed already, leave be
-            {
-                continue;
-            }
-
-            type.Argument = copy.GetInheritedPrefix() + ":" + type.Argument;
-        }
-
-        //Propogate usings upwards
-        if (use.GetModule() is Module target)
-        {
-            if (copy.GetModule() is Module source)
-            {
-                if (source != target)
-                {
-                    foreach (var pair in source.Usings)
-                    {
-                        if (!target.Usings.ContainsKey(pair.Key))
-                        {
-                            target.Usings[pair.Key] = pair.Value;
-                        }
-                    }
-
-                    foreach (var pair in source.ImportedModules)
-                    {
-                        if (!target.ImportedModules.ContainsKey(pair.Key))
-                        {
-                            target.ImportedModules[pair.Key] = pair.Value;
-                        }
-                    }
-                }
-            }
+            StatementExtensions.PropagateImports(source, target, includePrefixTable: false);
         }
 
         var containingModule = copy.GetModule();
