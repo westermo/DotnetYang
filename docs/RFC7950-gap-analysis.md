@@ -112,15 +112,15 @@ Currently translates:
 - Predicates on a leaf step (`../leaf[. = 'a' or . = 'b']`), where `.` is bound to the leaf value and the step yields the leaf when the predicate holds
 - Comparing an enumeration leaf with a string literal (`emode = 'pre-shared'`), resolved at codegen time to the generated enum member
 - `derived-from(path, 'identity')` / `derived-from-or-self(path, 'identity')`: resolves the identity hierarchy at codegen time and emits OR-chain equality checks against all valid enum values
+- `bit-is-set(path, 'bit')`: tests the first node of the node-set (RFC 7950 10.6.1) by splitting its value into its set bits and matching either the generated flag member or the YANG bit name; an empty node-set yields false
 
-### Remaining untranslatable expressions (7 unique out of ~3000+ total when/must in the IETF/IEEE corpus)
+### Remaining untranslatable expressions (6 unique out of ~3000+ total when/must in the IETF/IEEE corpus)
 
 Augment and `uses` `when` expressions are now evaluated relative to the final parent position (see "`when` on `augment`" above), which eliminated the former `Cannot compute YangParent navigation` failures and almost all `Could not resolve child` failures.
 
 | Count | Reason | Description |
 |-------|--------|-------------|
 | 6 | `Could not resolve child` | Absolute paths inside RFC 8791 `sx:structure` definitions (`ietf-dots-signal-channel`, `ietf-dots-telemetry`). The path is rooted at the structure, which is not a data node of the module root. |
-| 1 | `bit-is-set()` function | YANG-specific function checking if a bits leaf has a particular bit set. |
 
 All untranslatable expressions degrade gracefully:
 - A `// when: <original xpath>` or `// must: <original xpath>` comment is emitted in the generated code.

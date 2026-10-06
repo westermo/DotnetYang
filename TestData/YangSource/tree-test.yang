@@ -181,6 +181,42 @@ module tree-test {
                 type string;
             }
         }
+        container bt {
+            list server {
+                key "name";
+                leaf name {
+                    type string;
+                }
+                leaf server-type {
+                    type tt:server-kind;
+                }
+            }
+            leaf auth-required {
+                // Mirrors ietf-system-tacacs-plus: bit-is-set on the first list entry.
+                must "bit-is-set(../server/server-type, 'auth-n')" {
+                    error-message "first server must do authentication";
+                }
+                type string;
+            }
+            leaf flags {
+                type bits {
+                    bit low-bit;
+                    bit high-bit;
+                }
+            }
+            leaf high-only {
+                when "bit-is-set(../flags, 'high-bit')";
+                type string;
+            }
+        }
+    }
+
+    typedef server-kind {
+        type bits {
+            bit auth-n;
+            bit auth-z;
+            bit accounting;
+        }
     }
 
     typedef bridge-name {

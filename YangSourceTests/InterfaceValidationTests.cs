@@ -394,4 +394,55 @@ public class InterfaceValidationTests
         var ex = await Assert.That(() => LkRoot(YangNode.ComponentKindIdentity.CVlan, "br0", "c0", "x", 11, 20).YangValidate()).ThrowsExactly<YangValidationException>();
         await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/lk/heavy-limit");
     }
+
+    private static YangNode.RootContainer BtRoot(YangNode.RootContainer.BtContainer.Flags? flags, params YangNode.ServerKind?[] servers)
+    {
+        var list = new YangList<string, YangNode.RootContainer.BtContainer.ServerEntry>(e => e.Name);
+        for (var i = 0; i < servers.Length; i++)
+        {
+            list.Add(new YangNode.RootContainer.BtContainer.ServerEntry { Name = $"s{i}", ServerType = servers[i] });
+        }
+        return new YangNode.RootContainer
+        {
+            Bt = new YangNode.RootContainer.BtContainer
+            {
+                Server = list,
+                AuthRequired = "x",
+                FlagsValue = flags,
+                HighOnly = "x",
+            },
+        };
+    }
+
+    [Test]
+    public void BitIsSetAcceptsWhenFirstEntryHasBit()
+    {
+        BtRoot(YangNode.RootContainer.BtContainer.Flags.HighBit, YangNode.ServerKind.AuthN).YangValidate();
+        BtRoot(YangNode.RootContainer.BtContainer.Flags.LowBit | YangNode.RootContainer.BtContainer.Flags.HighBit,
+            YangNode.ServerKind.AuthZ | YangNode.ServerKind.AuthN, YangNode.ServerKind.Accounting).YangValidate();
+    }
+
+    [Test]
+    public async Task BitIsSetMustUsesFirstNodeOnly()
+    {
+        // RFC 7950 10.6.1: only the first node in document order is tested.
+        var ex = await Assert.That(() => BtRoot(YangNode.RootContainer.BtContainer.Flags.HighBit, YangNode.ServerKind.AuthZ, YangNode.ServerKind.AuthN).YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/bt/auth-required");
+        await Assert.That(ex.Message).Contains("first server must do authentication");
+    }
+
+    [Test]
+    public async Task BitIsSetMustRejectsEmptyNodeSet()
+    {
+        await Assert.That(() => BtRoot(YangNode.RootContainer.BtContainer.Flags.HighBit).YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(() => BtRoot(YangNode.RootContainer.BtContainer.Flags.HighBit, (YangNode.ServerKind?)null).YangValidate()).ThrowsExactly<YangValidationException>();
+    }
+
+    [Test]
+    public async Task BitIsSetWhenGatesOnInlineBits()
+    {
+        var ex = await Assert.That(() => BtRoot(YangNode.RootContainer.BtContainer.Flags.LowBit, YangNode.ServerKind.AuthN).YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/bt/high-only");
+        await Assert.That(() => BtRoot(null, YangNode.ServerKind.AuthN).YangValidate()).ThrowsExactly<YangValidationException>();
+    }
 }

@@ -348,8 +348,42 @@ internal sealed class XPathTranslator
             case "derived-from":
                 Expect(fc, 2);
                 return TranslateDerivedFrom(fc, context, includeSelf: false);
+            case "bit-is-set":
+                Expect(fc, 2);
+                return TranslateBitIsSet(fc, context);
         }
         throw new UntranslatableXPathException($"XPath function '{fc.Name}()' is not yet supported.");
+    }
+
+    /// <summary>
+    /// Translate bit-is-set(nodes, 'bit-name') (RFC 7950 §10.6.1): true when the first node
+    /// of the argument node-set is a bits leaf with the named bit set. Bits leaves are
+    /// generated as [Flags] enums whose ToString() lists set members ("A, B"); typedef
+    /// wrappers may instead print the YANG lexical form ("a b"), so both spellings match.
+    /// </summary>
+    private Translated TranslateBitIsSet(FunctionCallExpr fc, IStatement context)
+    {
+        var bitArg = fc.Arguments[1];
+        while (bitArg is ParenExpr pe) bitArg = pe.Inner;
+        if (bitArg is not StringLiteralExpr literal)
+        {
+            throw new UntranslatableXPathException("bit-is-set() requires a string literal bit name.");
+        }
+        var nodes = Translate(fc.Arguments[0], context);
+        var value = nodes.Kind switch
+        {
+            CSharpKind.LeafValue => $"((object?)({nodes.Code}))",
+            CSharpKind.NodeSet => $"global::System.Linq.Enumerable.FirstOrDefault({EnumerateNodeSet(nodes.Code)})",
+            _ => throw new UntranslatableXPathException(
+                $"bit-is-set() requires a leaf or node-set argument; got {nodes.Kind}.")
+        };
+        var bitName = literal.Value.Trim();
+        var member = Statement.MakeName(bitName);
+        var variable = $"__bit{_lambdaCounter++}";
+        return new Translated(
+            $"global::System.Linq.Enumerable.Any(({value}?.ToString() ?? string.Empty).Split(new[] {{ ',', ' ' }}, global::System.StringSplitOptions.RemoveEmptyEntries), " +
+            $"{variable} => {variable} == \"{Escape(member)}\" || {variable} == \"{Escape(bitName)}\")",
+            CSharpKind.Bool);
     }
 
     private CSharpKind ClassifyOriginKind()
