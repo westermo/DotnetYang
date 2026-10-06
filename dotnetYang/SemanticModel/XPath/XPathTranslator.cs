@@ -413,16 +413,20 @@ internal sealed class XPathTranslator
     {
         if (p.Filter is not null)
         {
-            throw new UntranslatableXPathException("Path with filter primary is not yet supported.");
+            // current()/rel/path: current() is the authoring context node, which is
+            // exactly where an ordinary relative path starts, so walk the steps from there.
+            if (!IsCurrentCall(p.Filter))
+            {
+                throw new UntranslatableXPathException("Path with filter primary is not yet supported.");
+            }
         }
-
-        if (p.IsAbsolute)
+        else if (p.IsAbsolute)
         {
             return TranslateAbsolutePath(p, context);
         }
 
         string code = _selfExpression;
-        IStatement? schema = context;
+        IStatement? schema = p.Filter is null ? context : _origin;
         // 'this' is always a single node instance at runtime, never a node-set,
         // even when the schema is a list (we're inside an entry). For a leaf
         // origin, we expose its value rather than an object reference.
@@ -443,6 +447,14 @@ internal sealed class XPathTranslator
 
         return new Translated(code, kind, schema);
     }
+
+    private static bool IsCurrentCall(XPathExpr expr) => expr switch
+    {
+        FunctionCallExpr { Prefix: null or "", Name: "current", Arguments.Count: 0 } => true,
+        FilterExpr { Predicates.Count: 0 } f => IsCurrentCall(f.Primary),
+        ParenExpr pe => IsCurrentCall(pe.Inner),
+        _ => false
+    };
 
     /// <summary>
     /// Translate an absolute path (/foo/bar/...) by resolving to the module root

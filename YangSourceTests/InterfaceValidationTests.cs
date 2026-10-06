@@ -285,4 +285,17 @@ public class InterfaceValidationTests
         await Assert.That(config.ResolveInstanceIdentifier("/tree-test:root/items[5]")).IsNull();
         await Assert.That(config.ResolveInstanceIdentifier("tree-test:root")).IsNull();
     }
-}
+
+    [Test]
+    public async Task CurrentFilterPathWhenRejectsFalseCondition()
+    {
+        var root = new YangNode.RootContainer { Xp = new YangNode.RootContainer.XpContainer { Kind = "off", CurRef = "x" } };
+        var ex = await Assert.That(() => root.YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/xp/cur-ref");
+    }
+
+    [Test]
+    public void CurrentFilterPathWhenAcceptsTrueCondition()
+    {
+        new YangNode.RootContainer { Xp = new YangNode.RootContainer.XpContainer { Kind = "on", CurRef = "x" } }.YangValidate();
+    }}

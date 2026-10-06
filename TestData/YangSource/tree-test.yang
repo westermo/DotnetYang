@@ -107,6 +107,16 @@ module tree-test {
         container wrapped {
             uses toggle-group;
         }
+        container xp {
+            leaf kind {
+                type string;
+            }
+            leaf cur-ref {
+                // Path whose filter primary is current().
+                when "current()/../kind = 'on'";
+                type string;
+            }
+        }
     }
 
     // RFC 7950 7.21.5: the 'when' on an augment is evaluated with the augment
