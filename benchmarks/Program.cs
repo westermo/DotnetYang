@@ -192,17 +192,16 @@ internal class BenchmarkingChannel(IYangServer server) : IChannel, IAsyncDisposa
     public Stream WriteStream { get; } = new MemoryStream();
     public Stream ReadStream { get; } = new MemoryStream();
 
+    // Each Send is a complete round trip, so both streams are truncated to keep memory bounded
+    // across the millions of invocations BenchmarkDotNet performs.
     public async Task Send()
     {
-        (LastReadIndex, WriteStream.Position) = (WriteStream.Position, LastReadIndex);
-        LastSentIndex = ReadStream.Position;
+        WriteStream.Position = 0;
+        ReadStream.SetLength(0);
         await server.Receive(WriteStream, ReadStream);
-        ReadStream.Position = LastSentIndex;
-        (LastReadIndex, WriteStream.Position) = (WriteStream.Position, LastReadIndex);
+        WriteStream.SetLength(0);
+        ReadStream.Position = 0;
     }
-
-    private long LastSentIndex;
-    private long LastReadIndex;
 
     public void Dispose()
     {
@@ -219,8 +218,18 @@ internal class BenchmarkingChannel(IYangServer server) : IChannel, IAsyncDisposa
 
 internal static class Program
 {
-    private static void Main()
+    private static int Main(string[] args)
     {
-        BenchmarkRunner.Run<ParsingBenchmarks>();
+        var summary = BenchmarkRunner.Run<ParsingBenchmarks>(args: args);
+        var failed = summary.Reports.Where(r => !r.Success || r.ResultStatistics is null)
+            .Select(r => r.BenchmarkCase.Descriptor.WorkloadMethodDisplayInfo)
+            .ToList();
+        if (summary.HasCriticalValidationErrors || failed.Count > 0)
+        {
+            Console.Error.WriteLine($"Benchmarks failed: {string.Join(", ", failed)}");
+            return 1;
+        }
+
+        return 0;
     }
 }

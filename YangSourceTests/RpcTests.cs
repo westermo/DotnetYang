@@ -163,6 +163,41 @@ public class RpcTests
     }
 
     [Test]
+    public async Task ActionSendWithEmptyStringKey()
+    {
+        var entry = new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry
+        {
+            TimeCreated = "2015-01-23T12:23:34Z",
+            Resource = "something",
+            AlarmTypeId = Ietf.Alarms.YangNode.AlarmTypeIdIdentity.AlarmTypeId,
+            AlarmTypeQualifier = "",
+            IsCleared = false,
+            LastRaised = "2014-01-23T12:23:34Z",
+            LastChanged = "2014-01-22T12:23:34Z",
+            PerceivedSeverity = Ietf.Alarms.YangNode.Severity.Critical,
+            AlarmText = "boo",
+        };
+        var emptyKeyRoot = new Ietf.Alarms.YangNode.AlarmsContainer
+        {
+            AlarmList = new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer
+            {
+                Alarm = new YangSupport.YangList<(Ietf.Alarms.YangNode.Resource, Ietf.Alarms.YangNode.AlarmTypeId, Ietf.Alarms.YangNode.AlarmTypeQualifier), Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry>(e => (e.Resource!, e.AlarmTypeId!, e.AlarmTypeQualifier!))
+                {
+                    entry
+                }
+            }
+        };
+
+        await using var channel = new TestChannel();
+        await entry.SetOperatorState(channel, Random.Shared.Next(), emptyKeyRoot,
+            new Ietf.Alarms.YangNode.AlarmsContainer.AlarmListContainer.AlarmEntry.SetOperatorStateInput
+            {
+                State = Ietf.Alarms.YangNode.WritableOperatorState.Ack,
+                Text = "Acked"
+            });
+    }
+
+    [Test]
     public async Task NotificationSend()
     {
         await using var channel = new TestChannel();

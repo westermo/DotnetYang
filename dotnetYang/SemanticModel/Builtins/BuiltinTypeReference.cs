@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using YangParser.Generator;
@@ -160,13 +160,44 @@ public static class BuiltinTypeReference
                  """;
     }
 
-    private static string GetText(string argument) => $$"""
-                                                        await reader.ReadAsync();
-                                                        if(reader.NodeType != XmlNodeType.Text)
-                                                        {
-                                                            throw new Exception($"Expected token in ParseCall for '{{argument}}' to be text, but was '{reader.NodeType}'");
-                                                        }
-                                                        """;
+    private const string TextVariable = "__yangText";
+
+    /// <summary>
+    /// Emits code that reads the text content of the current leaf element, treating <c>&lt;x/&gt;</c> and
+    /// <c>&lt;x&gt;&lt;/x&gt;</c> as the empty string, and assigns <paramref name="valueExpression"/> to
+    /// <paramref name="target"/>. The reader is left on the element's end (or empty start) node.
+    /// </summary>
+    private static string ReadValue(string argument, string target, string valueExpression) => $$"""
+        {
+            string {{TextVariable}};
+            if(reader.IsEmptyElement)
+            {
+                {{TextVariable}} = string.Empty;
+            }
+            else
+            {
+                await reader.ReadAsync();
+                if(reader.NodeType == XmlNodeType.EndElement)
+                {
+                    {{TextVariable}} = string.Empty;
+                }
+                else if(reader.NodeType == XmlNodeType.Text || reader.NodeType == XmlNodeType.CDATA || reader.NodeType == XmlNodeType.Whitespace || reader.NodeType == XmlNodeType.SignificantWhitespace)
+                {
+                    {{TextVariable}} = await reader.GetValueAsync();
+                    await reader.ReadAsync();
+                    if(reader.NodeType != XmlNodeType.EndElement)
+                    {
+                        throw new Exception($"Expected token in ParseCall for '{{argument}}' to be an element closure, but was '{reader.NodeType}'");
+                    }
+                }
+                else
+                {
+                    throw new Exception($"Expected token in ParseCall for '{{argument}}' to be text, but was '{reader.NodeType}'");
+                }
+            }
+            {{target}} = {{valueExpression}};
+        }
+        """;
 
     private static string EndElement(string argument) => $$"""
                                                            if(!reader.IsEmptyElement)
@@ -184,22 +215,14 @@ public static class BuiltinTypeReference
     {
         if (typeName == "string")
         {
-            return $"""
-                    {GetText(argument)}
-                    {target} = await reader.GetValueAsync();
-                    {EndElement(argument)}
-                    """;
+            return ReadValue(argument, target, TextVariable);
         }
 
         var baseType = type.GetBaseType(out var prefix, out var chosenType);
         switch (baseType)
         {
             case "union":
-                return $"""
-                        {GetText(argument)}
-                        {target} = {typeName}.Parse(await reader.GetValueAsync());
-                        {EndElement(argument)}
-                        """;
+                return ReadValue(argument, target, $"{typeName}.Parse({TextVariable})");
             case "empty":
                 return $"""
                         {target} = new object();
@@ -217,40 +240,20 @@ public static class BuiltinTypeReference
                         //Is local reference.
                         return IsBuiltinKeyword(type.Argument)
                             ? //Is direct subtype
-                            $"""
-                             {GetText(argument)}
-                             {target} = Get{local}Value(await reader.GetValueAsync());
-                             {EndElement(argument)}
-                             """
-                            : $"""
-                               {GetText(argument)}
-                               {target} = YangNode.Get{local}Value(await reader.GetValueAsync());
-                               {EndElement(argument)}
-                               """;
+                            ReadValue(argument, target, $"Get{local}Value({TextVariable})")
+                            : ReadValue(argument, target, $"YangNode.Get{local}Value({TextVariable})");
                     }
 
                     //Is imported reference
                     //Is a direct enum/bits reference
                     var p = prefix.Contains('.') ? prefix : prefix + ":";
-                    return $"""
-                            {GetText(argument)}
-                            {target} = {p}Get{local}Value(await reader.GetValueAsync());
-                            {EndElement(argument)}
-                            """;
+                    return ReadValue(argument, target, $"{p}Get{local}Value({TextVariable})");
                 }
 
                 //Is a multiple-level abstraction
-                return $"""
-                        {GetText(argument)}
-                        {target} = {typeName}.Parse(await reader.GetValueAsync());
-                        {EndElement(argument)}
-                        """;
+                return ReadValue(argument, target, $"{typeName}.Parse({TextVariable})");
             default:
-                return $"""
-                        {GetText(argument)}
-                        {target} = {typeName}.Parse(await reader.GetValueAsync());
-                        {EndElement(argument)}
-                        """;
+                return ReadValue(argument, target, $"{typeName}.Parse({TextVariable})");
         }
     }
 
