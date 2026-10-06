@@ -50,46 +50,6 @@ public static class YangNodeExtensions
         }
 
         // Fallback: walk the tree via GetChild
-        return ResolveFromNode(root, path);
-    }
-
-    private static object? ResolveFromNode(IYangNode root, string path)
-    {
-        if (string.IsNullOrEmpty(path) || path[0] != '/') return null;
-        var segments = path.Substring(1).Split('/');
-        object? current = root;
-
-        foreach (var segment in segments)
-        {
-            if (current is not IYangNode yangNode) return null;
-
-            var bracketIdx = segment.IndexOf('[');
-            var name = bracketIdx >= 0 ? segment.Substring(0, bracketIdx) : segment;
-
-            // Strip module prefix
-            var colonIdx = name.IndexOf(':');
-            var localName = colonIdx >= 0 ? name.Substring(colonIdx + 1) : name;
-
-            current = yangNode.GetChild(localName) ?? yangNode.GetChild(name);
-            if (current is null) return null;
-
-            // Handle key predicate for list access
-            if (bracketIdx >= 0)
-            {
-                var predicate = segment.Substring(bracketIdx);
-                var eqIdx = predicate.IndexOf('=');
-                if (eqIdx > 0)
-                {
-                    var keyValue = predicate.Substring(eqIdx + 1).Trim('[', ']', '\'', '"', ' ');
-                    var indexer = current.GetType().GetProperty("Item", new[] { typeof(string) });
-                    if (indexer is not null)
-                    {
-                        try { current = indexer.GetValue(current, new object[] { keyValue }); }
-                        catch { return null; }
-                    }
-                }
-            }
-        }
-        return current;
+        return InstanceIdentifierResolver.Resolve(root, path);
     }
 }

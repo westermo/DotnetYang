@@ -137,4 +137,95 @@ public class InterfaceValidationTests
         };
         root.YangValidate();
     }
+
+    private static (YangSource.Configuration Config, YangNode Module) ResolverFixture()
+    {
+        var module = new YangNode
+        {
+            Root = new YangNode.RootContainer
+            {
+                Items = new YangList<string, YangNode.RootContainer.ItemsEntry>(e => e.Id)
+                {
+                    new() { Id = "first" },
+                    new() { Id = "a]b/c=d" }
+                },
+                Pairs = new YangList<(string, uint), YangNode.RootContainer.PairsEntry>(e => (e.A, e.B))
+                {
+                    new() { A = "x", B = 1, Note = "x1" },
+                    new() { A = "x", B = 2, Note = "x2" },
+                    new() { A = "y", B = 2, Note = "y2" }
+                },
+                TagsList = ["red", "green"]
+            }
+        };
+        return (new YangSource.Configuration { TreeTest = module }, module);
+    }
+
+    [Test]
+    public async Task KeyedListEntriesImplementIYangListEntry()
+    {
+        await Assert.That(new YangNode.RootContainer.ItemsEntry { Id = "a" } is IYangListEntry).IsTrue();
+        await Assert.That(new YangNode.RootContainer.PairsEntry { A = "a", B = 1 } is IYangListEntry).IsTrue();
+    }
+
+    [Test]
+    public async Task GeneratedKeyMatchComparesLexicalValues()
+    {
+        IYangListEntry entry = new YangNode.RootContainer.PairsEntry { A = "x", B = 2 };
+        await Assert.That(entry.YangMatchesKeys(new Dictionary<string, string> { ["a"] = "x", ["b"] = "2" })).IsTrue();
+        await Assert.That(entry.YangMatchesKeys(new Dictionary<string, string> { ["a"] = "x", ["b"] = "3" })).IsFalse();
+        await Assert.That(entry.YangMatchesKeys(new Dictionary<string, string> { ["a"] = "x" })).IsFalse();
+    }
+
+    [Test]
+    public async Task ResolvesMultiKeyListEntry()
+    {
+        var (config, module) = ResolverFixture();
+        var resolved = config.ResolveInstanceIdentifier("/tree-test:root/tree-test:pairs[tree-test:a='x'][tree-test:b='2']");
+        await Assert.That(resolved).IsSameReferenceAs(module.Root!.Pairs!.Single(p => p.Note == "x2"));
+    }
+
+    [Test]
+    public async Task ResolvesKeyContainingDelimiters()
+    {
+        var (config, module) = ResolverFixture();
+        var resolved = config.ResolveInstanceIdentifier("/tree-test:root/items[id=\"a]b/c=d\"]");
+        await Assert.That(resolved).IsSameReferenceAs(module.Root!.Items!.Single(i => i.Id == "a]b/c=d"));
+    }
+
+    [Test]
+    public async Task ResolvesLeafBelowListEntry()
+    {
+        var (config, _) = ResolverFixture();
+        var resolved = config.ResolveInstanceIdentifier("/tree-test:root/pairs[a='y'][b='2']/note");
+        await Assert.That(resolved).IsEqualTo("y2");
+    }
+
+    [Test]
+    public async Task ResolvesPositionalAndLeafListPredicates()
+    {
+        var (config, module) = ResolverFixture();
+        await Assert.That(config.ResolveInstanceIdentifier("/tree-test:root/items[2]"))
+            .IsSameReferenceAs(module.Root!.Items!.ElementAt(1));
+        await Assert.That(config.ResolveInstanceIdentifier("/tree-test:root/tags[.='green']")).IsEqualTo("green");
+    }
+
+    [Test]
+    public async Task ResolvesFromModuleNode()
+    {
+        var (_, module) = ResolverFixture();
+        var resolved = InstanceIdentifierResolver.Resolve(module, "/root/items[id='first']");
+        await Assert.That(resolved).IsSameReferenceAs(module.Root!.Items!.First());
+    }
+
+    [Test]
+    public async Task UnmatchedOrMalformedPathsResolveToNull()
+    {
+        var (config, _) = ResolverFixture();
+        await Assert.That(config.ResolveInstanceIdentifier("/tree-test:root/pairs[a='x'][b='9']")).IsNull();
+        await Assert.That(config.ResolveInstanceIdentifier("/tree-test:root/items[id='missing']")).IsNull();
+        await Assert.That(config.ResolveInstanceIdentifier("/tree-test:root/items[id='unterminated]")).IsNull();
+        await Assert.That(config.ResolveInstanceIdentifier("/tree-test:root/items[5]")).IsNull();
+        await Assert.That(config.ResolveInstanceIdentifier("tree-test:root")).IsNull();
+    }
 }

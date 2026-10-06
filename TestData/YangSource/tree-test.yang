@@ -36,6 +36,18 @@ module tree-test {
         leaf-list tags {
             type string;
         }
+        list pairs {
+            key "a b";
+            leaf a {
+                type string;
+            }
+            leaf b {
+                type uint32;
+            }
+            leaf note {
+                type string;
+            }
+        }
         container counts {
             must "count(../items) > 0";
         }

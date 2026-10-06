@@ -143,7 +143,6 @@ public class CompilationUnit : Statement, IXMLParseable
         return $$"""
                  using System;
                  using System.Xml;
-                 using System.Reflection;
                  using YangSupport;
                  namespace {{MyNamespace}};
                  ///<summary>
@@ -161,45 +160,7 @@ public class CompilationUnit : Statement, IXMLParseable
                      /// Resolves an instance-identifier path to the target object in the data tree.
                      /// Path format: /module-name:container/child/list[key='value']/leaf
                      /// </summary>
-                     public object? ResolveInstanceIdentifier(string path)
-                     {
-                         if (string.IsNullOrEmpty(path) || path[0] != '/') return null;
-                         var segments = path.Substring(1).Split('/');
-                         object? current = this;
-                         foreach (var segment in segments)
-                         {
-                             if (current is not YangSupport.IYangNode yangNode) return null;
-                             // Parse key predicate if present: name[key='value']
-                             var bracketIdx = segment.IndexOf('[');
-                             var name = bracketIdx >= 0 ? segment.Substring(0, bracketIdx) : segment;
-                             // Strip module prefix (e.g., "ietf-interfaces:interfaces" → "interfaces" for child lookup,
-                             // but use full name for top-level module lookup)
-                             var colonIdx = name.IndexOf(':');
-                             var localName = colonIdx >= 0 ? name.Substring(colonIdx + 1) : name;
-                             // Navigate via IYangNode interface
-                             current = yangNode.GetChild(localName) ?? yangNode.GetChild(name);
-                             if (current is null) return null;
-                             // Handle key predicate for list access
-                             if (bracketIdx >= 0)
-                             {
-                                 var predicate = segment.Substring(bracketIdx);
-                                 // Extract key value from [key='value'] or [key="value"]
-                                 var eqIdx = predicate.IndexOf('=');
-                                 if (eqIdx > 0)
-                                 {
-                                     var keyValue = predicate.Substring(eqIdx + 1).Trim('[', ']', '\'', '"', ' ');
-                                     // Use indexer for list key lookup
-                                     var indexer = current.GetType().GetProperty("Item", new[] { typeof(string) });
-                                     if (indexer is not null)
-                                     {
-                                         try { current = indexer.GetValue(current, new object[] { keyValue }); }
-                                         catch { return null; }
-                                     }
-                                 }
-                             }
-                         }
-                         return current;
-                     }
+                     public object? ResolveInstanceIdentifier(string path) => global::YangSupport.InstanceIdentifierResolver.Resolve(this, path);
                  }
                  {{ServerExtensions(ActionCases, NotificationCases)}}
                  """;

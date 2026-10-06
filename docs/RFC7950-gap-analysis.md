@@ -539,7 +539,7 @@ XPath 1.0 expressions are translated **at build time** into native C# tree navig
 
 **Implemented:**
 1. **`GetChild(string yangName)` method** generated on every Container, List entry, and Module `YangNode` class. Maps YANG element names to C# property values at runtime.
-2. **`ResolveInstanceIdentifier(string path)` method** generated on `Configuration`. Parses the path into segments, walks the tree via `GetChild()` calls, handles key predicates on lists via reflection-based indexer access.
+2. **`ResolveInstanceIdentifier(string path)` method** generated on `Configuration`. Delegates to `YangSupport.InstanceIdentifierResolver`, which parses the path into segments (quote/bracket aware), walks the tree via `GetChild()` calls, and matches key predicates through the generated `IYangListEntry.YangMatchesKeys()` on keyed list entries (multi-key and identityref keys supported, no reflection). Positional `[n]` and leaf-list `[.='v']` predicates are also supported.
 3. **`InstanceIdentifier.Resolve(object root)`** — convenience method that delegates to the Configuration's resolver via the `IYangInstanceIdentifierRoot` interface (no reflection).
 4. **`require-instance true` validation** in `YangValidate()` — for leaves typed as `instance-identifier` with `require-instance true` (the default), the emitter generates a check that walks up to the Configuration root via `YangParent` and calls `Resolve()`, throwing `YangValidationException` if the target doesn't exist.
 
