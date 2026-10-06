@@ -337,8 +337,7 @@ public static class StatementExtensions
                     {
                         var clone = (When)StatementFactory.Create(when.Source);
                         clone.Argument = when.Argument;
-                        clone.OriginalContext = when.OriginalContext;
-                        clone.ContextIsParent = when.OriginalContext is null;
+                        clone.ContextIsParent = true;
                         additions.Add(clone);
                     }
                 }

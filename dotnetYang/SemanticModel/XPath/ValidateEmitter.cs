@@ -89,11 +89,7 @@ internal static class ValidateEmitter
             //  * choice/case (and uses, expanded into them): the closest data-node ancestor;
             //  * otherwise: the node carrying the 'when'.
             IStatement? context;
-            if (when.OriginalContext is not null)
-            {
-                context = NearestDataNode(when.OriginalContext);
-            }
-            else if (when.ContextIsParent || schema is Choice or Case)
+            if (when.ContextIsParent || schema is Choice or Case)
             {
                 context = NearestDataNode(schema.Parent);
             }

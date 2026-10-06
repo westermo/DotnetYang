@@ -104,6 +104,36 @@ module tree-test {
                 when "flag = 'true'";
             }
         }
+        container wrapped {
+            uses toggle-group;
+        }
+    }
+
+    // RFC 7950 7.21.5: the 'when' on an augment is evaluated with the augment
+    // target as the context node, even when the target came from a grouping.
+    augment "/tt:root/tt:wrapped/tt:settings" {
+        when "../enabled = 'true'";
+        leaf boost {
+            type uint32;
+        }
+    }
+
+    augment "/tt:root/tt:deep/tt:inner" {
+        when "level > 5";
+        leaf bonus {
+            type string;
+        }
+    }
+
+    grouping toggle-group {
+        leaf enabled {
+            type boolean;
+        }
+        container settings {
+            leaf mode {
+                type string;
+            }
+        }
     }
 
     grouping extra {

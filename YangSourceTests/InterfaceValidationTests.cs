@@ -138,6 +138,63 @@ public class InterfaceValidationTests
         root.YangValidate();
     }
 
+    private static YangNode.RootContainer Wrapped(bool? enabled, uint? boost) => new()
+    {
+        Wrapped = new YangNode.RootContainer.WrappedContainer
+        {
+            Enabled = enabled,
+            Settings = new YangNode.RootContainer.WrappedContainer.SettingsContainer { Mode = "m", Boost = boost }
+        }
+    };
+
+    [Test]
+    public async Task AugmentWhenOnGroupingTargetRejectsWhenConditionFalse()
+    {
+        var root = Wrapped(false, 3);
+        var ex = await Assert.That(() => root.YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/wrapped/settings/boost");
+    }
+
+    [Test]
+    public void AugmentWhenOnGroupingTargetAcceptsWhenConditionTrue()
+    {
+        Wrapped(true, 3).YangValidate();
+    }
+
+    [Test]
+    public void AugmentWhenOnGroupingTargetIgnoresAbsentNode()
+    {
+        Wrapped(false, null).YangValidate();
+    }
+
+    private static YangNode.RootContainer Deep(uint level, string? bonus) => new()
+    {
+        Deep = new YangNode.RootContainer.DeepContainer
+        {
+            Inner = new YangNode.RootContainer.DeepContainer.InnerContainer { Level = level, Bonus = bonus }
+        }
+    };
+
+    [Test]
+    public async Task AugmentWhenRejectsWhenConditionFalse()
+    {
+        var root = Deep(2, "b");
+        var ex = await Assert.That(() => root.YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/deep/inner/bonus");
+    }
+
+    [Test]
+    public void AugmentWhenAcceptsWhenConditionTrue()
+    {
+        Deep(9, "b").YangValidate();
+    }
+
+    [Test]
+    public void AugmentWhenIgnoresAbsentNode()
+    {
+        Deep(2, null).YangValidate();
+    }
+
     private static (YangSource.Configuration Config, YangNode Module) ResolverFixture()
     {
         var module = new YangNode
