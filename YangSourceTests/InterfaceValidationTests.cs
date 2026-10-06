@@ -86,4 +86,55 @@ public class InterfaceValidationTests
         var ex = await Assert.That(() => root.YangValidate()).ThrowsExactly<YangValidationException>();
         await Assert.That(ex.ErrorAppTag).IsEqualTo("radius-too-large");
     }
+
+    [Test]
+    public async Task UsesWhenRejectsLeafWhenConditionFalse()
+    {
+        var root = new YangNode.RootContainer
+        {
+            Gated = new YangNode.RootContainer.GatedContainer { Flag = false, ExtraVal = "x" }
+        };
+        var ex = await Assert.That(() => root.YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/gated/extra-val");
+    }
+
+    [Test]
+    public async Task UsesWhenRejectsContainerWhenConditionFalse()
+    {
+        var root = new YangNode.RootContainer
+        {
+            Gated = new YangNode.RootContainer.GatedContainer
+            {
+                Flag = false,
+                ExtraC = new YangNode.RootContainer.GatedContainer.ExtraCContainer { V = "y" }
+            }
+        };
+        var ex = await Assert.That(() => root.YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/gated/extra-c");
+    }
+
+    [Test]
+    public void UsesWhenAcceptsNodesWhenConditionTrue()
+    {
+        var root = new YangNode.RootContainer
+        {
+            Gated = new YangNode.RootContainer.GatedContainer
+            {
+                Flag = true,
+                ExtraVal = "x",
+                ExtraC = new YangNode.RootContainer.GatedContainer.ExtraCContainer { V = "y" }
+            }
+        };
+        root.YangValidate();
+    }
+
+    [Test]
+    public void UsesWhenIgnoresAbsentNodes()
+    {
+        var root = new YangNode.RootContainer
+        {
+            Gated = new YangNode.RootContainer.GatedContainer { Flag = false }
+        };
+        root.YangValidate();
+    }
 }

@@ -82,6 +82,27 @@ module tree-test {
                 }
             }
         }
+        container gated {
+            leaf flag {
+                type boolean;
+            }
+            // RFC 7950 7.13: the 'when' on 'uses' applies to every node the
+            // grouping contributes, with 'gated' as the context node.
+            uses extra {
+                when "flag = 'true'";
+            }
+        }
+    }
+
+    grouping extra {
+        leaf extra-val {
+            type string;
+        }
+        container extra-c {
+            leaf v {
+                type string;
+            }
+        }
     }
 }
 

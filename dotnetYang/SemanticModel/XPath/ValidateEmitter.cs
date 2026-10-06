@@ -32,12 +32,12 @@ internal static class ValidateEmitter
         {
             if (child is Leaf leaf)
             {
-                EmitNodeConstraints(body, schema, leaf);
+                EmitLeafConstraints(body, schema, leaf, $"{leaf.TargetName} != default");
                 EmitInstanceIdentifierCheck(body, leaf);
             }
             else if (child is LeafList ll)
             {
-                EmitNodeConstraints(body, schema, ll);
+                EmitLeafConstraints(body, schema, ll, $"{ll.TargetName} is not null");
             }
         }
 
@@ -54,6 +54,24 @@ internal static class ValidateEmitter
                      {{Statement.Indent(bodyText)}}
                  }
                  """;
+    }
+
+    /// <summary>
+    /// Emit when/must constraints for a leaf or leaf-list. Per RFC 7950 §7.21.5 and
+    /// §7.5.3 the constraints only apply when the node exists in the data tree, so the
+    /// checks are wrapped in a presence guard.
+    /// </summary>
+    private static void EmitLeafConstraints(StringBuilder body, IStatement enclosingClass, IStatement leaf, string presence)
+    {
+        var inner = new StringBuilder();
+        EmitNodeConstraints(inner, enclosingClass, leaf);
+        if (inner.Length == 0) return;
+        body.AppendLine($$"""
+                          if ({{presence}})
+                          {
+                              {{Statement.Indent(inner.ToString())}}
+                          }
+                          """);
     }
 
     /// <summary>
@@ -75,7 +93,7 @@ internal static class ValidateEmitter
             {
                 context = NearestDataNode(when.OriginalContext);
             }
-            else if (schema is Choice or Case)
+            else if (when.ContextIsParent || schema is Choice or Case)
             {
                 context = NearestDataNode(schema.Parent);
             }

@@ -130,8 +130,12 @@ All untranslatable expressions degrade gracefully:
 
 A user calls `YangValidate()` on the root container (or any sub-tree). The method:
 1. Evaluates each `must` translated as `if (!compiledExpr) throw new YangValidationException(...)`. The exception carries the YANG schema path and any `error-app-tag` / `error-message` declared in the YANG source.
-2. Evaluates each `when` the same way — `when` constraints on a node are checked only when the node is actually present in the tree (because `YangValidate()` is only invoked on non-null children).
+2. Evaluates each `when` the same way — `when` constraints on a node are checked only when the node is actually present in the tree (because `YangValidate()` is only invoked on non-null children, and leaf/leaf-list constraints are wrapped in a presence guard).
 3. Walks into class-producing children and `YangList` entries.
+
+### `when` / `if-feature` on `uses`
+
+Per RFC 7950 §7.13 and §7.21.5, a `when` or `if-feature` placed on a `uses` statement applies to every data node the grouping contributes. `StatementExtensions.Expand(Uses)` copies those sub-statements onto each expanded child that permits them. The copied `when` has `ContextIsParent = true`, so it is evaluated against the parent of the expanded node (the node that contains the `uses`), not the node itself. Boolean leaf values are coerced to the YANG lexical form (`"true"`/`"false"`) when compared as strings.
 
 ### Augment pipeline fix
 

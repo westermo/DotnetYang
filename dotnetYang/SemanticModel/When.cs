@@ -43,6 +43,14 @@ public class When : Statement, IUnexpandable
     /// </summary>
     public IStatement? OriginalContext { get; set; }
 
+    /// <summary>
+    /// Set when this <c>when</c> was copied from a <c>uses</c> onto a node contributed
+    /// by the grouping. Its context is then the closest data-node ancestor of the node
+    /// it ends up attached to (i.e. the parent of the <c>uses</c>), resolved after all
+    /// grouping/augment expansion has placed the node in its final position.
+    /// </summary>
+    public bool ContextIsParent { get; set; }
+
     public override string ToCode()
     {
         while (Argument.Contains("  "))

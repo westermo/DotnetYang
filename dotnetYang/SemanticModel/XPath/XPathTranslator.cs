@@ -1257,8 +1257,9 @@ internal sealed class XPathTranslator
             CSharpKind.Number => $"({t.Code}).ToString(global::System.Globalization.CultureInfo.InvariantCulture)",
             CSharpKind.Bool => $"(({t.Code}) ? \"true\" : \"false\")",
             // Box first so .ToString() works for both reference and (nullable
-            // or non-nullable) value types.
-            CSharpKind.LeafValue => $"((object?)({t.Code}))?.ToString()",
+            // or non-nullable) value types. Booleans use the XML lexical form
+            // ("true"/"false") rather than .NET's "True"/"False".
+            CSharpKind.LeafValue => $"(((object?)({t.Code})) switch {{ bool __b => __b ? \"true\" : \"false\", var __o => __o?.ToString() }})",
             CSharpKind.Node => $"((object?)({t.Code}))?.ToString()",
             // Node-set string value = string value of the first node.
             CSharpKind.NodeSet => $"((({t.Code}) as global::System.Collections.IEnumerable)?.Cast<object?>().FirstOrDefault()?.ToString())",
