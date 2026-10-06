@@ -113,14 +113,17 @@ Currently translates:
 - Comparing an enumeration leaf with a string literal (`emode = 'pre-shared'`), resolved at codegen time to the generated enum member
 - `derived-from(path, 'identity')` / `derived-from-or-self(path, 'identity')`: resolves the identity hierarchy at codegen time and emits OR-chain equality checks against all valid enum values
 - `bit-is-set(path, 'bit')`: tests the first node of the node-set (RFC 7950 10.6.1) by splitting its value into its set bits and matching either the generated flag member or the YANG bit name; an empty node-set yields false
+- Absolute paths inside RFC 8791 `sx:structure` definitions (`ietf-dots-signal-channel`, `ietf-dots-telemetry`): the first step names the structure, so the path is rooted at the generated structure class instead of the module root
+- Choice/case wrappers inside LINQ projections and parent walks, so `max-config-values/telemetry-notify-interval` reaches through choice and case classes
+- Numeric coercion of any operand (typedef wrappers, strings, `IConvertible` values); a missing value becomes NaN, so the comparison is false
 
-### Remaining untranslatable expressions (6 unique out of ~3000+ total when/must in the IETF/IEEE corpus)
+### Remaining untranslatable expressions (1 unique out of ~3000+ total when/must in the IETF/IEEE corpus)
 
 Augment and `uses` `when` expressions are now evaluated relative to the final parent position (see "`when` on `augment`" above), which eliminated the former `Cannot compute YangParent navigation` failures and almost all `Could not resolve child` failures.
 
 | Count | Reason | Description |
 |-------|--------|-------------|
-| 6 | `Could not resolve child` | Absolute paths inside RFC 8791 `sx:structure` definitions (`ietf-dots-signal-channel`, `ietf-dots-telemetry`). The path is rooted at the structure, which is not a data node of the module root. |
+| 1 | `Unterminated string literal` | An upstream typo in the IEEE `ieee802-ethernet-interface` `mpcp-maximum-queue-count-per-report` constraint. The XPath is malformed, so it cannot be fixed in the translator. |
 
 All untranslatable expressions degrade gracefully:
 - A `// when: <original xpath>` or `// must: <original xpath>` comment is emitted in the generated code.

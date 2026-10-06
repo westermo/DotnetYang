@@ -445,4 +445,57 @@ public class InterfaceValidationTests
         await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/bt/high-only");
         await Assert.That(() => BtRoot(null, YangNode.ServerKind.AuthN).YangValidate()).ThrowsExactly<YangValidationException>();
     }
+
+    private static global::Ietf.Dots.Telemetry.YangNode.DotsTelemetryExtension.TelemetryMessageTypeChoice.TelemetrySetupCaseValueCase.DirectionChoice.ServerToClientOnlyCaseValueCase.MaxConfigValuesContainer DotsMax(ushort max, ushort? min)
+    {
+        // Built bottom-up through choice/case wrappers so setters wire YangParent up to the sx:structure root.
+        var s2c = new global::Ietf.Dots.Telemetry.YangNode.DotsTelemetryExtension.TelemetryMessageTypeChoice.TelemetrySetupCaseValueCase.DirectionChoice.ServerToClientOnlyCaseValueCase();
+        var maxContainer = new global::Ietf.Dots.Telemetry.YangNode.DotsTelemetryExtension.TelemetryMessageTypeChoice.TelemetrySetupCaseValueCase.DirectionChoice.ServerToClientOnlyCaseValueCase.MaxConfigValuesContainer
+        {
+            TelemetryNotifyIntervalValue = max,
+        };
+        s2c.MaxConfigValues = maxContainer;
+        if (min is { } m)
+        {
+            s2c.MinConfigValues = new global::Ietf.Dots.Telemetry.YangNode.DotsTelemetryExtension.TelemetryMessageTypeChoice.TelemetrySetupCaseValueCase.DirectionChoice.ServerToClientOnlyCaseValueCase.MinConfigValuesContainer
+            {
+                TelemetryNotifyIntervalValue = m,
+            };
+        }
+        var direction = new global::Ietf.Dots.Telemetry.YangNode.DotsTelemetryExtension.TelemetryMessageTypeChoice.TelemetrySetupCaseValueCase.DirectionChoice
+        {
+            ServerToClientOnlyCaseValue = s2c,
+        };
+        var setup = new global::Ietf.Dots.Telemetry.YangNode.DotsTelemetryExtension.TelemetryMessageTypeChoice.TelemetrySetupCaseValueCase
+        {
+            Direction = direction,
+        };
+        var choice = new global::Ietf.Dots.Telemetry.YangNode.DotsTelemetryExtension.TelemetryMessageTypeChoice
+        {
+            TelemetrySetupCaseValue = setup,
+        };
+        _ = new global::Ietf.Dots.Telemetry.YangNode.DotsTelemetryExtension { TelemetryMessageType = choice };
+        return maxContainer;
+    }
+
+    [Test]
+    public void StructureRootedMustAcceptsMaxAboveMin()
+    {
+        DotsMax(10, 5).YangValidate();
+        DotsMax(7, 7).YangValidate();
+    }
+
+    [Test]
+    public async Task StructureRootedMustRejectsMaxBelowMin()
+    {
+        var ex = await Assert.That(() => DotsMax(5, 10).YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/ietf-dots-telemetry/dots-telemetry/telemetry-message-type/telemetry-setup/direction/server-to-client-only/max-config-values/telemetry-notify-interval");
+    }
+
+    [Test]
+    public async Task StructureRootedMustRejectsMissingMin()
+    {
+        // Comparison against an empty node-set is false (RFC 7950 / XPath 1.0 NaN semantics).
+        await Assert.That(() => DotsMax(5, null).YangValidate()).ThrowsExactly<YangValidationException>();
+    }
 }

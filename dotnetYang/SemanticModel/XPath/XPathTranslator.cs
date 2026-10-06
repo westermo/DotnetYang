@@ -605,15 +605,35 @@ internal sealed class XPathTranslator
                 "Cannot resolve module for absolute path translation.");
         }
 
-        // Build expression that walks to root.
-        var rootCode = EmitRootWalkExpression(context, module);
+        string code;
+        IStatement? schema;
+        int firstStep = 0;
 
-        // Now apply each step against the module schema.
-        string code = rootCode;
-        IStatement? schema = (IStatement)module;
+        // Inside an sx:structure (RFC 8791) the structure is the data tree root:
+        // its instance has no YangParent, and absolute paths start with its name.
+        var structure = FindEnclosingStructure(context);
+        if (structure is not null)
+        {
+            if (p.Steps.Count == 0 || p.Steps[0].Axis != XPathAxis.Child
+                || p.Steps[0].Test is not NameTest rootNt || rootNt.LocalName != structure.Argument
+                || p.Steps[0].Predicates.Count > 0)
+            {
+                throw new UntranslatableXPathException(
+                    "Absolute paths inside a structure must start at the structure root.");
+            }
+            code = EmitRootWalkExpression(context, structure);
+            schema = structure;
+            firstStep = 1;
+        }
+        else
+        {
+            code = EmitRootWalkExpression(context, module);
+            schema = module;
+        }
+
         CSharpKind kind = CSharpKind.Node;
 
-        foreach (var step in p.Steps)
+        foreach (var step in p.Steps.Skip(firstStep))
         {
             var (nextCode, nextSchema, nextKind) = ApplyStep(code, schema, step, kind);
             code = nextCode;
@@ -642,7 +662,7 @@ internal sealed class XPathTranslator
     /// So from a leaf inside InterfaceEntry, we need 2 hops of .YangParent to reach
     /// the YangNode. From InterfacesContainer, 1 hop. From YangNode itself, 0 hops.
     /// </summary>
-    private string EmitRootWalkExpression(IStatement context, Module module)
+    private string EmitRootWalkExpression(IStatement context, IStatement module)
     {
         // For leaf origins, start from the enclosing container.
         var startSchema = context;
@@ -665,7 +685,10 @@ internal sealed class XPathTranslator
         }
 
         // hops == number of .YangParent calls needed.
-        var moduleType = "global::" + Statement.MakeNamespace(module.Argument) + ".YangNode";
+        var moduleType = module is Module m
+            ? "global::" + Statement.MakeNamespace(m.Argument) + ".YangNode"
+            : Statement.ResolveQualifiedClassName(module)
+              ?? throw new UntranslatableXPathException("Root has no generated class to navigate to.");
         string code = _enclosingThis;
         for (int i = 0; i < hops; i++)
         {
@@ -1075,23 +1098,23 @@ internal sealed class XPathTranslator
         switch (named)
         {
             case Leaf leaf:
-                projection = $"{code}?.Select(__e => __e.{leaf.TargetName}).Where(__x => (object?)__x != null)";
+                projection = $"{code}?.Select(__e => {ElementMember(listSchema, leaf, leaf.TargetName)}).Where(__x => (object?)__x != null)";
                 kind = CSharpKind.NodeSet; // set of leaf values
                 break;
             case Container c:
-                projection = $"{code}?.Select(__e => __e.{c.TargetName}).Where(__x => __x != null)";
+                projection = $"{code}?.Select(__e => {ElementMember(listSchema, c, c.TargetName)}).Where(__x => __x != null)";
                 kind = CSharpKind.NodeSet;
                 break;
             case List l:
-                projection = $"{code}?.SelectMany(__e => {ListEntries($"__e.{l.TargetName}", l)})";
+                projection = $"{code}?.SelectMany(__e => {ListEntries(ElementMember(listSchema, l, l.TargetName), l)})";
                 kind = CSharpKind.NodeSet;
                 break;
             case LeafList ll:
-                projection = $"{code}?.SelectMany(__e => __e.{ll.TargetName} ?? global::System.Array.Empty<{ll.ClassName}>())";
+                projection = $"{code}?.SelectMany(__e => {ElementMember(listSchema, ll, ll.TargetName)} ?? global::System.Array.Empty<{ll.ClassName}>())";
                 kind = CSharpKind.NodeSet;
                 break;
             case Choice ch:
-                projection = $"{code}?.Select(__e => __e.{MakeNameSafe(ch.Argument)}).Where(__x => __x != null)";
+                projection = $"{code}?.Select(__e => {ElementMember(listSchema, ch, MakeNameSafe(ch.Argument))}).Where(__x => __x != null)";
                 kind = CSharpKind.NodeSet;
                 break;
             default:
@@ -1131,23 +1154,23 @@ internal sealed class XPathTranslator
         switch (namedChild)
         {
             case Leaf leaf:
-                projection = $"({code})?.Select(__e => __e.{leaf.TargetName}).Where(__x => (object?)__x != null)";
+                projection = $"({code})?.Select(__e => {ElementMember(parentSchema, leaf, leaf.TargetName)}).Where(__x => (object?)__x != null)";
                 kind = CSharpKind.NodeSet;
                 break;
             case Container c:
-                projection = $"({code})?.Select(__e => __e.{c.TargetName}).Where(__x => __x != null)";
+                projection = $"({code})?.Select(__e => {ElementMember(parentSchema, c, c.TargetName)}).Where(__x => __x != null)";
                 kind = CSharpKind.NodeSet;
                 break;
             case List l:
-                projection = $"({code})?.SelectMany(__e => {ListEntries($"__e.{l.TargetName}", l)})";
+                projection = $"({code})?.SelectMany(__e => {ListEntries(ElementMember(parentSchema, l, l.TargetName), l)})";
                 kind = CSharpKind.NodeSet;
                 break;
             case LeafList ll:
-                projection = $"({code})?.SelectMany(__e => __e.{ll.TargetName} ?? global::System.Array.Empty<{ll.ClassName}>())";
+                projection = $"({code})?.SelectMany(__e => {ElementMember(parentSchema, ll, ll.TargetName)} ?? global::System.Array.Empty<{ll.ClassName}>())";
                 kind = CSharpKind.NodeSet;
                 break;
             case Choice ch:
-                projection = $"({code})?.Select(__e => __e.{MakeNameSafe(ch.Argument)}).Where(__x => __x != null)";
+                projection = $"({code})?.Select(__e => {ElementMember(parentSchema, ch, MakeNameSafe(ch.Argument))}).Where(__x => __x != null)";
                 kind = CSharpKind.NodeSet;
                 break;
             default:
@@ -1302,6 +1325,30 @@ internal sealed class XPathTranslator
     /// When <paramref name="named"/> is reached from <paramref name="schema"/> through one or more
     /// choice/case layers (XPath treats them as transparent), returns those layers outermost-first.
     /// </summary>
+    /// <summary>
+    /// Member access on a LINQ element variable <c>__e</c> (typed as the generated class of
+    /// <paramref name="parentSchema"/>) for <paramref name="named"/>, walking through any
+    /// choice/case properties between them. Choice and case are not data nodes, so XPath
+    /// steps skip them but the generated C# does not.
+    /// </summary>
+    private static string ElementMember(IStatement parentSchema, IStatement named, string property)
+    {
+        if (!TryGetChoiceCasePath(parentSchema, named, out var hops))
+        {
+            return $"__e.{property}";
+        }
+        var nav = "__e";
+        foreach (var hop in hops)
+        {
+            nav = hop switch
+            {
+                Choice ch => $"({nav})?.{MakeNameSafe(ch.Argument)}",
+                Case cs => $"({nav})?.{cs.TargetName}",
+                _ => nav
+            };
+        }
+        return $"({nav})?.{property}";
+    }
     private static bool TryGetChoiceCasePath(IStatement schema, IStatement named, out List<IStatement> path)
     {
         path = new List<IStatement>();
@@ -1381,9 +1428,20 @@ internal sealed class XPathTranslator
         Input i => i.ClassName,
         Output o => o.ClassName,
         Notification n => n.ClassName,
+        ExtensionReference er => er.ClassName,
         Module => "YangNode",
         _ => null
     };
+
+    private static ExtensionReference? FindEnclosingStructure(IStatement? statement)
+    {
+        while (statement is not null)
+        {
+            if (statement is ExtensionReference er) return er;
+            statement = statement.Parent;
+        }
+        return null;
+    }
 
     private static bool NeedsCast(IStatement child, IStatement parent)
     {
@@ -1418,7 +1476,9 @@ internal sealed class XPathTranslator
             CSharpKind.Number => t.Code,
             CSharpKind.Bool => $"({t.Code} ? 1d : 0d)",
             CSharpKind.String => $"double.Parse(({t.Code}) ?? \"NaN\", global::System.Globalization.CultureInfo.InvariantCulture)",
-            CSharpKind.LeafValue => $"global::System.Convert.ToDouble((object?)({t.Code}) ?? double.NaN, global::System.Globalization.CultureInfo.InvariantCulture)",
+            // Typedef wrapper classes are not IConvertible; fall back to their
+            // lexical (ToString) form, mirroring XPath number().
+            CSharpKind.LeafValue => $"(((object?)({t.Code})) switch {{ null => double.NaN, string __s => double.TryParse(__s, global::System.Globalization.NumberStyles.Float, global::System.Globalization.CultureInfo.InvariantCulture, out var __sd) ? __sd : double.NaN, global::System.IConvertible __c => global::System.Convert.ToDouble(__c, global::System.Globalization.CultureInfo.InvariantCulture), var __o => double.TryParse(__o.ToString(), global::System.Globalization.NumberStyles.Float, global::System.Globalization.CultureInfo.InvariantCulture, out var __d) ? __d : double.NaN }})",
             CSharpKind.NodeSet => $"((double)global::System.Linq.Enumerable.Count({EnumerateNodeSet(t.Code)}))",
             CSharpKind.Node => $"((object?)({t.Code}) is null ? 0d : 1d)",
             _ => throw new UntranslatableXPathException($"Cannot coerce {t.Kind} to number.")
