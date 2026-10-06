@@ -2,56 +2,7 @@ using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class AnyData : Statement, IXMLWriteValue, IXMLReadValue
+public class AnyData(YangStatement statement) : AnyNodeStatement(statement, Keyword)
 {
-    public AnyData(YangStatement statement) : base(statement)
-    {
-        if (statement.Keyword != Keyword)
-            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-    }
-
     public const string Keyword = "anydata";
-
-    public override ChildRule[] PermittedChildren { get; } =
-    [
-        new ChildRule(Config.Keyword),
-        new ChildRule(Description.Keyword),
-        new ChildRule(FeatureFlag.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(Mandatory.Keyword),
-        new ChildRule(Must.Keyword, Cardinality.ZeroOrMore),
-        new ChildRule(Reference.Keyword),
-        new ChildRule(Status.Keyword),
-        new ChildRule(When.Keyword)
-    ];
-
-    public override string ToCode()
-    {
-        foreach (var child in Children)
-        {
-            child.ToCode();
-        }
-
-        return $$"""
-                 {{DescriptionString}}{{AttributeString}}
-                 public string? {{TargetName}} { get; set; }
-                 """;
-    }
-
-    public string TargetName => MakeName(Argument);
-    public string ClassName => "string";
-
-    public string WriteCall =>
-        $$"""
-          if({{TargetName}} != null)
-          {
-              await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
-              await writer.WriteStringAsync({{TargetName}});
-              await writer.WriteEndElementAsync();
-          }
-          """;
-
-    public string ParseCall =>
-        $$"""
-          _{{TargetName}} = reader.ReadInnerXml();
-          """;
 }

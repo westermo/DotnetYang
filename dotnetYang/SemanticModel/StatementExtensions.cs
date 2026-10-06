@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using YangParser.Generator;
@@ -103,7 +105,17 @@ public static class StatementExtensions
         return context;
     }
 
-    public static IStatement? LocateChild(IEnumerable<IStatement> children, string truePath)
+    public static IStatement? LocateChild(IEnumerable<IStatement> children, string truePath) =>
+        LocateChild(children, truePath, matchInvisible: false);
+
+    /// <summary>
+    /// Like <see cref="LocateChild(IEnumerable{IStatement}, string)"/>, but a directly named
+    /// choice/case/input/output node may itself be returned.
+    /// </summary>
+    public static IStatement? LocateChildWithInvisibleAllowed(IEnumerable<IStatement> children, string truePath) =>
+        LocateChild(children, truePath, matchInvisible: true);
+
+    private static IStatement? LocateChild(IEnumerable<IStatement> children, string truePath, bool matchInvisible)
     {
         foreach (var child in children)
         {
@@ -113,7 +125,8 @@ public static class StatementExtensions
                 case Case:
                 case Output:
                 case Input:
-                    var potential = LocateChild(child.Children, truePath);
+                    if (matchInvisible && child.Argument == truePath) return child;
+                    var potential = LocateChild(child.Children, truePath, matchInvisible: false);
                     if (potential is not null) return potential;
                     break;
                 case IXMLParseable or IXMLReadValue when child.Argument == truePath:
@@ -124,26 +137,101 @@ public static class StatementExtensions
         return null;
     }
 
-    public static IStatement? LocateChildWithInvisibleAllowed(IEnumerable<IStatement> children, string truePath)
+    /// <summary>
+    /// Prepares statements that are relocated from their defining module (through 'uses' or 'augment')
+    /// into another module: registers RPCs/notifications/actions with the destination module and
+    /// qualifies unprefixed type, base and leafref path references with the defining module's prefix.
+    /// </summary>
+    /// <param name="root">Root of the relocated subtree.</param>
+    /// <param name="destination">Statement whose module receives the relocated statements.</param>
+    /// <param name="prefixSource">Statement whose inherited prefix qualifies unprefixed references.</param>
+    /// <param name="expandUses">Expand nested 'uses' statements as they are encountered.</param>
+    internal static void PrepareForRelocation(IStatement root, IStatement destination, IStatement prefixSource,
+        bool expandUses)
     {
-        foreach (var child in children)
+        foreach (var child in root.Unwrap())
         {
+            if (expandUses && child is Uses inner)
+            {
+                inner.Expand();
+            }
+
             switch (child)
             {
-                case Choice:
-                case Case:
-                case Output:
-                case Input:
-                    if (child.Argument == truePath) return child;
-                    var potential = LocateChild(child.Children, truePath);
-                    if (potential is not null) return potential;
+                case Rpc rpc:
+                    destination.GetModule()?.Rpcs.Add(rpc);
                     break;
-                case IXMLParseable or IXMLReadValue when child.Argument == truePath:
-                    return child;
+                case Notification notification:
+                    destination.GetModule()?.Notifications.Add(notification);
+                    break;
+                case Action action:
+                    destination.GetModule()?.Actions.Add(action);
+                    break;
+            }
+
+            if (child is not Type type) continue;
+            if (type.Argument.Contains("identityref"))
+            {
+                foreach (var baseType in type.Children.OfType<Base>())
+                {
+                    if (IsQualified(baseType.Argument)) continue;
+                    baseType.Argument = prefixSource.GetInheritedPrefix() + ":" + baseType.Argument;
+                }
+
+                continue;
+            }
+
+            if (type.Argument.Contains("leafref"))
+            {
+                var path = type.GetChild<Path>();
+                var value = path.Argument;
+                var components = value.Split('/');
+                var index = value.StartsWith("/") ? 1 : 0;
+                var prefix = components[index].Prefix(out _);
+                if (string.IsNullOrWhiteSpace(prefix))
+                {
+                    components[index] = prefixSource.GetInheritedPrefix() + ":" + components[index];
+                }
+
+                path.Argument = string.Join("/", components);
+            }
+
+            if (BuiltinTypeReference.IsBuiltinKeyword(type.Argument) || IsQualified(type.Argument))
+            {
+                continue;
+            }
+
+            type.Argument = prefixSource.GetInheritedPrefix() + ":" + type.Argument;
+        }
+    }
+
+    private static bool IsQualified(string reference) => reference.Contains(':') || reference.Contains('.');
+
+    /// <summary>
+    /// Copies the usings and imported modules (and optionally prefix mappings) of <paramref name="source"/>
+    /// that are not yet present in <paramref name="target"/>.
+    /// </summary>
+    internal static void PropagateImports(Module source, Module target, bool includePrefixTable)
+    {
+        if (source == target) return;
+        AddMissing(target.Usings, source.Usings);
+        AddMissing(target.ImportedModules, source.ImportedModules);
+        if (includePrefixTable)
+        {
+            AddMissing(target.PrefixToNamespaceTable, source.PrefixToNamespaceTable);
+        }
+    }
+
+    private static void AddMissing<TKey, TValue>(IDictionary<TKey, TValue> target,
+        IEnumerable<KeyValuePair<TKey, TValue>> source)
+    {
+        foreach (var pair in source)
+        {
+            if (!target.ContainsKey(pair.Key))
+            {
+                target[pair.Key] = pair.Value;
             }
         }
-
-        return null;
     }
 
     private static IStatement Root(this IStatement statement)
@@ -397,61 +485,61 @@ public static class StatementExtensions
         return string.Empty;
     }
 
-    static readonly Dictionary<(System.Type, string), IStatement?> _cache = [];
+    /// <summary>
+    /// Memoizes <see cref="FindReference{T}"/> per lookup scope. Prefixes are module-local and unprefixed
+    /// names resolve relative to the referencing statement, so the scope must be part of the key.
+    /// Keying on the statement object (weakly) also confines entries to a single generator run, keeps them
+    /// from outliving the syntax tree, and is safe when generators run concurrently.
+    /// </summary>
+    private static readonly ConditionalWeakTable<IStatement, ConcurrentDictionary<(System.Type, string), IStatement?>>
+        ReferenceCache = new();
 
     public static T? FindReference<T>(this IStatement source, string reference) where T : IStatement
     {
-        var key = (typeof(T), reference);
-        if (_cache.TryGetValue(key, out var cached))
+        var prefix = reference.Prefix(out var name);
+        IStatement? scope;
+        if (string.IsNullOrEmpty(prefix) || source.GetInheritedPrefix() == prefix)
+        {
+            scope = source;
+        }
+        else
+        {
+            scope = prefix.Contains('.')
+                ? source.Root().Children.OfType<Module>().FirstOrDefault(m => m.MyNamespace == prefix)
+                : source.FindSourceFor(prefix);
+            if (scope is null)
+            {
+                Log.Write(
+                    $"Failed to find module for '{prefix}'");
+                return default;
+            }
+        }
+
+        return Resolve<T>(scope, name);
+    }
+
+    /// <summary>
+    /// Finds the first <typeparamref name="T"/> named <paramref name="name"/> in <paramref name="scope"/>'s subtree,
+    /// then in each ancestor's subtree in turn. Each level is memoized, so lookups from sibling statements share
+    /// the work done for their common ancestors.
+    /// </summary>
+    private static T? Resolve<T>(IStatement scope, string name) where T : IStatement
+    {
+        var cache = ReferenceCache.GetValue(scope, _ => new ConcurrentDictionary<(System.Type, string), IStatement?>());
+        var key = (typeof(T), name);
+        if (cache.TryGetValue(key, out var cached))
         {
             return (T?)cached;
         }
 
-        var prefix = reference.Prefix(out var name);
-        if (string.IsNullOrEmpty(prefix))
+        var value = scope.SearchDownwards<T>(name);
+        if (value is null && scope.Parent is not null)
         {
-            var value = source.SearchDownwards<T>(name) ?? source.SearchUpwards<T>(name);
-            _cache[key] = value;
-            return value;
+            value = Resolve<T>(scope.Parent, name);
         }
-        else
-        {
-            if (source.GetInheritedPrefix() == prefix)
-            {
-                var value = source.SearchDownwards<T>(name) ?? source.SearchUpwards<T>(name);
-                _cache[key] = value;
-                return value;
-            }
 
-            if (!prefix.Contains('.'))
-            {
-                var module = source.FindSourceFor(prefix);
-                if (module is null)
-                {
-                    Log.Write(
-                        $"Failed to find module for '{prefix}'");
-                    return default;
-                }
-
-                var value = module.SearchDownwards<T>(name) ?? module.SearchUpwards<T>(name);
-                _cache[key] = value;
-                return value;
-            }
-            else
-            {
-                var module = source.Root().Children.OfType<Module>().FirstOrDefault(m => m.MyNamespace == prefix);
-                if (module is null)
-                {
-                    Log.Write(
-                        $"Failed to find module for '{prefix}'");
-                    return default;
-                }
-
-                var value = module.SearchDownwards<T>(name) ?? module.SearchUpwards<T>(name);
-                _cache[key] = value;
-                return value;
-            }
-        }
+        cache[key] = value;
+        return value;
     }
 
     public static T? Ancestor<T>(this IStatement source) where T : IStatement
@@ -486,19 +574,6 @@ public static class StatementExtensions
         }
 
         return default;
-    }
-
-    private static T? SearchUpwards<T>(this IStatement source, string argument) where T : IStatement
-    {
-        if (source.Argument == argument && source is T t and not DefaultValue)
-        {
-            return t;
-        }
-
-        if (source.Parent is null) return default;
-        var result = SearchDownwards<T>(source.Parent, argument, source);
-        if (result is not null) return result;
-        return source.Parent.SearchUpwards<T>(argument);
     }
 
     public static string GetBaseType(this Type type, out string prefix, out Type chosenType)

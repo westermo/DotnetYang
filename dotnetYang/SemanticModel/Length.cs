@@ -35,11 +35,8 @@ public class Length : Statement
     {
         var qualifiers = Bounds.Select(bound => $"input.Length is >= {bound.Item1} and <= {bound.Item2}");
         var all = string.Join("||", qualifiers);
-        var hasError = this.TryGetChild<ErrorMessage>(out var errorMessage);
-        var hasTag = this.TryGetChild<ErrorAppTag>(out var appTag);
-        var message = hasTag || hasError
-            ? $"\"{SingleLine(appTag?.Argument ?? "No tag")}: {SingleLine(errorMessage?.Argument ?? string.Empty)}\""
-            : $"$\"string \\\"{{input}}\\\" does not match qualification '{all}'\"";
+        var message = CustomErrorMessageLiteral()
+            ?? $"$\"string \\\"{{input}}\\\" does not match qualification '{all}'\"";
         return $"if(!({all})) throw new ArgumentException({message});";
     }
 

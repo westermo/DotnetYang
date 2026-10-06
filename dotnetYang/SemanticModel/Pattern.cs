@@ -70,14 +70,11 @@ public class Pattern : Statement
 
     public string GetConstructorValidation()
     {
-        var hasError = this.TryGetChild<ErrorMessage>(out var errorMessage);
-        var hasTag = this.TryGetChild<ErrorAppTag>(out var appTag);
         var invert = Children.FirstOrDefault(c => c is Modifier)?.Argument == "invert-match";
-        var message = hasTag || hasError
-            ? $"\"{SingleLine(appTag?.Argument ?? "No tag")}: {SingleLine(errorMessage?.Argument ?? string.Empty)}\""
-            : invert
+        var message = CustomErrorMessageLiteral()
+            ?? (invert
                 ? $"$\"string \\\"{{input}}\\\" matches pattern \" + @\"{SingleLine(Argument, "")} but is not allowed to\""
-                : $"$\"string \\\"{{input}}\\\" does not match pattern \" + @\"{SingleLine(Argument, "")}\"";
+                : $"$\"string \\\"{{input}}\\\" does not match pattern \" + @\"{SingleLine(Argument, "")}\"");
         return invert
             ? $"if(Pattern.Match(input).Success) throw new ArgumentException({message});"
             : $"if(!Pattern.Match(input).Success) throw new ArgumentException({message});";

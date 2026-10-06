@@ -77,7 +77,7 @@ public class Notification : NodeDataStatement, IXMLParseable
                          using XmlWriter writer = XmlWriter.Create(channel.WriteStream, SerializationHelper.GetStandardWriterSettings());
                          await writer.WriteStartElementAsync(null,"notification","urn:ietf:params:xml:ns:netconf:notification:1.0");
                          await writer.WriteStartElementAsync(null,"eventTime",null);
-                         await writer.WriteStringAsync(DateTime.UtcNow.ToString("yyyy-MM-ddThh:mm:ssZ"));
+                         await writer.WriteStringAsync(global::System.DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", global::System.Globalization.CultureInfo.InvariantCulture));
                          await writer.WriteEndElementAsync();
                          {{xmlWrite}}
                          await writer.WriteEndElementAsync();

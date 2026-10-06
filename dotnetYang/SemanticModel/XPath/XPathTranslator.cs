@@ -128,7 +128,7 @@ internal sealed class XPathTranslator
                 var inner = Translate(p.Inner, context);
                 return new Translated($"({inner.Code})", inner.Kind, inner.Schema);
             case StringLiteralExpr s:
-                return new Translated($"\"{Escape(s.Value)}\"", CSharpKind.String);
+                return new Translated($"\"{CSharpLiteral.Escape(s.Value)}\"", CSharpKind.String);
             case NumberLiteralExpr n:
                 return new Translated(n.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "d",
                     CSharpKind.Number);
@@ -299,7 +299,7 @@ internal sealed class XPathTranslator
             if (colon >= 0) yangName = yangName.Substring(colon + 1);
         }
         var member = Statement.MakeName(yangName);
-        code =  $"global::System.StringComparer.Ordinal.Equals(((object?)({value.Code}))?.ToString(), \"{Escape(member)}\")";
+        code =  $"global::System.StringComparer.Ordinal.Equals(((object?)({value.Code}))?.ToString(), \"{CSharpLiteral.Escape(member)}\")";
         return true;
     }
 
@@ -382,7 +382,7 @@ internal sealed class XPathTranslator
         var variable = $"__bit{_lambdaCounter++}";
         return new Translated(
             $"global::System.Linq.Enumerable.Any(({value}?.ToString() ?? string.Empty).Split(new[] {{ ',', ' ' }}, global::System.StringSplitOptions.RemoveEmptyEntries), " +
-            $"{variable} => {variable} == \"{Escape(member)}\" || {variable} == \"{Escape(bitName)}\")",
+            $"{variable} => {variable} == \"{CSharpLiteral.Escape(member)}\" || {variable} == \"{CSharpLiteral.Escape(bitName)}\")",
             CSharpKind.Bool);
     }
 
@@ -476,39 +476,12 @@ internal sealed class XPathTranslator
             qualifiedEnum = enumClassName;
         }
 
-        // Emit: (pathExpr == Enum.Value1 || pathExpr == Enum.Value2 || ...)
-        // Use a local to avoid repeating the path expression.
+        // Equals() works for both nullable and non-nullable enum-typed path expressions.
         var pathCode = pathTranslated.Code;
         var checks = validValues.Select(v =>
-            $"__dfVal == {qualifiedEnum}.{Statement.MakeName(v.Argument)}"
+            $"global::System.Object.Equals(({pathCode}), {qualifiedEnum}.{Statement.MakeName(v.Argument)})"
         );
-        var checkExpr = string.Join(" || ", checks);
-        // Wrap in a block expression via a pattern that the C# compiler handles:
-        // We use a lambda immediately invoked, or simpler: just inline comparisons.
-        // Since the path expression might be complex, store in a variable via
-        // a conditional pattern: ((var __dfVal = pathExpr) is var _ && (checks))
-        // Actually simplest: just inline the comparisons directly.
-        if (validValues.Length <= 5)
-        {
-            // Inline OR chain.
-            var inlineChecks = validValues.Select(v =>
-                $"(object?)({pathCode}) is {qualifiedEnum} __v{v.GetHashCode():X} && __v{v.GetHashCode():X} == {qualifiedEnum}.{Statement.MakeName(v.Argument)}"
-            );
-            // Simpler: cast to object and compare
-            var simpleChecks = validValues.Select(v =>
-                $"global::System.Object.Equals(({pathCode}), {qualifiedEnum}.{Statement.MakeName(v.Argument)})"
-            );
-            return new Translated($"({string.Join(" || ", simpleChecks)})", CSharpKind.Bool);
-        }
-        else
-        {
-            // For large hierarchies, emit a switch-style or HashSet. Use a simple OR chain
-            // since the compiler will optimize it.
-            var simpleChecks = validValues.Select(v =>
-                $"global::System.Object.Equals(({pathCode}), {qualifiedEnum}.{Statement.MakeName(v.Argument)})"
-            );
-            return new Translated($"({string.Join(" || ", simpleChecks)})", CSharpKind.Bool);
-        }
+        return new Translated($"({string.Join(" || ", checks)})", CSharpKind.Bool);
     }
 
     /// <summary>
@@ -534,19 +507,7 @@ internal sealed class XPathTranslator
         {
             // Inside a predicate on a list step the context node is the list entry
             // bound to the lambda parameter, so relative paths walk from there.
-            string pCode = listPc.Code;
-            IStatement? pSchema = listPc.Schema;
-            CSharpKind pKind = CSharpKind.Node;
-            foreach (var step in p.Steps)
-            {
-                (pCode, pSchema, pKind) = ApplyStep(pCode, pSchema, step, pKind);
-                if (pSchema is Leaf && step != p.Steps[p.Steps.Count - 1])
-                {
-                    throw new UntranslatableXPathException(
-                        "Cannot walk further from a leaf node in the static translator.");
-                }
-            }
-            return new Translated(pCode, pKind, pSchema);
+            return WalkSteps(listPc.Code, listPc.Schema, CSharpKind.Node, p.Steps, 0);
         }
 
         if (p.Filter is null && _predicateContext is { } pc)
@@ -568,13 +529,20 @@ internal sealed class XPathTranslator
         // origin, we expose its value rather than an object reference.
         CSharpKind kind = ClassifyOriginKind();
 
-        foreach (var step in p.Steps)
+        return WalkSteps(code, schema, kind, p.Steps, 0);
+    }
+
+    /// <summary>
+    /// Applies <paramref name="steps"/> (starting at <paramref name="firstStep"/>) to the
+    /// starting node, refusing to walk past a leaf before the final step.
+    /// </summary>
+    private Translated WalkSteps(string code, IStatement? schema, CSharpKind kind,
+        IReadOnlyList<XPathStep> steps, int firstStep)
+    {
+        for (var i = firstStep; i < steps.Count; i++)
         {
-            var (nextCode, nextSchema, nextKind) = ApplyStep(code, schema, step, kind);
-            code = nextCode;
-            schema = nextSchema;
-            kind = nextKind;
-            if (schema is Leaf && step != p.Steps[p.Steps.Count - 1])
+            (code, schema, kind) = ApplyStep(code, schema, steps[i], kind);
+            if (schema is Leaf && steps[i] != steps[steps.Count - 1])
             {
                 throw new UntranslatableXPathException(
                     "Cannot walk further from a leaf node in the static translator.");
@@ -631,22 +599,7 @@ internal sealed class XPathTranslator
             schema = module;
         }
 
-        CSharpKind kind = CSharpKind.Node;
-
-        foreach (var step in p.Steps.Skip(firstStep))
-        {
-            var (nextCode, nextSchema, nextKind) = ApplyStep(code, schema, step, kind);
-            code = nextCode;
-            schema = nextSchema;
-            kind = nextKind;
-            if (schema is Leaf && step != p.Steps[p.Steps.Count - 1])
-            {
-                throw new UntranslatableXPathException(
-                    "Cannot walk further from a leaf node in the static translator.");
-            }
-        }
-
-        return new Translated(code, kind, schema);
+        return WalkSteps(code, schema, CSharpKind.Node, p.Steps, firstStep);
     }
 
     /// <summary>
@@ -1501,23 +1454,5 @@ internal sealed class XPathTranslator
             CSharpKind.NodeSet => $"((({t.Code}) as global::System.Collections.IEnumerable)?.Cast<object?>().FirstOrDefault()?.ToString())",
             _ => throw new UntranslatableXPathException($"Cannot coerce {t.Kind} to string.")
         };
-    }
-
-    private static string Escape(string s)
-    {
-        var sb = new StringBuilder(s.Length + 4);
-        foreach (var c in s)
-        {
-            switch (c)
-            {
-                case '\\': sb.Append("\\\\"); break;
-                case '"': sb.Append("\\\""); break;
-                case '\n': sb.Append("\\n"); break;
-                case '\r': sb.Append("\\r"); break;
-                case '\t': sb.Append("\\t"); break;
-                default: sb.Append(c); break;
-            }
-        }
-        return sb.ToString();
     }
 }

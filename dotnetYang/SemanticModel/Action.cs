@@ -100,21 +100,7 @@ public class Action : NodeDataStatement, IXMLParseable
                     }
                     """
             ;
-        var returnFunction = Outgoing is not null
-            ? $$"""
-                using XmlReader reader = XmlReader.Create(channel.ReadStream, SerializationHelper.GetStandardReaderSettings());
-                await reader.ReadAsync();
-                if(reader.NodeType != XmlNodeType.Element || reader.Name != "rpc-reply" || reader.NamespaceURI != "urn:ietf:params:xml:ns:netconf:base:1.0" || reader["message-id"] != messageID.ToString())
-                {
-                    throw new Exception($"Expected stream to start with a <rpc-reply> element with message id {messageID} & \"urn:ietf:params:xml:ns:netconf:base:1.0\" but got {reader.NodeType}: {reader.Name} in {reader.NamespaceURI}");
-                }
-                var value = await {{OutputType}}.ParseAsync(reader);
-                return value;
-                """
-            : """
-              using XmlReader reader = XmlReader.Create(channel.ReadStream, SerializationHelper.GetStandardReaderSettings());
-              await SerializationHelper.ExpectOkRpcReply(reader, messageID);
-              """;
+        var returnFunction = RpcCodeSnippets.ReadReply(Outgoing is not null ? OutputType : null);
         var call = $$"""
                      public async {{ReturnType}} {{MakeName(Argument)}}(IChannel channel, int messageID, {{QualifiedRootName}} root{{inputType}})
                      {
@@ -122,9 +108,7 @@ public class Action : NodeDataStatement, IXMLParseable
                          {
                              {{inputCall}}
                          };
-                         using XmlWriter writer = XmlWriter.Create(channel.WriteStream, SerializationHelper.GetStandardWriterSettings());
-                         await writer.WriteStartElementAsync(null,"rpc","urn:ietf:params:xml:ns:netconf:base:1.0");
-                         await writer.WriteAttributeStringAsync(null,"message-id",null,messageID.ToString());
+                         {{Indent(RpcCodeSnippets.OpenRpcEnvelope)}}
                          await writer.WriteStartElementAsync(null,"action","urn:ietf:params:xml:ns:yang:1");
                          await root.WriteXMLAsync(writer);
                          await writer.WriteEndElementAsync();
@@ -173,20 +157,8 @@ public class Action : NodeDataStatement, IXMLParseable
                                          if({{TargetPath}} != null) {
                                              var task = server.On{{MakeName(Argument)}}({{Root.TargetName}}, {{TargetPath}}?.Input!);
                                          """)
-                                 + "\n" + (Outgoing is null
-                                     ? """
-                                           await task;
-                                           await writer.WriteStartElementAsync(null,"ok","urn:ietf:params:xml:ns:netconf:base:1.0");
-                                           await writer.WriteEndElementAsync();
-                                           return;
-                                       }
-                                       """
-                                     : """
-                                           var response = await task;
-                                           await response.WriteXMLAsync(writer);
-                                           return;
-                                       }
-                                       """);
+                                 + "\n    " + RpcCodeSnippets.WriteServerResponse(Outgoing is not null).Replace("\n", "\n    ")
+                                 + "\n    return;\n}";
 
     private string? _target;
 

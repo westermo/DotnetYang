@@ -1,21 +1,9 @@
-using System;
-using System.Linq;
 using YangParser.Parser;
 
 namespace YangParser.SemanticModel;
 
-public class Output : Statement, IXMLParseable
+public class Output(YangStatement statement) : OperationDataStatement(statement, Keyword)
 {
-    public Output(YangStatement statement) : base(statement)
-    {
-        if (statement.Keyword != Keyword)
-            throw new SemanticError($"Non-matching Keyword '{statement.Keyword}', expected {Keyword}", statement);
-        ValidateChildren(statement);
-        if (!string.IsNullOrWhiteSpace(Argument))
-            throw new SemanticError($"{Keyword} statement may not have an argument", statement);
-        Children = statement.Children.Select(StatementFactory.Create).ToArray();
-    }
-
     public const string Keyword = "output";
 
     public override ChildRule[] PermittedChildren { get; } =
@@ -32,21 +20,5 @@ public class Output : Statement, IXMLParseable
         new ChildRule(Uses.Keyword, Cardinality.ZeroOrMore)
     ];
 
-    public override string ToCode()
-    {
-        Argument = "rpc-reply";
-        return $$"""
-                 public class {{ClassName}} : YangSupport.IYangNode
-                 {
-                     YangSupport.IYangNode? YangSupport.IYangNode.YangParent => null;
-                     public object? GetChild(string yangName) => null;
-                     {{string.Join("\n\t", Children.Select(child => Indent(child.ToCode())))}}
-                     {{ReadFunction()}}
-                     {{WriteFunctionInvisibleSelf()}}
-                 }
-                 """;
-    }
-
-    public string? TargetName { get; } = null;
-    public string ClassName => $"{MakeName(Parent!.Argument)}Output";
+    protected override string XmlElementName => "rpc-reply";
 }

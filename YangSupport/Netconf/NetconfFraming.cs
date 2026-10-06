@@ -42,6 +42,34 @@ public static class NetconfFraming
     }
 
     /// <summary>
+    /// Encode a message using Chunked framing (base:1.1) when <paramref name="base11"/> is set,
+    /// otherwise End-of-Message framing (base:1.0).
+    /// </summary>
+    public static byte[] Encode(string message, bool base11)
+    {
+        return base11 ? EncodeChunked(message) : EncodeEom(message);
+    }
+
+    /// <summary>
+    /// Frame <paramref name="message"/> (see <see cref="Encode"/>), write it to the stream and flush.
+    /// </summary>
+    public static async Task WriteMessageAsync(Stream stream, string message, bool base11)
+    {
+        var encoded = Encode(message, base11);
+        await stream.WriteAsync(encoded, 0, encoded.Length).ConfigureAwait(false);
+        await stream.FlushAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Read a complete NETCONF message using Chunked framing (base:1.1) when
+    /// <paramref name="base11"/> is set, otherwise End-of-Message framing (base:1.0).
+    /// </summary>
+    public static Task<string> ReadMessageAsync(Stream stream, bool base11, CancellationToken ct = default)
+    {
+        return base11 ? ReadChunkedMessageAsync(stream, ct) : ReadEomMessageAsync(stream, ct);
+    }
+
+    /// <summary>
     /// Read a complete NETCONF message from a stream using EOM framing.
     /// </summary>
     public static async Task<string> ReadEomMessageAsync(Stream stream, CancellationToken ct = default)

@@ -54,17 +54,14 @@ public class NetconfClient : IDisposable
 
         // Send client hello
         var clientHello = BuildClientHello();
-        var encoded = NetconfFraming.EncodeEom(clientHello);
-        await _output.WriteAsync(encoded, 0, encoded.Length).ConfigureAwait(false);
-        await _output.FlushAsync().ConfigureAwait(false);
+        await NetconfFraming.WriteMessageAsync(_output, clientHello, base11: false).ConfigureAwait(false);
     }
 
     private void ParseServerHello(string hello)
     {
         var doc = new XmlDocument();
         doc.LoadXml(hello);
-        var nsMgr = new XmlNamespaceManager(doc.NameTable);
-        nsMgr.AddNamespace("nc", "urn:ietf:params:xml:ns:netconf:base:1.0");
+        var nsMgr = NetconfXml.CreateNamespaceManager(doc);
 
         var sessionIdNode = doc.SelectSingleNode("//nc:session-id", nsMgr);
         if (sessionIdNode != null && int.TryParse(sessionIdNode.InnerText, out var sid))
@@ -118,28 +115,16 @@ public class NetconfClient : IDisposable
             """;
 
         // Encode and send
-        byte[] encoded;
-        if (Session.Base11)
-            encoded = NetconfFraming.EncodeChunked(rpc);
-        else
-            encoded = NetconfFraming.EncodeEom(rpc);
-
-        await _output.WriteAsync(encoded, 0, encoded.Length).ConfigureAwait(false);
-        await _output.FlushAsync().ConfigureAwait(false);
+        await NetconfFraming.WriteMessageAsync(_output, rpc, Session.Base11).ConfigureAwait(false);
 
         // Read reply
-        string reply;
-        if (Session.Base11)
-            reply = await NetconfFraming.ReadChunkedMessageAsync(_input, ct).ConfigureAwait(false);
-        else
-            reply = await NetconfFraming.ReadEomMessageAsync(_input, ct).ConfigureAwait(false);
+        var reply = await NetconfFraming.ReadMessageAsync(_input, Session.Base11, ct).ConfigureAwait(false);
 
         var doc = new XmlDocument();
         doc.LoadXml(reply);
 
         // Check for rpc-error
-        var nsMgr = new XmlNamespaceManager(doc.NameTable);
-        nsMgr.AddNamespace("nc", "urn:ietf:params:xml:ns:netconf:base:1.0");
+        var nsMgr = NetconfXml.CreateNamespaceManager(doc);
         var errorNode = doc.SelectSingleNode("//nc:rpc-error", nsMgr);
         if (errorNode != null)
         {
@@ -174,16 +159,12 @@ public class NetconfClient : IDisposable
         CancellationToken ct = default)
     {
         var sourceXml = DatastoreToXml(source);
-        var filterXml = filter != null
-            ? $"<filter type=\"subtree\">{filter}</filter>"
-            : "";
+        var filterXml = NetconfXml.SubtreeFilter(filter);
 
         var reply = await SendRpcAsync(
             $"<get-config><source>{sourceXml}</source>{filterXml}</get-config>", ct).ConfigureAwait(false);
 
-        var nsMgr = new XmlNamespaceManager(reply.NameTable);
-        nsMgr.AddNamespace("nc", "urn:ietf:params:xml:ns:netconf:base:1.0");
-        return reply.SelectSingleNode("//nc:data", nsMgr) as XmlElement;
+        return SelectData(reply);
     }
 
     /// <summary>
@@ -306,15 +287,11 @@ public class NetconfClient : IDisposable
     /// <summary>Retrieve operational and configuration data.</summary>
     public async Task<XmlElement?> GetAsync(string? filter = null, CancellationToken ct = default)
     {
-        var filterXml = filter != null
-            ? $"<filter type=\"subtree\">{filter}</filter>"
-            : "";
+        var filterXml = NetconfXml.SubtreeFilter(filter);
 
         var reply = await SendRpcAsync($"<get>{filterXml}</get>", ct).ConfigureAwait(false);
 
-        var nsMgr = new XmlNamespaceManager(reply.NameTable);
-        nsMgr.AddNamespace("nc", "urn:ietf:params:xml:ns:netconf:base:1.0");
-        return reply.SelectSingleNode("//nc:data", nsMgr) as XmlElement;
+        return SelectData(reply);
     }
 
     /// <summary>
@@ -331,14 +308,7 @@ public class NetconfClient : IDisposable
         CancellationToken ct = default)
     {
         var data = await GetConfigAsync(source, filter, ct).ConfigureAwait(false);
-        if (data == null)
-            throw new InvalidOperationException("Server returned empty <data/> element");
-
-        var xml = data.InnerXml;
-        using var stringReader = new System.IO.StringReader(xml);
-        using var reader = XmlReader.Create(stringReader, SerializationHelper.GetStandardReaderSettings());
-        await reader.ReadAsync().ConfigureAwait(false);
-        return await parseFunc(reader).ConfigureAwait(false);
+        return await ParseDataAsync(data, parseFunc).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -350,14 +320,20 @@ public class NetconfClient : IDisposable
         CancellationToken ct = default)
     {
         var data = await GetAsync(filter, ct).ConfigureAwait(false);
+        return await ParseDataAsync(data, parseFunc).ConfigureAwait(false);
+    }
+
+    private static XmlElement? SelectData(XmlDocument reply)
+    {
+        return reply.SelectSingleNode("//nc:data", NetconfXml.CreateNamespaceManager(reply)) as XmlElement;
+    }
+
+    private static Task<T> ParseDataAsync<T>(XmlElement? data, Func<XmlReader, Task<T>> parseFunc)
+    {
         if (data == null)
             throw new InvalidOperationException("Server returned empty <data/> element");
 
-        var xml = data.InnerXml;
-        using var stringReader = new System.IO.StringReader(xml);
-        using var reader = XmlReader.Create(stringReader, SerializationHelper.GetStandardReaderSettings());
-        await reader.ReadAsync().ConfigureAwait(false);
-        return await parseFunc(reader).ConfigureAwait(false);
+        return NetconfXml.ParseFragmentAsync(data.InnerXml, parseFunc);
     }
 
     /// <summary>

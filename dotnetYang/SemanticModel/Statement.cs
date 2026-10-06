@@ -18,53 +18,64 @@ public abstract class Statement : IStatement
 
     protected string WriteFunction()
     {
-        var stateSourceNames = new HashSet<string>(
-            Children.OfType<IXMLSource>()
-                .Where(t => t.Attributes.Contains("NotConfigurationData"))
-                .Select(t => t.TargetName!));
-        var stateElements = new HashSet<IXMLWriteValue>(
-            Children.OfType<IXMLWriteValue>()
-                .Where(t => t.Attributes.Contains("NotConfigurationData")));
-
-        var guardedWriteCalls = Children.OfType<IXMLSource>()
-            .Select(t => stateSourceNames.Contains(t.TargetName!)
-                ? $"if(!configOnly) {{ if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer, configOnly); }}"
-                : $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer, configOnly);");
-        var guardedElementCalls = Children.OfType<IXMLWriteValue>()
-            .Select(t => stateElements.Contains(t)
-                ? $"if(!configOnly) {{\n{t.WriteCall}\n}}"
-                : t.WriteCall);
+        var (elementLines, writeLines) = GuardedWriteCalls(
+            Children.OfType<IXMLWriteValue>().ToArray(), Children.OfType<IXMLSource>().ToArray());
 
         return $$"""
                  public async Task WriteXMLAsync(XmlWriter writer, bool configOnly = false)
                  {
                      await writer.WriteStartElementAsync({{xmlPrefix}},"{{Argument}}",{{xmlNs}});
-                     {{Indent(string.Join("\n", guardedElementCalls))}}
-                     {{Indent(string.Join("\n", guardedWriteCalls))}}
+                     {{Indent(elementLines)}}
+                     {{Indent(writeLines)}}
                      await writer.WriteEndElementAsync();
                  }
                  """;
     }
 
-    protected string ReadFunction()
+    /// <summary>
+    /// Builds the write calls for child values and child nodes, wrapping state data
+    /// ('config false') in a configOnly guard.
+    /// </summary>
+    private static (string ElementLines, string WriteLines) GuardedWriteCalls(IXMLWriteValue[] elementCalls,
+        IXMLSource[] writeCalls)
     {
-        var type = string.Empty;
-        switch (this)
+        var stateSourceNames = new HashSet<string>(
+            writeCalls
+                .Where(t => t.Attributes.Contains("NotConfigurationData"))
+                .Select(t => t.TargetName!));
+        var stateElements = new HashSet<IXMLWriteValue>(
+            elementCalls
+                .Where(t => t.Attributes.Contains("NotConfigurationData")));
+
+        var guardedWriteLines = writeCalls
+            .Select(t => stateSourceNames.Contains(t.TargetName!)
+                ? $"if(!configOnly) {{ if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer, configOnly); }}"
+                : $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer, configOnly);");
+        var guardedElementLines = elementCalls
+            .Select(t => stateElements.Contains(t)
+                ? $"if(!configOnly) {{\n{t.WriteCall}\n}}"
+                : t.WriteCall);
+
+        return (string.Join("\n", guardedElementLines), string.Join("\n", guardedWriteLines));
+    }
+
+    protected string ReadFunction() => ReadFunction(ParseTypeName());
+
+    private string ParseTypeName()
+    {
+        var type = this switch
         {
-            case IXMLReadValue xmlReadValue:
-                type = xmlReadValue.ClassName;
-                break;
-            case IXMLParseable xmlReadValue:
-                type = xmlReadValue.ClassName;
-                break;
-        }
+            IXMLReadValue xmlReadValue => xmlReadValue.ClassName,
+            IXMLParseable xmlParseable => xmlParseable.ClassName,
+            _ => string.Empty
+        };
 
         if (type == string.Empty)
         {
             throw new InvalidOperationException($"ReadFunction called from invalid provider {GetType()}");
         }
 
-        return ReadFunction(type);
+        return type;
     }
 
     protected string ReadFunction(string type)
@@ -114,26 +125,7 @@ public abstract class Statement : IStatement
 
     }
 
-    protected string ReadFunctionWithInvisibleSelf()
-    {
-        var type = string.Empty;
-        switch (this)
-        {
-            case IXMLReadValue xmlReadValue:
-                type = xmlReadValue.ClassName;
-                break;
-            case IXMLParseable xmlReadValue:
-                type = xmlReadValue.ClassName;
-                break;
-        }
-
-        if (type == string.Empty)
-        {
-            throw new InvalidOperationException($"ReadFunction called from invalid provider {GetType()}");
-        }
-
-        return ReadFunctionWithInvisibleSelf(type);
-    }
+    protected string ReadFunctionWithInvisibleSelf() => ReadFunctionWithInvisibleSelf(ParseTypeName());
 
     private string ReadFunctionWithInvisibleSelf(string type)
     {
@@ -254,12 +246,13 @@ public abstract class Statement : IStatement
         {
             case Choice choice:
             {
-                HandleChoice(cases, booleanStatement, choice, escapeKeyword, caseKeywords);
+                HandleInvisibleNode(cases, booleanStatement, choice, choice.SubTargets, escapeKeyword, caseKeywords);
                 break;
             }
             case Case ChoiceCase:
             {
-                HandleCase(cases, booleanStatement, ChoiceCase, escapeKeyword, caseKeywords);
+                HandleInvisibleNode(cases, booleanStatement, ChoiceCase, ChoiceCase.SubTargets, escapeKeyword,
+                    caseKeywords);
                 break;
             }
             default:
@@ -276,12 +269,16 @@ public abstract class Statement : IStatement
         }
     }
 
-    private static void HandleCase(ICollection<string> cases, string booleanStatement, Case @case,
-        string escapeKeyword, ISet<string> caseKeywords)
+    /// <summary>
+    /// Emits a parse case for an invisible choice/case node, matching any of its (not yet claimed)
+    /// sub-target element names, or its own name if none remain.
+    /// </summary>
+    private static void HandleInvisibleNode(ICollection<string> cases, string booleanStatement, IXMLParseable node,
+        IEnumerable<string> subTargets, string escapeKeyword, ISet<string> caseKeywords)
     {
         StringBuilder builder = new();
         bool added = false;
-        foreach (var c in @case.SubTargets)
+        foreach (var c in subTargets)
         {
             if (caseKeywords.Contains(c)) continue;
             added = true;
@@ -291,40 +288,13 @@ public abstract class Statement : IStatement
 
         if (!added)
         {
-            if (caseKeywords.Contains(@case.XmlObjectName)) return;
-            builder.AppendLine($"case \"{@case.XmlObjectName}\"{booleanStatement}:");
-            caseKeywords.Add(@case.XmlObjectName);
+            if (caseKeywords.Contains(node.XmlObjectName)) return;
+            builder.AppendLine($"case \"{node.XmlObjectName}\"{booleanStatement}:");
+            caseKeywords.Add(node.XmlObjectName);
         }
 
         builder.AppendLine($"""
-                                _{@case.TargetName} = await {@case.ClassName}.ParseAsync(reader);
-                                {escapeKeyword};
-                            """);
-        cases.Add(builder.ToString());
-    }
-
-    private static void HandleChoice(ICollection<string> cases, string booleanStatement, Choice choice,
-        string escapeKeyword, ISet<string> caseKeywords)
-    {
-        StringBuilder builder = new();
-        bool added = false;
-        foreach (var c in choice.SubTargets)
-        {
-            if (caseKeywords.Contains(c)) continue;
-            added = true;
-            builder.AppendLine($"case \"{c}\"{booleanStatement}:");
-            caseKeywords.Add(c);
-        }
-
-        if (!added)
-        {
-            if (caseKeywords.Contains(choice.XmlObjectName)) return;
-            builder.AppendLine($"case \"{choice.XmlObjectName}\"{booleanStatement}:");
-            caseKeywords.Add(choice.XmlObjectName);
-        }
-
-        builder.AppendLine($"""
-                                _{choice.TargetName} = await {choice.ClassName}.ParseAsync(reader);
+                                _{node.TargetName} = await {node.ClassName}.ParseAsync(reader);
                                 {escapeKeyword};
                             """);
         cases.Add(builder.ToString());
@@ -345,28 +315,13 @@ public abstract class Statement : IStatement
                    """;
         }
 
-        var stateSourceNames = new HashSet<string>(
-            writeCalls
-                .Where(t => t.Attributes.Contains("NotConfigurationData"))
-                .Select(t => t.TargetName!));
-        var stateElements = new HashSet<IXMLWriteValue>(
-            elementCalls
-                .Where(t => t.Attributes.Contains("NotConfigurationData")));
-
-        var guardedWriteLines = writeCalls
-            .Select(t => stateSourceNames.Contains(t.TargetName!)
-                ? $"if(!configOnly) {{ if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer, configOnly); }}"
-                : $"if({t.TargetName} is not null) await {t.TargetName}.WriteXMLAsync(writer, configOnly);").ToArray();
-        var guardedElementLines = elementCalls
-            .Select(t => stateElements.Contains(t)
-                ? $"if(!configOnly) {{\n{t.WriteCall}\n}}"
-                : t.WriteCall).ToArray();
+        var (elementLines, writeLines) = GuardedWriteCalls(elementCalls, writeCalls);
 
         return $$"""
                  public async Task WriteXMLAsync(XmlWriter writer, bool configOnly = false)
                  {
-                     {{Indent(string.Join("\n", guardedElementLines))}}
-                     {{Indent(string.Join("\n", guardedWriteLines))}}
+                     {{Indent(elementLines)}}
+                     {{Indent(writeLines)}}
                  }
                  """;
     }
@@ -557,6 +512,49 @@ public abstract class Statement : IStatement
         return $$"""
                  public {{parentName}}? YangParent { get; internal set; }
                  YangSupport.IYangNode? YangSupport.IYangNode.YangParent => YangParent;
+                 """;
+    }
+
+    /// <summary>
+    /// Returns a C# string literal built from this restriction's 'error-app-tag' and
+    /// 'error-message' substatements, or <c>null</c> when neither is present.
+    /// </summary>
+    protected string? CustomErrorMessageLiteral()
+    {
+        var hasError = this.TryGetChild<ErrorMessage>(out var errorMessage);
+        var hasTag = this.TryGetChild<ErrorAppTag>(out var appTag);
+        return hasTag || hasError
+            ? $"\"{SingleLine(appTag?.Argument ?? "No tag")}: {SingleLine(errorMessage?.Argument ?? string.Empty)}\""
+            : null;
+    }
+
+    /// <summary>
+    /// Emits the property through which the enclosing generated class exposes this node.
+    /// When an enclosing class exists, the property gets a backing field and a setter that
+    /// keeps the child's <c>YangParent</c> in sync.
+    /// </summary>
+    /// <param name="modifiers">Text between <c>public</c> and the type, including surrounding spaces.</param>
+    /// <param name="type">Property type, including any nullability marker.</param>
+    /// <param name="name">Property name.</param>
+    protected string ChildNodeProperty(string modifiers, string type, string name)
+    {
+        if (ParentClassName is null)
+        {
+            return $"public{modifiers}{type} {name} {{ get; set; }}";
+        }
+
+        return $$"""
+                 private {{type}} _{{name}};
+                 public{{modifiers}}{{type}} {{name}}
+                 {
+                     get => _{{name}};
+                     set
+                     {
+                         if (_{{name}} is not null) _{{name}}.YangParent = null;
+                         _{{name}} = value;
+                         if (value is not null) value.YangParent = this;
+                     }
+                 }
                  """;
     }
 
