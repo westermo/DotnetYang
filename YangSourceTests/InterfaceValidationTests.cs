@@ -328,4 +328,70 @@ public class InterfaceValidationTests
     {
         new YangNode.RootContainer { Lp = new YangNode.RootContainer.LpContainer { EmodeValue = YangNode.RootContainer.LpContainer.Emode.PreShared, Egated = "x" } }.YangValidate();
         new YangNode.RootContainer { Lp = new YangNode.RootContainer.LpContainer { EmodeValue = YangNode.RootContainer.LpContainer.Emode.Eap, Egated = "x" } }.YangValidate();
-    }}
+    }
+
+    private static YangNode LkRoot(YangNode.ComponentKindIdentity? type, string bridge = "br0", string component = "c0", string? vlanOnly = "x", params uint[] weights)
+    {
+        var components = new YangList<string, YangNode.RootContainer.LkContainer.BridgeEntry.ComponentEntry>(e => e.Name)
+        {
+            new YangNode.RootContainer.LkContainer.BridgeEntry.ComponentEntry { Name = "c0", Type = type },
+        };
+        for (var i = 0; i < weights.Length; i++)
+        {
+            components.Add(new YangNode.RootContainer.LkContainer.BridgeEntry.ComponentEntry { Name = $"w{i}", Weight = weights[i] });
+        }
+        return new YangNode
+        {
+            Root = new YangNode.RootContainer
+            {
+                Lk = new YangNode.RootContainer.LkContainer
+                {
+                    Bridge = new YangList<YangNode.BridgeName, YangNode.RootContainer.LkContainer.BridgeEntry>(e => e.Name)
+                    {
+                        new YangNode.RootContainer.LkContainer.BridgeEntry { Name = "br0", Component = components },
+                    },
+                    BridgeName = bridge,
+                    ComponentName = component,
+                    VlanOnly = vlanOnly,
+                    HeavyLimit = "x",
+                },
+            },
+        };
+    }
+
+    [Test]
+    public void ListKeyPredicateWhenAcceptsMatchingEntryWithOtherIdentity()
+    {
+        LkRoot(YangNode.ComponentKindIdentity.CVlan).YangValidate();
+    }
+
+    [Test]
+    public async Task ListKeyPredicateWhenRejectsMatchingEntryWithExcludedIdentity()
+    {
+        var ex = await Assert.That(() => LkRoot(YangNode.ComponentKindIdentity.DBridge).YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/lk/vlan-only");
+    }
+
+    [Test]
+    public async Task ListKeyPredicateWhenRejectsWhenNoEntryMatches()
+    {
+        // An empty node-set compared with '!=' is false (RFC 7950 / XPath 1.0 3.4).
+        await Assert.That(() => LkRoot(YangNode.ComponentKindIdentity.CVlan, bridge: "missing").YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(() => LkRoot(YangNode.ComponentKindIdentity.CVlan, component: "missing").YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(() => LkRoot(null).YangValidate()).ThrowsExactly<YangValidationException>();
+    }
+
+    [Test]
+    public void ListKeyPredicateWhenIgnoredWhenLeafAbsent()
+    {
+        LkRoot(YangNode.ComponentKindIdentity.DBridge, bridge: "missing", vlanOnly: null).YangValidate();
+    }
+
+    [Test]
+    public async Task NonKeyListPredicateFiltersEntries()
+    {
+        LkRoot(YangNode.ComponentKindIdentity.CVlan, "br0", "c0", "x", 5, 20, 7).YangValidate();
+        var ex = await Assert.That(() => LkRoot(YangNode.ComponentKindIdentity.CVlan, "br0", "c0", "x", 11, 20).YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/lk/heavy-limit");
+    }
+}

@@ -105,20 +105,20 @@ Currently translates:
 - Cross-module navigation via the `Configuration` shared root (`YangNode.YangParent` → `Configuration` → other module)
 - List-sibling access (accessing a container/leaf that's a sibling of a list from within a list entry)
 - Choice-transparent child lookup (XPath treats choice/case as invisible)
-- LINQ-based list traversal (`.Select()` / `.SelectMany()` for list steps without key predicates)
+- LINQ-based list traversal (`.Select()` / `.SelectMany()`); absent leaf values are filtered out of projections, so a node-set contains only existing nodes
 - Paths whose filter primary is `current()` (`current()/../foo`), walked as ordinary relative paths from the context node
-- A single string-key equality predicate on a `YangList` (`list[key = value]`), translated to `YangList[key]` indexer access
+- Predicates on list steps (`list[key = current()/../ref]`, `list[weight > 10]`, multiple/chained predicates), translated to `Enumerable.Where` over the list entries with the predicate evaluated relative to each entry. Key and non-key leaves are handled the same way.
+- Existential comparisons between a node-set and a value (`/a/list[...]/leaf != 'x'` is true when *some* selected node satisfies it; an empty node-set compares false), including identityref values compared with `'prefix:identity'` literals
 - Predicates on a leaf step (`../leaf[. = 'a' or . = 'b']`), where `.` is bound to the leaf value and the step yields the leaf when the predicate holds
 - Comparing an enumeration leaf with a string literal (`emode = 'pre-shared'`), resolved at codegen time to the generated enum member
 - `derived-from(path, 'identity')` / `derived-from-or-self(path, 'identity')`: resolves the identity hierarchy at codegen time and emits OR-chain equality checks against all valid enum values
 
-### Remaining untranslatable expressions (22 unique out of ~3000+ total when/must in the IETF/IEEE corpus)
+### Remaining untranslatable expressions (7 unique out of ~3000+ total when/must in the IETF/IEEE corpus)
 
 Augment and `uses` `when` expressions are now evaluated relative to the final parent position (see "`when` on `augment`" above), which eliminated the former `Cannot compute YangParent navigation` failures and almost all `Could not resolve child` failures.
 
 | Count | Reason | Description |
 |-------|--------|-------------|
-| 15 | `Predicates on LINQ-projected child steps` | Cross-module absolute paths that traverse a list with a key predicate via LINQ (e.g., `/bridges/bridge[name=current()/../bridge-ref]/...`). The predicate operates on the LINQ IEnumerable; would need `.Where()` + key comparison. |
 | 6 | `Could not resolve child` | Absolute paths inside RFC 8791 `sx:structure` definitions (`ietf-dots-signal-channel`, `ietf-dots-telemetry`). The path is rooted at the structure, which is not a data node of the module root. |
 | 1 | `bit-is-set()` function | YANG-specific function checking if a bits leaf has a particular bit set. |
 

@@ -139,6 +139,62 @@ module tree-test {
                 type string;
             }
         }
+        container lk {
+            list bridge {
+                key "name";
+                leaf name {
+                    type tt:bridge-name;
+                }
+                list component {
+                    key "name";
+                    leaf name {
+                        type string;
+                    }
+                    leaf type {
+                        type identityref {
+                            base tt:component-kind;
+                        }
+                    }
+                    leaf weight {
+                        type uint32;
+                    }
+                }
+            }
+            leaf bridge-name {
+                type tt:bridge-name;
+            }
+            leaf component-name {
+                type string;
+            }
+            leaf vlan-only {
+                // Key predicates on list steps (mirrors ieee802-dot1q-bridge).
+                when "/tt:root/tt:lk/tt:bridge[tt:name = current()/../tt:bridge-name]"
+                   + "/tt:component[name = current()/../tt:component-name]/tt:type"
+                   + " != 'tt:d-bridge'";
+                type string;
+            }
+            leaf heavy-limit {
+                // Non-key predicate on a list step reached through another list.
+                must "count(../bridge/component[weight > 10]) < 2" {
+                    error-message "too many heavy components";
+                }
+                type string;
+            }
+        }
+    }
+
+    typedef bridge-name {
+        type string;
+    }
+
+    identity component-kind;
+
+    identity c-vlan {
+        base component-kind;
+    }
+
+    identity d-bridge {
+        base component-kind;
     }
 
     // RFC 7950 7.21.5: the 'when' on an augment is evaluated with the augment

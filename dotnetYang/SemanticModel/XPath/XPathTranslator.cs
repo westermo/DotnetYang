@@ -15,8 +15,10 @@
 //   * Boolean operators: and, or
 //   * Parenthesized expressions
 //   * Location paths whose steps are abbreviated child names or '..' (with
-//     leaf, container, list, choice children). Predicates other than
-//     bare-step existence and key-equality on a YangList are unsupported.
+//     leaf, container, list, choice children). List steps may carry
+//     predicates (filtered as a node-set, entry as context node) and leaf
+//     steps may carry '.'-relative predicates; positional predicates are
+//     unsupported.
 
 using System;
 using System.Collections.Generic;
@@ -76,6 +78,9 @@ internal sealed class XPathTranslator
     /// leaf being filtered rather than the authoring context; <c>current()</c> is unaffected.
     /// </summary>
     private (string Code, CSharpKind Kind, IStatement Schema)? _predicateContext;
+
+    /// <summary>Makes lambda parameter names in generated code unique within one expression.</summary>
+    private int _lambdaCounter;
 
     public XPathTranslator(IStatement origin) : this(origin, "this", "this") { }
 
@@ -203,8 +208,27 @@ internal sealed class XPathTranslator
     {
         var l = Translate(b.Left, context);
         var r = Translate(b.Right, context);
+        return CompareTranslated(l, r, b.Op, b.Left, b.Right);
+    }
 
-        string op = b.Op switch
+    /// <summary>
+    /// XPath comparisons involving a node-set are existential (RFC 7950 §6.4 / XPath 1.0
+    /// §3.4): true if the comparison holds for at least one node. A node-set of leaf values
+    /// (e.g. a projection through a filtered list) is therefore compared element-wise.
+    /// </summary>
+    private Translated CompareTranslated(Translated l, Translated r, BinaryOp bop, XPathExpr leftExpr, XPathExpr rightExpr)
+    {
+        var equality = bop is BinaryOp.Eq or BinaryOp.Ne;
+        if (equality && l.Kind == CSharpKind.NodeSet && r.Kind != CSharpKind.NodeSet && l.Schema is Leaf)
+        {
+            return Existential(l, v => CompareTranslated(v, r, bop, leftExpr, rightExpr));
+        }
+        if (equality && r.Kind == CSharpKind.NodeSet && l.Kind != CSharpKind.NodeSet && r.Schema is Leaf)
+        {
+            return Existential(r, v => CompareTranslated(l, v, bop, leftExpr, rightExpr));
+        }
+
+        string op = bop switch
         {
             BinaryOp.Eq => "==",
             BinaryOp.Ne => "!=",
@@ -217,14 +241,15 @@ internal sealed class XPathTranslator
 
         // If either operand is a string literal/value AND the other is a leaf
         // value/path, compare via string equality after coercion.
-        if (b.Op == BinaryOp.Eq || b.Op == BinaryOp.Ne)
+        if (equality)
         {
-            // An enumeration leaf is a C# enum whose members are MakeName(yang-name), so
-            // compare its ToString() against the C# member name of the YANG literal.
-            if (TryEnumLiteralComparison(l, b.Right, out var enumEq)
-                || TryEnumLiteralComparison(r, b.Left, out enumEq))
+            // Enumeration and identityref leaves are C# enums whose members are
+            // MakeName(yang-name), so compare their ToString() against the C# member
+            // name of the YANG literal.
+            if (TryEnumLiteralComparison(l, rightExpr, out var enumEq)
+                || TryEnumLiteralComparison(r, leftExpr, out enumEq))
             {
-                return new Translated(b.Op == BinaryOp.Eq ? enumEq : $"!{enumEq}", CSharpKind.Bool);
+                return new Translated(bop == BinaryOp.Eq ? enumEq : $"!{enumEq}", CSharpKind.Bool);
             }
             if (l.Kind == CSharpKind.String || r.Kind == CSharpKind.String
                 || l.Kind == CSharpKind.LeafValue || r.Kind == CSharpKind.LeafValue
@@ -233,7 +258,7 @@ internal sealed class XPathTranslator
                 var ls = CoerceToString(l);
                 var rs = CoerceToString(r);
                 var eq = $"global::System.StringComparer.Ordinal.Equals({ls}, {rs})";
-                return new Translated(b.Op == BinaryOp.Eq ? eq : $"!{eq}", CSharpKind.Bool);
+                return new Translated(bop == BinaryOp.Eq ? eq : $"!{eq}", CSharpKind.Bool);
             }
         }
 
@@ -243,17 +268,38 @@ internal sealed class XPathTranslator
         return new Translated($"({ln} {op} {rn})", CSharpKind.Bool);
     }
 
+    private Translated Existential(Translated set, Func<Translated, Translated> compare)
+    {
+        var variable = $"__v{_lambdaCounter++}";
+        var element = new Translated(variable, CSharpKind.LeafValue, set.Schema);
+        var body = CoerceToBool(compare(element));
+        return new Translated(
+            $"global::System.Linq.Enumerable.Any({EnumerateNodeSet(set.Code)}, {variable} => {body})",
+            CSharpKind.Bool);
+    }
+
+    private static string EnumerateNodeSet(string code) =>
+        $"global::System.Linq.Enumerable.Cast<object>((({code}) as global::System.Collections.IEnumerable) ?? global::System.Array.Empty<object>())";
+
     private static bool TryEnumLiteralComparison(Translated value, XPathExpr other, out string code)
     {
         code = string.Empty;
         while (other is ParenExpr pe) other = pe.Inner;
-        if (value.Kind != CSharpKind.LeafValue || value.Schema is not Leaf { IsEnumeration: true }
+        if (value.Kind != CSharpKind.LeafValue
+            || value.Schema is not Leaf leaf || !(leaf.IsEnumeration || leaf.IsIdentityRef)
             || other is not StringLiteralExpr literal)
         {
             return false;
         }
-        var member = Statement.MakeName(literal.Value);
-        code = $"global::System.StringComparer.Ordinal.Equals(((object?)({value.Code}))?.ToString(), \"{Escape(member)}\")";
+        var yangName = literal.Value;
+        if (leaf.IsIdentityRef)
+        {
+            // Identity values are written prefix:name; the enum member is derived from the name.
+            var colon = yangName.IndexOf(':');
+            if (colon >= 0) yangName = yangName.Substring(colon + 1);
+        }
+        var member = Statement.MakeName(yangName);
+        code =  $"global::System.StringComparer.Ordinal.Equals(((object?)({value.Code}))?.ToString(), \"{Escape(member)}\")";
         return true;
     }
 
@@ -328,10 +374,8 @@ internal sealed class XPathTranslator
         switch (t.Kind)
         {
             case CSharpKind.NodeSet:
-                // Works for YangList, List<T>, and arrays via the non-generic
-                // ICollection interface.
                 return new Translated(
-                    $"((double)((({t.Code}) as global::System.Collections.ICollection)?.Count ?? 0))",
+                    $"((double)global::System.Linq.Enumerable.Count({EnumerateNodeSet(t.Code)}))",
                     CSharpKind.Number);
             case CSharpKind.Node:
                 return new Translated($"(({t.Code}) is null ? 0d : 1d)", CSharpKind.Number);
@@ -450,6 +494,25 @@ internal sealed class XPathTranslator
         else if (p.IsAbsolute)
         {
             return TranslateAbsolutePath(p, context);
+        }
+
+        if (p.Filter is null && _predicateContext is { Kind: CSharpKind.Node } listPc)
+        {
+            // Inside a predicate on a list step the context node is the list entry
+            // bound to the lambda parameter, so relative paths walk from there.
+            string pCode = listPc.Code;
+            IStatement? pSchema = listPc.Schema;
+            CSharpKind pKind = CSharpKind.Node;
+            foreach (var step in p.Steps)
+            {
+                (pCode, pSchema, pKind) = ApplyStep(pCode, pSchema, step, pKind);
+                if (pSchema is Leaf && step != p.Steps[p.Steps.Count - 1])
+                {
+                    throw new UntranslatableXPathException(
+                        "Cannot walk further from a leaf node in the static translator.");
+                }
+            }
+            return new Translated(pCode, pKind, pSchema);
         }
 
         if (p.Filter is null && _predicateContext is { } pc)
@@ -808,16 +871,13 @@ internal sealed class XPathTranslator
                 kind = CSharpKind.Node;
                 break;
             case List l:
-                if (step.Predicates.Count == 1
-                    && TryTranslateKeyPredicate(l, step.Predicates[0], out var keyExpr))
+                // Predicates (key or otherwise) filter the entries; the keyed indexer is
+                // avoided because it throws on a missing key and needs exact key typing.
+                nextCode = $"(({navCode})?.{l.TargetName})";
+                kind = CSharpKind.NodeSet;
+                if (step.Predicates.Count > 0)
                 {
-                    nextCode = $"((({navCode})?.{l.TargetName})?[{keyExpr}])";
-                    kind = CSharpKind.Node;
-                }
-                else
-                {
-                    nextCode = $"(({navCode})?.{l.TargetName})";
-                    kind = CSharpKind.NodeSet;
+                    nextCode = ApplyListPredicates(nextCode, l, step.Predicates);
                 }
                 break;
             case LeafList ll:
@@ -837,7 +897,6 @@ internal sealed class XPathTranslator
                     $"Cannot step into schema node of type {named.GetType().Name}.");
         }
 
-        // Predicates other than the single key predicate handled above.
         if (named is not List and not Leaf && step.Predicates.Count > 0)
         {
             throw new UntranslatableXPathException(
@@ -870,6 +929,46 @@ internal sealed class XPathTranslator
                 conditions.Add(CoerceToBool(t));
             }
             return $"(((object?)({leafCode}) is not null && {string.Join(" && ", conditions)}) ? {leafCode} : default)";
+        }
+        finally
+        {
+            _predicateContext = saved;
+        }
+    }
+
+    /// <summary>Views a (possibly null) list property as a non-null sequence of its entries.</summary>
+    private static string ListEntries(string setCode, List list)
+    {
+        var entryType = Statement.ResolveQualifiedClassName(list)
+            ?? throw new UntranslatableXPathException($"List '{list.Argument}' has no generated entry class.");
+        return $"(((global::System.Collections.Generic.IEnumerable<{entryType}>?)({setCode})) ?? global::System.Linq.Enumerable.Empty<{entryType}>())";
+    }
+
+    /// <summary>
+    /// A list step with predicates (e.g. <c>bridge[name = current()/../bridge-name]</c>)
+    /// selects the entries for which every predicate holds with the entry as context node.
+    /// The result is a node-set (an <c>IEnumerable</c> of entries).
+    /// </summary>
+    private string ApplyListPredicates(string setCode, List list, IReadOnlyList<XPathExpr> predicates)
+    {
+        var source = ListEntries(setCode, list);
+        var variable = $"__k{_lambdaCounter++}";
+        var saved = _predicateContext;
+        _predicateContext = (variable, CSharpKind.Node, list);
+        try
+        {
+            var conditions = new List<string>();
+            foreach (var predicate in predicates)
+            {
+                var t = Translate(predicate, list);
+                if (t.Kind == CSharpKind.Number)
+                {
+                    throw new UntranslatableXPathException(
+                        "Positional predicates on a list step are not supported.");
+                }
+                conditions.Add(CoerceToBool(t));
+            }
+            return $"global::System.Linq.Enumerable.Where({source}, {variable} => {string.Join(" && ", conditions)})";
         }
         finally
         {
@@ -922,7 +1021,7 @@ internal sealed class XPathTranslator
     /// <c>/networks/network/network-types</c> to iterate all network entries.
     ///
     /// Emits: <c>code?.Select(__e => __e.ChildProp).Where(__x => __x != null)</c>
-    /// for container/choice children, or <c>code?.Select(__e => __e.LeafProp)</c>
+    /// for container/choice children, or <c>code?.Select(__e => __e.LeafProp).Where(...)</c>
     /// for leaf children. The result is still a node-set if the child is a list/container,
     /// or a leaf-value-set for leaves.
     /// </summary>
@@ -942,7 +1041,7 @@ internal sealed class XPathTranslator
         switch (named)
         {
             case Leaf leaf:
-                projection = $"{code}?.Select(__e => __e.{leaf.TargetName})";
+                projection = $"{code}?.Select(__e => __e.{leaf.TargetName}).Where(__x => (object?)__x != null)";
                 kind = CSharpKind.NodeSet; // set of leaf values
                 break;
             case Container c:
@@ -950,7 +1049,7 @@ internal sealed class XPathTranslator
                 kind = CSharpKind.NodeSet;
                 break;
             case List l:
-                projection = $"{code}?.SelectMany(__e => __e.{l.TargetName} ?? global::System.Linq.Enumerable.Empty<{l.ClassName}>())";
+                projection = $"{code}?.SelectMany(__e => {ListEntries($"__e.{l.TargetName}", l)})";
                 kind = CSharpKind.NodeSet;
                 break;
             case LeafList ll:
@@ -968,8 +1067,12 @@ internal sealed class XPathTranslator
 
         if (step.Predicates.Count > 0)
         {
-            throw new UntranslatableXPathException(
-                "Predicates on LINQ-projected child steps are not yet supported.");
+            if (named is not List predicatedList)
+            {
+                throw new UntranslatableXPathException(
+                    "Predicates on LINQ-projected non-list child steps are not yet supported.");
+            }
+            projection = ApplyListPredicates(projection, predicatedList, step.Predicates);
         }
 
         return (projection, named, kind);
@@ -983,10 +1086,10 @@ internal sealed class XPathTranslator
     private (string code, IStatement? schema, CSharpKind kind) ApplyLinqProjection(
         string code, IStatement parentSchema, IStatement namedChild, XPathStep step)
     {
-        if (step.Predicates.Count > 0)
+        if (step.Predicates.Count > 0 && namedChild is not List)
         {
             throw new UntranslatableXPathException(
-                "Predicates on LINQ-chained projection are not yet supported.");
+                "Predicates on LINQ-chained non-list projections are not yet supported.");
         }
 
         string projection;
@@ -994,7 +1097,7 @@ internal sealed class XPathTranslator
         switch (namedChild)
         {
             case Leaf leaf:
-                projection = $"({code})?.Select(__e => __e.{leaf.TargetName})";
+                projection = $"({code})?.Select(__e => __e.{leaf.TargetName}).Where(__x => (object?)__x != null)";
                 kind = CSharpKind.NodeSet;
                 break;
             case Container c:
@@ -1002,7 +1105,7 @@ internal sealed class XPathTranslator
                 kind = CSharpKind.NodeSet;
                 break;
             case List l:
-                projection = $"({code})?.SelectMany(__e => __e.{l.TargetName} ?? global::System.Linq.Enumerable.Empty<{l.ClassName}>())";
+                projection = $"({code})?.SelectMany(__e => {ListEntries($"__e.{l.TargetName}", l)})";
                 kind = CSharpKind.NodeSet;
                 break;
             case LeafList ll:
@@ -1016,6 +1119,10 @@ internal sealed class XPathTranslator
             default:
                 throw new UntranslatableXPathException(
                     $"Cannot LINQ-project into schema node of type {namedChild.GetType().Name}.");
+        }
+        if (step.Predicates.Count > 0 && namedChild is List predicatedList)
+        {
+            projection = ApplyListPredicates(projection, predicatedList, step.Predicates);
         }
         return (projection, namedChild, kind);
     }
@@ -1097,56 +1204,6 @@ internal sealed class XPathTranslator
             }
         }
         return results;
-    }
-
-    private bool TryTranslateKeyPredicate(List list, XPathExpr predicate, out string keyExpr)
-    {
-        keyExpr = string.Empty;
-        if (!list.HasKey) return false;
-        var key = list.GetKey();
-        if (key is null) return false;
-        var keyFields = key.KeyPropertyNames;
-        if (keyFields.Length != 1) return false; // composite-key predicate not yet supported
-
-        // Only translate string-typed keys (most common). For other key types
-        // (unions, integers), we'd need type-aware coercion.
-        var keyLeaf = list.Children.OfType<Leaf>()
-            .FirstOrDefault(l => l.TargetName == keyFields[0]);
-        if (keyLeaf is null) return false;
-        if (keyLeaf.ClassName != "string") return false;
-
-        // Recognise predicates of the form  key-leaf = literal-or-variable
-        if (predicate is not BinaryExpr be || be.Op != BinaryOp.Eq) return false;
-        var (lhsField, rhsExpr) = MatchKeyFieldEquality(be, keyFields[0]);
-        if (lhsField is null || rhsExpr is null) return false;
-
-        var rhs = Translate(rhsExpr, _origin);
-        keyExpr = CoerceToString(rhs);
-        return true;
-    }
-
-    private static (string? field, XPathExpr? other) MatchKeyFieldEquality(BinaryExpr be, string keyField)
-    {
-        // Left side is a single name test matching keyField?
-        if (IsBareName(be.Left, out var leftName) && leftName.Equals(keyField, StringComparison.OrdinalIgnoreCase))
-            return (leftName, be.Right);
-        if (IsBareName(be.Right, out var rightName) && rightName.Equals(keyField, StringComparison.OrdinalIgnoreCase))
-            return (rightName, be.Left);
-        return (null, null);
-    }
-
-    private static bool IsBareName(XPathExpr expr, out string name)
-    {
-        name = string.Empty;
-        if (expr is PathExpr pe && !pe.IsAbsolute && pe.Steps.Count == 1
-            && pe.Steps[0].Axis == XPathAxis.Child
-            && pe.Steps[0].Test is NameTest nt && nt.LocalName != "*"
-            && pe.Steps[0].Predicates.Count == 0)
-        {
-            name = Statement.MakeName(nt.LocalName);
-            return true;
-        }
-        return false;
     }
 
     private static string MakeNameSafe(string argument) => Statement.MakeName(argument);
@@ -1314,7 +1371,7 @@ internal sealed class XPathTranslator
             CSharpKind.Node => $"((object?)({t.Code}) is not null)",
             // YangList<,>, List<>, and T[] all implement ICollection, which
             // exposes Count without needing a static element type.
-            CSharpKind.NodeSet => $"((({t.Code}) as global::System.Collections.ICollection)?.Count > 0)",
+            CSharpKind.NodeSet => $"global::System.Linq.Enumerable.Any({EnumerateNodeSet(t.Code)})",
             CSharpKind.LeafValue => $"((object?)({t.Code}) is not null)",
             _ => throw new UntranslatableXPathException($"Cannot coerce {t.Kind} to bool.")
         };
@@ -1328,7 +1385,7 @@ internal sealed class XPathTranslator
             CSharpKind.Bool => $"({t.Code} ? 1d : 0d)",
             CSharpKind.String => $"double.Parse(({t.Code}) ?? \"NaN\", global::System.Globalization.CultureInfo.InvariantCulture)",
             CSharpKind.LeafValue => $"global::System.Convert.ToDouble((object?)({t.Code}) ?? double.NaN, global::System.Globalization.CultureInfo.InvariantCulture)",
-            CSharpKind.NodeSet => $"((double)((({t.Code}) as global::System.Collections.ICollection)?.Count ?? 0))",
+            CSharpKind.NodeSet => $"((double)global::System.Linq.Enumerable.Count({EnumerateNodeSet(t.Code)}))",
             CSharpKind.Node => $"((object?)({t.Code}) is null ? 0d : 1d)",
             _ => throw new UntranslatableXPathException($"Cannot coerce {t.Kind} to number.")
         };
