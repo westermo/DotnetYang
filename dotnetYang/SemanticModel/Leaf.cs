@@ -61,6 +61,25 @@ public class Leaf : Statement, IXMLWriteValue, IXMLReadValue
     /// <summary>True if this leaf's (resolved) base type is identityref.</summary>
     public bool IsIdentityRef => GetTypeChild().GetBaseType(out _, out _) == "identityref";
 
+    /// <summary>
+    /// True if this leaf's (resolved) base type is enumeration, i.e. its generated
+    /// property is a C# enum whose members are <see cref="Statement.MakeName"/> of the YANG names.
+    /// </summary>
+    public bool IsEnumeration
+    {
+        get
+        {
+            try
+            {
+                return GetTypeChild().GetBaseType(out _, out _) == "enumeration";
+            }
+            catch (SemanticError)
+            {
+                return false;
+            }
+        }
+    }
+
     public override string ToCode()
     {
         foreach (var child in Children)

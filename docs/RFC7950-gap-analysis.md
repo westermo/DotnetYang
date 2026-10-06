@@ -108,9 +108,11 @@ Currently translates:
 - LINQ-based list traversal (`.Select()` / `.SelectMany()` for list steps without key predicates)
 - Paths whose filter primary is `current()` (`current()/../foo`), walked as ordinary relative paths from the context node
 - A single string-key equality predicate on a `YangList` (`list[key = value]`), translated to `YangList[key]` indexer access
+- Predicates on a leaf step (`../leaf[. = 'a' or . = 'b']`), where `.` is bound to the leaf value and the step yields the leaf when the predicate holds
+- Comparing an enumeration leaf with a string literal (`emode = 'pre-shared'`), resolved at codegen time to the generated enum member
 - `derived-from(path, 'identity')` / `derived-from-or-self(path, 'identity')`: resolves the identity hierarchy at codegen time and emits OR-chain equality checks against all valid enum values
 
-### Remaining untranslatable expressions (24 unique out of ~3000+ total when/must in the IETF/IEEE corpus)
+### Remaining untranslatable expressions (22 unique out of ~3000+ total when/must in the IETF/IEEE corpus)
 
 Augment and `uses` `when` expressions are now evaluated relative to the final parent position (see "`when` on `augment`" above), which eliminated the former `Cannot compute YangParent navigation` failures and almost all `Could not resolve child` failures.
 
@@ -118,7 +120,6 @@ Augment and `uses` `when` expressions are now evaluated relative to the final pa
 |-------|--------|-------------|
 | 15 | `Predicates on LINQ-projected child steps` | Cross-module absolute paths that traverse a list with a key predicate via LINQ (e.g., `/bridges/bridge[name=current()/../bridge-ref]/...`). The predicate operates on the LINQ IEnumerable; would need `.Where()` + key comparison. |
 | 6 | `Could not resolve child` | Absolute paths inside RFC 8791 `sx:structure` definitions (`ietf-dots-signal-channel`, `ietf-dots-telemetry`). The path is rooted at the structure, which is not a data node of the module root. |
-| 2 | `Predicates on a non-list child step` | XPath uses `container[leaf='value']` syntax on a container (filters on a child leaf). Unusual in YANG. |
 | 1 | `bit-is-set()` function | YANG-specific function checking if a bits leaf has a particular bit set. |
 
 All untranslatable expressions degrade gracefully:

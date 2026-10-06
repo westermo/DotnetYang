@@ -298,4 +298,34 @@ public class InterfaceValidationTests
     public void CurrentFilterPathWhenAcceptsTrueCondition()
     {
         new YangNode.RootContainer { Xp = new YangNode.RootContainer.XpContainer { Kind = "on", CurRef = "x" } }.YangValidate();
+    }
+
+    [Test]
+    public async Task LeafStepPredicateWhenRejectsNonMatchingValue()
+    {
+        var root = new YangNode.RootContainer { Lp = new YangNode.RootContainer.LpContainer { Mode = "c", Gated = "x" } };
+        var ex = await Assert.That(() => root.YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/lp/gated");
+    }
+
+    [Test]
+    public void LeafStepPredicateWhenAcceptsMatchingValue()
+    {
+        new YangNode.RootContainer { Lp = new YangNode.RootContainer.LpContainer { Mode = "a", Gated = "x" } }.YangValidate();
+        new YangNode.RootContainer { Lp = new YangNode.RootContainer.LpContainer { Mode = "b", Gated = "x" } }.YangValidate();
+    }
+
+    [Test]
+    public async Task EnumLeafStepPredicateWhenRejectsNonMatchingMember()
+    {
+        var root = new YangNode.RootContainer { Lp = new YangNode.RootContainer.LpContainer { EmodeValue = YangNode.RootContainer.LpContainer.Emode.Other, Egated = "x" } };
+        var ex = await Assert.That(() => root.YangValidate()).ThrowsExactly<YangValidationException>();
+        await Assert.That(ex.SchemaPath).IsEqualTo("/tree-test/root/lp/egated");
+    }
+
+    [Test]
+    public void EnumLeafStepPredicateWhenAcceptsMatchingMember()
+    {
+        new YangNode.RootContainer { Lp = new YangNode.RootContainer.LpContainer { EmodeValue = YangNode.RootContainer.LpContainer.Emode.PreShared, Egated = "x" } }.YangValidate();
+        new YangNode.RootContainer { Lp = new YangNode.RootContainer.LpContainer { EmodeValue = YangNode.RootContainer.LpContainer.Emode.Eap, Egated = "x" } }.YangValidate();
     }}

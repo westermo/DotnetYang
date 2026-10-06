@@ -117,6 +117,28 @@ module tree-test {
                 type string;
             }
         }
+        container lp {
+            leaf mode {
+                type string;
+            }
+            leaf gated {
+                // Predicate on a leaf step: '.' is the leaf value.
+                when "../mode[. = 'a' or . = 'b']";
+                type string;
+            }
+            leaf emode {
+                type enumeration {
+                    enum pre-shared;
+                    enum eap;
+                    enum other;
+                }
+            }
+            leaf egated {
+                // Enumeration literals compare by YANG name, not C# member name.
+                when "../emode[. = 'pre-shared' or . = 'eap']";
+                type string;
+            }
+        }
     }
 
     // RFC 7950 7.21.5: the 'when' on an augment is evaluated with the augment

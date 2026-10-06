@@ -71,6 +71,12 @@ internal sealed class XPathTranslator
     private readonly string _selfExpression;
     private readonly string _enclosingThis;
 
+    /// <summary>
+    /// While translating a predicate on a leaf step, relative paths ('.') denote the
+    /// leaf being filtered rather than the authoring context; <c>current()</c> is unaffected.
+    /// </summary>
+    private (string Code, CSharpKind Kind, IStatement Schema)? _predicateContext;
+
     public XPathTranslator(IStatement origin) : this(origin, "this", "this") { }
 
     /// <summary>
@@ -213,6 +219,13 @@ internal sealed class XPathTranslator
         // value/path, compare via string equality after coercion.
         if (b.Op == BinaryOp.Eq || b.Op == BinaryOp.Ne)
         {
+            // An enumeration leaf is a C# enum whose members are MakeName(yang-name), so
+            // compare its ToString() against the C# member name of the YANG literal.
+            if (TryEnumLiteralComparison(l, b.Right, out var enumEq)
+                || TryEnumLiteralComparison(r, b.Left, out enumEq))
+            {
+                return new Translated(b.Op == BinaryOp.Eq ? enumEq : $"!{enumEq}", CSharpKind.Bool);
+            }
             if (l.Kind == CSharpKind.String || r.Kind == CSharpKind.String
                 || l.Kind == CSharpKind.LeafValue || r.Kind == CSharpKind.LeafValue
                 || l.Kind == CSharpKind.Node || r.Kind == CSharpKind.Node)
@@ -228,6 +241,20 @@ internal sealed class XPathTranslator
         var ln = CoerceToNumber(l);
         var rn = CoerceToNumber(r);
         return new Translated($"({ln} {op} {rn})", CSharpKind.Bool);
+    }
+
+    private static bool TryEnumLiteralComparison(Translated value, XPathExpr other, out string code)
+    {
+        code = string.Empty;
+        while (other is ParenExpr pe) other = pe.Inner;
+        if (value.Kind != CSharpKind.LeafValue || value.Schema is not Leaf { IsEnumeration: true }
+            || other is not StringLiteralExpr literal)
+        {
+            return false;
+        }
+        var member = Statement.MakeName(literal.Value);
+        code = $"global::System.StringComparer.Ordinal.Equals(((object?)({value.Code}))?.ToString(), \"{Escape(member)}\")";
+        return true;
     }
 
     private Translated TranslateFunction(FunctionCallExpr fc, IStatement context)
@@ -423,6 +450,18 @@ internal sealed class XPathTranslator
         else if (p.IsAbsolute)
         {
             return TranslateAbsolutePath(p, context);
+        }
+
+        if (p.Filter is null && _predicateContext is { } pc)
+        {
+            // Inside a leaf-step predicate the context node is the leaf itself; only
+            // self steps ('.') are meaningful because leaves have no children.
+            if (p.Steps.Any(s => s.Axis != XPathAxis.Self || s.Predicates.Count > 0))
+            {
+                throw new UntranslatableXPathException(
+                    "Only '.' is supported as a relative path inside a predicate on a leaf step.");
+            }
+            return new Translated(pc.Code, pc.Kind, pc.Schema);
         }
 
         string code = _selfExpression;
@@ -759,6 +798,10 @@ internal sealed class XPathTranslator
             case Leaf leaf:
                 nextCode = $"(({navCode})?.{leaf.TargetName})";
                 kind = CSharpKind.LeafValue;
+                if (step.Predicates.Count > 0)
+                {
+                    nextCode = ApplyLeafPredicates(nextCode, leaf, step.Predicates);
+                }
                 break;
             case Container c:
                 nextCode = $"(({navCode})?.{c.TargetName})";
@@ -795,13 +838,43 @@ internal sealed class XPathTranslator
         }
 
         // Predicates other than the single key predicate handled above.
-        if (named is not List && step.Predicates.Count > 0)
+        if (named is not List and not Leaf && step.Predicates.Count > 0)
         {
             throw new UntranslatableXPathException(
                 "Predicates on a non-list child step are not yet supported.");
         }
 
         return (nextCode, nextSchema, kind);
+    }
+
+    /// <summary>
+    /// A leaf step with predicates (e.g. <c>../mode[. = 'a' or . = 'b']</c>) selects the
+    /// leaf only when every predicate holds with '.' bound to the leaf value. The result
+    /// stays a leaf value: the value itself when selected, otherwise <c>default</c> (null).
+    /// </summary>
+    private string ApplyLeafPredicates(string leafCode, Leaf leaf, IReadOnlyList<XPathExpr> predicates)
+    {
+        var saved = _predicateContext;
+        _predicateContext = (leafCode, CSharpKind.LeafValue, leaf);
+        try
+        {
+            var conditions = new List<string>();
+            foreach (var predicate in predicates)
+            {
+                var t = Translate(predicate, leaf);
+                if (t.Kind == CSharpKind.Number)
+                {
+                    throw new UntranslatableXPathException(
+                        "Positional predicates on a leaf step are not supported.");
+                }
+                conditions.Add(CoerceToBool(t));
+            }
+            return $"(((object?)({leafCode}) is not null && {string.Join(" && ", conditions)}) ? {leafCode} : default)";
+        }
+        finally
+        {
+            _predicateContext = saved;
+        }
     }
 
     /// <summary>
